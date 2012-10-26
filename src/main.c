@@ -22,10 +22,14 @@
 
 unsigned char RAM[256*1024];
 
+unsigned char PALETTE[256*2];
+
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
-uint8_t GetPort(uint16_t port);
-void SetPort(uint16_t port,uint8_t byte);
+uint8_t GetPortB(uint16_t port);
+void SetPortB(uint16_t port,uint8_t byte);
+uint16_t GetPortW(uint16_t port);
+void SetPortW(uint16_t port,uint16_t word);
 
 // According to docs for PAL 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
 //
@@ -47,6 +51,9 @@ int hClock=0;
 int vClock=0;
 
 extern uint8_t *DIS_[256];			// FROM EDL
+extern uint8_t *DIS_XX10001011[256];			// FROM EDL
+extern uint8_t *DIS_XX10001110[256];			// FROM EDL
+extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 
 extern uint16_t	AX;
 extern uint16_t	BX;
@@ -63,6 +70,7 @@ extern uint16_t	SS;
 extern uint16_t	IP;
 extern uint16_t FLAGS;
 
+int debugWatchWrites=0;
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -179,24 +187,114 @@ uint8_t GetByte(uint32_t addr)
 void SetByte(uint32_t addr,uint8_t byte)
 {
 	addr&=0xFFFFF;
+	if (debugWatchWrites)
+	{
+		printf("Writing to address : %05X<-%02X\n",addr,byte);
+	}
 	if (addr<128*1024)
 	{
 		RAM[addr]=byte;
 		return;
 	}
+	if (addr>=0xC0000 && addr<=0xC01FF)
+	{
+		PALETTE[addr]=byte;
+		return;
+	}
 	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
 }
 
-
-uint8_t GetPort(uint16_t port)
+void DebugWPort(uint16_t port)
 {
-	printf("GetPort : %04X - TODO\n",port);
-	return 0xFF;
+	switch (port)
+	{
+		case 0x0000:
+			printf("HLP ??? Horizontal.... (Byte address)\n");
+			break;
+		case 0x0004:
+			printf("STARTL - screen line start (Byte address)\n");
+			break;
+		case 0x0010:
+			printf("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
+			break;
+		case 0x0012:
+			printf("SCROLL2 - TL pixel address middle byte (Word address) - byte width\n");
+			break;
+		case 0x0014:
+			printf("SCROLL3 - TL pixel address MSB (Word address) - byte width\n");
+			break;
+		case 0x0016:
+			printf("ACK - interrupt acknowledge (Byte address)\n");
+			break;
+		case 0x0018:
+			printf("MODE - screen mode (Byte address)\n");
+			break;
+		case 0x001A:
+			printf("BORD - border colour (Word address)  - Little Endian if matching V1\n");
+			break;
+		case 0x001E:
+			printf("PMASK - palette mask? (Word address) - only a byte documented\n");
+			break;
+		case 0x0020:
+			printf("INDEX - palette index (Word address) - only a byte documented\n");
+			break;
+		case 0x0022:
+			printf("ENDL - screen line end (Byte address)\n");
+			break;
+		case 0x0026:
+			printf("MEM - memory configuration (Byte address)\n");
+			break;
+		case 0x002A:
+			printf("DIAG - diagnostics (Byte address)\n");
+			break;
+		case 0x002C:
+			printf("DIS - disable interupts (Byte address)\n");
+			break;
+		case 0x0044:
+			printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
+			break;
+		default:
+			printf("PORT WRITE UNKNOWN - TODO\n");
+			exit(-1);
+			break;
+	}
 }
 
-void SetPort(uint16_t port,uint8_t byte)
+void DebugRPort(uint16_t port)
 {
-	printf("SetPort : %04X, %02X - TODO\n",port,byte);
+	switch (port)
+	{
+		default:
+			printf("PORT READ UNKNOWN - TODO\n");
+			exit(-1);
+			break;
+	}
+}
+
+uint8_t GetPortB(uint16_t port)
+{
+	printf("GetPortB : %04X - TODO\n",port);
+	DebugRPort(port);
+	return 0xAA;
+}
+
+void SetPortB(uint16_t port,uint8_t byte)
+{
+	printf("SetPortB : %04X, %02X - TODO\n",port,byte);
+	DebugWPort(port);
+}
+
+uint16_t GetPortW(uint16_t port)
+{
+	printf("GetPortW : %04X - TODO\n",port);
+	DebugRPort(port);
+	return 0xAAAA;
+}
+
+void SetPortW(uint16_t port,uint16_t word)
+{
+	printf("SetPortW : %04X, %04X - TODO\n",port,word);
+	DebugWPort(port);
 }
 
 
@@ -254,6 +352,28 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		if (sPtr==NULL)
 		{
 			sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+			return temporaryBuffer;
+		}
+	
+		if (strcmp(mnemonic,"XX10001011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10001110")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00110011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 
@@ -399,6 +519,7 @@ int main(int argc,char**argv)
 
 	//////////////////
 	
+	debugWatchWrites=1;
 //	DisassembleRange(0x0000,0x4000);
 
 	while (1==1)

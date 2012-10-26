@@ -1,6 +1,6 @@
 # intel 8086
 #
-# Simplified
+# Simplified - Relatively quickly knocked together - cycle counts are wrong for word boundary misalignment!
 #
 
 C_FUNC_EXTERN	[8]	GetByte			[32];
@@ -9,11 +9,17 @@ C_FUNC_EXTERN	[8]	GetByte			[32];
 C_FUNC_EXTERN		SetByte			[32],[8];
 # void SetByte(unsigned short,unsigned char);
 #  Called when the cpu wants to write to memory
-C_FUNC_EXTERN	[8]	GetPort			[16];
-# unsigned char GetPort(unsigned short);
+C_FUNC_EXTERN	[16]	GetPortW		[16];
+# unsigned short GetPortW(unsigned short);
 #  Called when the cpu wants the value from a given port
-C_FUNC_EXTERN		SetPort			[16],[8];
-# void SetPort(unsigned short,unsiged char);
+C_FUNC_EXTERN		SetPortW		[16],[16];
+# void SetPortW(unsigned short,unsiged short);
+#  Called when the cpu wants to write a word to an output port
+C_FUNC_EXTERN	[8]	GetPortB		[16];
+# unsigned short GetPortB(unsigned short);
+#  Called when the cpu wants the value from a given port
+C_FUNC_EXTERN		SetPortB		[16],[8];
+# void SetPortB(unsigned short,unsiged short);
 #  Called when the cpu wants to write a byte to an output port
 
 DECLARE CYCLES[8];
@@ -40,14 +46,30 @@ DECLARE	FLAGS[16]	ALIAS	%0000:O[1]:D[1]:I[1]:T[1]:S[1]:Z[1]:%0:A[1]:%0:P[1]:%0:C
 
 ############
 
+DECLARE REPEAT[1];
+
+############
+
 FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
 {
 	DECLARE dummy[4];
 	DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
 
-	physical<-ROL(segment,dummy,%0000,4);
+	pageOffset<-segment;
+	physical<-ROL(physical,dummy,%0000,4);
 	pageOffset<-pageOffset+offset;
 	byte<-CALL GetByte(physical);
+}
+
+FUNCTION INTERNAL	SetByteAtPhysicalAddress	segment[16],offset[16],byte[8]
+{
+	DECLARE dummy[4];
+	DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
+
+	pageOffset<-segment;
+	physical<-ROL(physical,dummy,%0000,4);
+	pageOffset<-pageOffset+offset;
+	CALL SetByte(physical,byte);
 }
 
 ############
@@ -64,15 +86,42 @@ FUNCTION STEP
 
 FUNCTION RESET
 {
+	REPEAT<-0;
 	#TODO
+}
+
+FUNCTION INTERNAL	StoreWord	seg[16],off[16],wrd[16]
+{
+	CALL SetByteAtPhysicalAddress(seg,off,wrd[0..7]);
+	CALL SetByteAtPhysicalAddress(seg,off+1,wrd[8..15]);
+}
+
+FUNCTION INTERNAL	PushWord	wrd[16]
+{
+	SP<-SP - 1;
+	CALL SetByteAtPhysicalAddress(SS,SP,wrd[8..15]);
+	SP<-SP - 1;
+	CALL SetByteAtPhysicalAddress(SS,SP,wrd[0..7]);
+}
+
+FUNCTION INTERNAL	wrd[16]		PopWord
+{
+	CALL GetByteFromPhysicalAddress(SS,SP) -> wrd[0..7];
+	SP<-SP + 1;
+	CALL GetByteFromPhysicalAddress(SS,SP) -> wrd[8..15];
+	SP<-SP + 1;
+}
+
+FUNCTION INTERNAL	byt[8]		GetImmediateByte
+{
+	CALL GetByteFromPhysicalAddress(CS,IP) -> byt;
+	IP<-IP+1;
 }
 
 FUNCTION INTERNAL	wrd[16]		GetImmediateWord
 {
-	CALL GetByteFromPhysicalAddress(CS,IP) -> wrd[0..7];
-	IP<-IP+1;
-	CALL GetByteFromPhysicalAddress(CS,IP) -> wrd[8..15];
-	IP<-IP+1;
+	CALL GetImmediateByte() -> wrd[0..7];
+	CALL GetImmediateByte() -> wrd[8..15];
 }
 
 ############
@@ -94,7 +143,31 @@ INSTRUCTION	"%M0"	%1111:flags
 	2->CYCLES;
 }
 
+MAPPING	regl[3]
+{
+	%000	"AL"	AL;
+	%001	"CL"	CL;
+	%010	"DL"	DL;
+	%011	"BL"	BL;
+	%100	"AH"	AH;
+	%101	"CH"	CH;
+	%110	"DH"	DH;
+	%111	"BH"	BH;
+}
+
 MAPPING	regw[3]
+{
+	%000	"AX"	AX;
+	%001	"CX"	CX;
+	%010	"DX"	DX;
+	%011	"BX"	BX;
+	%100	"SP"	SP;
+	%101	"BP"	BP;
+	%110	"SI"	SI;
+	%111	"DI"	DI;
+}
+
+MAPPING	regwop2[3]
 {
 	%000	"AX"	AX;
 	%001	"CX"	CX;
@@ -112,3 +185,143 @@ INSTRUCTION	"MOV %M0,#%$2%$1"	%10111:regw,B2[8],B3[8]
 	4->CYCLES;
 }
 
+INSTRUCTION	"XX10001011"		%10001011
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10001011 IR;
+}
+
+INSTRUCTION	"XX10001110"		%10001110
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10001110 IR;
+}
+
+INSTRUCTION	"XX00110011"		%00110011
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00110011 IR;
+}
+
+
+MAPPING regs[2]
+{
+	%00	"ES"	ES;
+	%01	"CS"	CS;
+	%10	"SS"	SS;
+	%11	"DS"	DS;
+}
+
+INSTRUCTION	XX10001110	"MOV %M0,%M1"	%110:regs:regw
+{
+	regs<-regw;
+	2->CYCLES;
+}
+
+INSTRUCTION	"OUT #%$1,AL"		%11100110,B2[8]
+{
+	CALL SetPortB(CALL GetImmediateByte(),AL);
+	10->CYCLES;
+}
+
+INSTRUCTION	"OUT #%$1,AX"		%11100111,B2[8]
+{
+	CALL SetPortW(CALL GetImmediateByte(),AX);
+	10->CYCLES;
+}
+
+INSTRUCTION	XX00110011	"XOR %M0,%M1"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw ^ regwop2 }->regw;
+	3->CYCLES;
+}
+
+INSTRUCTION	"INC %M0"	%01000:regw
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,$01,7), P AS PARITYEVEN { regw + 1 }->regw;
+	2->CYCLES;
+}
+
+INSTRUCTION	"MOV %M0,#%$1"	%10110:regl,B2[8]
+{
+	regl<-CALL GetImmediateByte();
+	4->CYCLES;
+}
+
+INSTRUCTION	"CALL #%$1%$2"	%11101000,B2[8],B3[8]
+{
+	DECLARE disp[16];
+	disp<-CALL GetImmediateWord();
+	CALL PushWord(IP);
+	IP<-IP ++ disp;
+	19->CYCLES;
+}
+
+INSTRUCTION	XX10001011	"MOV %M0,%M1"	%11:regw:regwop2
+{
+	regw<-regwop2;
+	2->CYCLES;
+}
+
+INSTRUCTION	"XCHG AX,%M0"	%10010:regw
+{
+	AX<->regw;
+	3->CYCLES;
+}
+
+INSTRUCTION	"STOS"		%10101011
+{
+	CALL StoreWord(ES,DI,AX);
+	IF D==0
+	{
+		DI<-DI+2;
+	}
+	IF D==1
+	{
+		DI<-DI-2;
+	}
+	11->CYCLES;
+	IF REPEAT
+	{
+		REPEAT<-0;
+		IP<-IP - 2;
+		8->CYCLES;
+	}
+}
+
+INSTRUCTION	"LOOP #%$1"		%11100010,B2[8]
+{
+	DECLARE disp[8];
+	disp<-CALL GetImmediateByte();
+	CX<-CX-1;
+	5->CYCLES;
+	IF CX!=0
+	{
+		IP<-IP++disp;
+		17->CYCLES;
+	}
+}
+
+INSTRUCTION	"RET"		%11000011
+{
+	IP<-CALL PopWord();
+	8->CYCLES;
+}
+
+INSTRUCTION	"REP(E)"	%11110011			# interrupts must not fire on this prefix code
+{
+	IF CX==0
+	{
+		9->CYCLES;
+		IP <- IP + 1;
+	}
+	IF CX!=0
+	{
+		REPEAT<-1;
+		CX<-CX - 1;
+		2->CYCLES;
+	}
+}
