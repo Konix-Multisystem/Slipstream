@@ -1,0 +1,6 @@
+*.swp
+*~
+*.exe
+*.bak
+*.MSU
+out/*

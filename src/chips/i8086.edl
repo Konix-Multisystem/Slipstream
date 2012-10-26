@@ -1,0 +1,114 @@
+# intel 8086
+#
+# Simplified
+#
+
+C_FUNC_EXTERN	[8]	GetByte			[32];
+# unsigned char GetByte(unsigned short);
+#  Called when the cpu wants to read from memory
+C_FUNC_EXTERN		SetByte			[32],[8];
+# void SetByte(unsigned short,unsigned char);
+#  Called when the cpu wants to write to memory
+C_FUNC_EXTERN	[8]	GetPort			[16];
+# unsigned char GetPort(unsigned short);
+#  Called when the cpu wants the value from a given port
+C_FUNC_EXTERN		SetPort			[16],[8];
+# void SetPort(unsigned short,unsiged char);
+#  Called when the cpu wants to write a byte to an output port
+
+DECLARE CYCLES[8];
+
+# Programmer registers
+DECLARE AX[16]	ALIAS	AH[8]:AL[8];
+DECLARE BX[16]	ALIAS	BH[8]:BL[8];
+DECLARE CX[16]	ALIAS	CH[8]:CL[8];
+DECLARE	DX[16]	ALIAS	DH[8]:DL[8];
+
+DECLARE	SP[16];
+DECLARE	BP[16];
+DECLARE	SI[16];
+DECLARE	DI[16];
+
+DECLARE	CS[16];
+DECLARE	DS[16];
+DECLARE	SS[16];
+DECLARE	ES[16];
+
+DECLARE	IP[16];
+
+DECLARE	FLAGS[16]	ALIAS	%0000:O[1]:D[1]:I[1]:T[1]:S[1]:Z[1]:%0:A[1]:%0:P[1]:%0:C[1];		#
+
+############
+
+FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
+{
+	DECLARE dummy[4];
+	DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
+
+	physical<-ROL(segment,dummy,%0000,4);
+	pageOffset<-pageOffset+offset;
+	byte<-CALL GetByte(physical);
+}
+
+############
+
+FUNCTION STEP
+{
+	DECLARE	IR[8];
+
+	IR<-CALL GetByteFromPhysicalAddress(CS,IP);
+	IP<-IP+1;
+
+	EXECUTE	IR;
+}
+
+FUNCTION RESET
+{
+	#TODO
+}
+
+FUNCTION INTERNAL	wrd[16]		GetImmediateWord
+{
+	CALL GetByteFromPhysicalAddress(CS,IP) -> wrd[0..7];
+	IP<-IP+1;
+	CALL GetByteFromPhysicalAddress(CS,IP) -> wrd[8..15];
+	IP<-IP+1;
+}
+
+############
+
+MAPPING	flags[4]
+{
+	%1000	"CLC"	C<-0;
+	%0101	"CMC"	C<-~C;
+	%1001	"STC"	C<-1;
+	%1100	"CLD"	D<-0;
+	%1101	"STD"	D<-1;
+	%1010	"CLI"	I<-0;
+	%1011	"STI"	I<-1;
+}
+
+INSTRUCTION	"%M0"	%1111:flags
+{
+	flags;
+	2->CYCLES;
+}
+
+MAPPING	regw[3]
+{
+	%000	"AX"	AX;
+	%001	"CX"	CX;
+	%010	"DX"	DX;
+	%011	"BX"	BX;
+	%100	"SP"	SP;
+	%101	"BP"	BP;
+	%110	"SI"	SI;
+	%111	"DI"	DI;
+}
+
+INSTRUCTION	"MOV %M0,#%$2%$1"	%10111:regw,B2[8],B3[8]
+{
+	regw<-CALL GetImmediateWord();
+	4->CYCLES;
+}
+
