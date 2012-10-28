@@ -32,10 +32,14 @@ out/keys.o: src/host/keys.h src/host/keys.c
 	mkdir -p out
 	gcc $(COMPILE) src/host/keys.c -o out/keys.o
 
-out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h
+out/asic.o: src/asic.h src/asic.c
+	mkdir -p out
+	gcc $(COMPILE) src/asic.c -o out/asic.o
+
+out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h
 	mkdir -p out
 	gcc $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s 
-	gcc -O3 -g out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s $(ALLIBS) $(GLLIBS) -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/asic.o
+	gcc -O3 -g out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 

@@ -15,8 +15,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "video.h"
 #include "audio.h"
 #include "keys.h"
+#include "asic.h"
 
 #define SEGTOPHYS(seg,off)	( ((seg&0xF000)<<4) + ( (((seg&0x0FFF)<<4) + off)&0xFFFF) )				// Convert Segment,offset pair to physical address
 
@@ -31,37 +33,26 @@ void SetPortB(uint16_t port,uint8_t byte);
 uint16_t GetPortW(uint16_t port);
 void SetPortW(uint16_t port,uint16_t word);
 
-// According to docs for PAL - 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
-//
-//  11822983 ticks / 50  = 236459.66  (236459 ticks per frame)
-//  236459 / 312 = 757 clocks per line
-//
-// Clocks per line is approximate but probably close enough - 757 clocks - matches documentation
-//
-//  active display is 120 to 631 horizontal		-- From documentation
-//  active display is 33 to 288 vertical		-- From documentation
-//
-
-#define WIDTH	(757)			// Should probably remove hsync period and overscan
-#define	HEIGHT	(312)			// Should probably remove vsync period and overscan
-
-int intClocks=0;
 int masterClock=0;
-int hClock=0;
-int vClock=0;
 
 extern uint8_t *DIS_[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
+extern uint8_t *DIS_XX00001011[256];			// FROM EDL
+extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 extern uint8_t *DIS_XX00111011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000000[256];			// FROM EDL
 extern uint8_t *DIS_XX10000001[256];			// FROM EDL
 extern uint8_t *DIS_XX10000011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000110[256];			// FROM EDL
 extern uint8_t *DIS_XX10001001[256];			// FROM EDL
+extern uint8_t *DIS_XX10001010[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
-extern uint8_t *DIS_XX00110011[256];			// FROM EDL
+extern uint8_t *DIS_XX11010011[256];			// FROM EDL
+extern uint8_t *DIS_XX11110110[256];			// FROM EDL
+extern uint8_t *DIS_XX11111110[256];			// FROM EDL
+extern uint8_t *DIS_XX11111111[256];			// FROM EDL
 
 extern uint16_t	AX;
 extern uint16_t	BX;
@@ -78,6 +69,7 @@ extern uint16_t	SS;
 extern uint16_t	IP;
 extern uint16_t FLAGS;
 
+int doDebug=0;
 int debugWatchWrites=0;
 int debugWatchReads=0;
 
@@ -312,7 +304,7 @@ uint8_t GetPortB(uint16_t port)
 
 void SetPortB(uint16_t port,uint8_t byte)
 {
-	printf("SetPortB : %04X, %02X - TODO\n",port,byte);
+	ASIC_Write(port,byte);
 	DebugWPort(port);
 }
 
@@ -325,7 +317,8 @@ uint16_t GetPortW(uint16_t port)
 
 void SetPortW(uint16_t port,uint16_t word)
 {
-	printf("SetPortW : %04X, %04X - TODO\n",port,word);
+	ASIC_Write(port,word&0xFF);
+	ASIC_Write(port+1,word>>8);
 	DebugWPort(port);
 }
 
@@ -405,6 +398,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00001011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00001011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00111011")==0)
 		{
 			int tmpCount=0;
@@ -447,6 +447,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX10001010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001010,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX10001011")==0)
 		{
 			int tmpCount=0;
@@ -465,6 +472,34 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11010011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11010011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11110110")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11110110,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11111110")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11111110,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11111111")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11111111,address+1,&tmpCount,256);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -562,7 +597,6 @@ void DisassembleRange(unsigned int start,unsigned int end)
 
 void STEP(void);
 void RESET(void);
-void INTERRUPT(uint8_t);
 
 extern uint16_t	PC;
 extern uint8_t CYCLES;
@@ -572,26 +606,13 @@ void CPU_RESET()
 	RESET();
 }
 
-int CPU_STEP(int intClocks,int doDebug)
+int CPU_STEP(int doDebug)
 {
 	if (doDebug)
 	{
 		Disassemble(SEGTOPHYS(CS,IP),1);
 	}
-	if (intClocks)
-	{
-		printf("Interrupt Pending... TODO\n");
-//		INTERRUPT(0xFF);
-	
-		if (CYCLES==0)
-		{
-			STEP();
-		}
-	}
-	else
-	{
-		STEP();
-	}
+	STEP();
 
 	return CYCLES;
 }
@@ -622,25 +643,19 @@ int main(int argc,char**argv)
 
 	while (1==1)
 	{
-		static int doDebug=0;
-		
-		if (SEGTOPHYS(CS,IP)==0x081F9)
+		if (SEGTOPHYS(CS,IP)==0x08107)
 		{
-			doDebug=1;
-			debugWatchWrites=1;
-			debugWatchReads=1;
+//			doDebug=1;
+//			debugWatchWrites=1;
+//			debugWatchReads=1;
+			numClocks=1;
 		}
-		numClocks=CPU_STEP(intClocks,doDebug);
-
+		else
+		{
+			numClocks=CPU_STEP(doDebug);
+		}
+		TickAsic(numClocks);
 		masterClock+=numClocks;
-		if (intClocks)
-		{
-			intClocks-=numClocks;
-			if (intClocks<0)
-			{
-				intClocks=0;
-			}
-		}
 
 		AudioUpdate(numClocks);
 
@@ -670,4 +685,3 @@ int main(int argc,char**argv)
 
 	return 0;
 }
-

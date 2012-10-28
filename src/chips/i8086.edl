@@ -53,6 +53,9 @@ DECLARE INTERNAL EAdisp[16];
 DECLARE INTERNAL SegOveride[1];
 DECLARE INTERNAL SegOverideValue[16];
 
+DECLARE INTERNAL interruptPending[1];
+DECLARE INTERNAL interruptVector[8];
+
 ############
 
 FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
@@ -77,30 +80,6 @@ FUNCTION INTERNAL	SetByteAtPhysicalAddress	segment[16],offset[16],byte[8]
 	CALL SetByte(physical,byte);
 }
 
-############
-
-FUNCTION STEP
-{
-	DECLARE	IR[8];
-
-	SegOveride<-0;
-	IR<-CALL GetByteFromPhysicalAddress(CS,IP);
-	IP<-IP+1;
-
-	EXECUTE	IR;
-}
-
-FUNCTION RESET
-{
-	REPEAT<-0;
-	IP<-0;
-	CS<-$FFFF;
-	DS<-0;
-	SS<-0;
-	ES<-0;
-	FLAGS<-0;
-}
-
 FUNCTION INTERNAL	StoreWord	seg[16],off[16],wrd[16]
 {
 	IF SegOveride
@@ -112,6 +91,18 @@ FUNCTION INTERNAL	StoreWord	seg[16],off[16],wrd[16]
 	{
 		CALL SetByteAtPhysicalAddress(seg,off,wrd[0..7]);
 		CALL SetByteAtPhysicalAddress(seg,off+1,wrd[8..15]);
+	}
+}
+
+FUNCTION INTERNAL	StoreByte	seg[16],off[16],byt[8]
+{
+	IF SegOveride
+	{
+		CALL SetByteAtPhysicalAddress(SegOverideValue,off,byt);
+	}
+	IF ~SegOveride
+	{
+		CALL SetByteAtPhysicalAddress(seg,off,byt);
 	}
 }
 
@@ -167,6 +158,68 @@ FUNCTION INTERNAL	wrd[16]		GetImmediateWord
 {
 	CALL GetImmediateByte() -> wrd[0..7];
 	CALL GetImmediateByte() -> wrd[8..15];
+}
+
+############
+
+FUNCTION STEP
+{
+	DECLARE	IR[8];
+
+	SegOveride<-0;
+
+	IF (~interruptPending) | REPEAT
+	{
+		IR<-CALL GetByteFromPhysicalAddress(CS,IP);
+		IP<-IP+1;
+
+		EXECUTE	IR;
+	}
+
+	IF interruptPending & (~REPEAT)
+	{
+		interruptPending<-0;
+		# Standard interrupt procedure
+		DEBUG_TRACE "VECTOR:",BASE 16,interruptVector;
+		CALL PushWord(FLAGS);
+		I<-0;
+		CALL PushWord(CS);
+		CALL PushWord(IP);
+		DECLARE TMP[16];
+		DECLARE dummy[2];
+		TMP<-interruptVector;
+		TMP<-ROL(TMP,dummy,%0000,2);
+		DEBUG_TRACE "VECTOR:",BASE 16,TMP;
+		CALL FetchWord($0000,TMP)->IP;
+		CALL FetchWord($0000,TMP+2)->CS;
+
+		DEBUG_TRACE "Vectored : ",BASE 16,CS,":",IP;
+
+		61->CYCLES;
+	}
+
+}
+
+FUNCTION INTERRUPT	vector[8]
+{
+	#Flag interrupt pending (if interrupts enabled or NMI) -- Interrupt will occur at next possible cpu step
+	IF I
+	{
+		interruptPending<-1;
+		interruptVector<-vector;
+	}
+}
+
+FUNCTION RESET
+{
+	interruptPending<-0;
+	REPEAT<-0;
+	IP<-0;
+	CS<-$FFFF;
+	DS<-0;
+	SS<-0;
+	ES<-0;
+	FLAGS<-0;
 }
 
 ############
@@ -258,6 +311,13 @@ INSTRUCTION	"XX00000011"		%00000011
 	EXECUTE XX00000011 IR;
 }
 
+INSTRUCTION	"XX00001011"		%00001011
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00001011 IR;
+}
+
 INSTRUCTION	"XX00111011"		%00111011
 {
 	DECLARE IR[8];
@@ -317,6 +377,13 @@ INSTRUCTION	"XX10001001"		%10001001
 	EXECUTE XX10001001 IR;
 }
 
+INSTRUCTION	"XX10001010"		%10001010
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10001010 IR;
+}
+
 INSTRUCTION	"XX10001011"		%10001011
 {
 	DECLARE IR[8];
@@ -338,7 +405,36 @@ INSTRUCTION	"XX11000111"		%11000111
 	EXECUTE XX11000111 IR;
 }
 
+INSTRUCTION	"XX11010011"		%11010011
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11010011 IR;
+}
 
+INSTRUCTION	"XX11110110"		%11110110
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11110110 IR;
+}
+
+INSTRUCTION	"XX11111110"		%11111110
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11111110 IR;
+}
+
+INSTRUCTION	"XX11111111"		%11111111
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11111111 IR;
+}
+
+
+######
 
 INSTRUCTION	XX10001110	"MOV %M0,%M1"	%110:regs:regw
 {
@@ -397,7 +493,7 @@ INSTRUCTION	"XCHG AX,%M0"	%10010:regw
 	3->CYCLES;
 }
 
-INSTRUCTION	"STOS"		%10101011
+INSTRUCTION	"STOSW"		%10101011
 {
 	CALL StoreWord(ES,DI,AX);
 	IF D==0
@@ -578,7 +674,7 @@ INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$1]"	%01:regw:memmod000,B2[8]
 	CALL FetchWord(DS,EA)->regw;
 }
 
-INSTRUCTION	"LODS"		%10101101
+INSTRUCTION	"LODSW"		%10101101
 {
 	CALL FetchWord(DS,SI)->AX;
 	IF D==0
@@ -609,7 +705,7 @@ MAPPING cond[4]
 	%0100	"E"	Z;
 	%1100	"L"	S!=O;
 	%1110	"LE"	Z | (S!=O);
-	%0010	"B"	C;
+	%0010	"C"	C;
 	%0110	"BE"	C | Z;
 	%1010	"P"	P;
 	%0000	"O"	O;
@@ -722,4 +818,166 @@ INSTRUCTION	XX10000011	"CMP [#%$2%$1],#%$3"	%00111110,B2[8],B3[8],B4[8]
 	CALL FetchWord(DS,EAdisp)->T;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP };
 }
+
+INSTRUCTION	"POP %M0"	%01011:regw
+{
+	CALL PopWord()->regw;
+	8->CYCLES;
+}
+
+INSTRUCTION	"POP %M0"	%000:regs:%111
+{
+	CALL PopWord()->regs;
+	8->CYCLES;
+}
+
+INSTRUCTION	"IRET"		%11001111
+{
+	IP<-CALL PopWord();
+	CS<-CALL PopWord();
+	FLAGS<-CALL PopWord();
+	24->CYCLES;
+}
+
+INSTRUCTION	"LODSB"		%10101100
+{
+	CALL FetchByte(DS,SI)->AL;
+	IF D==0
+	{
+		SI<-SI+1;
+	}
+	IF D==1
+	{
+		SI<-SI-1;
+	}
+	12->CYCLES;
+	IF REPEAT
+	{
+		REPEAT<-0;
+		IP<-IP - 2;
+		9->CYCLES;
+	}
+}
+
+INSTRUCTION	XX11010011	"SHL %M0,CL"	%11100:regw
+{
+	DECLARE dummy[16];
+	IF CL>17
+	{
+		regw<-$0000;
+		C<-0;
+	}
+	IF (CL>0) & (CL<17)
+	{
+		IF CL>1
+		{
+			DECLARE TMP[16];
+			TMP<-CL-1;
+			regw<-ROL(regw,dummy,$0000,TMP);
+		}
+		regw<-ROL(regw,C,$0000,1);
+	}
+	8+CL->CYCLES;
+}
+
+INSTRUCTION	"AND AX,#%$2%$1"	%00100101,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	TMP<-CALL GetImmediateWord();
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { AX & TMP }->AX;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX00001011	"OR %M0,%M1"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw | regwop2 }->regw;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX11010011	"SHR %M0,CL"	%11101:regw
+{
+	DECLARE dummy[16];
+	IF CL>17
+	{
+		regw<-$0000;
+		C<-0;
+	}
+	IF (CL>0) & (CL<17)
+	{
+		IF CL>1
+		{
+			DECLARE TMP[16];
+			TMP<-CL-1;
+			regw<-ROR(regw,dummy,$0000,TMP);
+		}
+		regw<-ROR(regw,C,$0000,1);
+	}
+	8+CL->CYCLES;
+}
+
+INSTRUCTION	"DEC %M0"	%01001:regw
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,$0001,15), P AS PARITYEVEN { regw - 1 }->regw;
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11110110	"NEG %M0"		%11011:regl
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN, C AS CARRY(7) { 0 - regl }->regl;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10001010	"MOV %M0,%M1"	%11:regl:reglop2
+{
+	regl<-reglop2;
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11111110	"INC %M0"	%11000:regl
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN { regl + 1 }->regl;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10000011	"CMP %M0,#%$1"	%11111:regw,B2[8]
+{
+	DECLARE TMP[16];
+	TMP<-$0000 ++ CALL GetImmediateByte();
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP };
+	4->CYCLES;
+}
+
+INSTRUCTION	"STOSB"		%10101010
+{
+	CALL StoreByte(ES,DI,AL);
+	IF D==0
+	{
+		DI<-DI+1;
+	}
+	IF D==1
+	{
+		DI<-DI-1;
+	}
+	11->CYCLES;
+	IF REPEAT
+	{
+		REPEAT<-0;
+		IP<-IP - 2;
+		8->CYCLES;
+	}
+}
+
+INSTRUCTION	XX11111110	"DEC %M0"	%11001:regl
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN { regl - 1 }->regl;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX11111111	"DEC %M0"	%11001:regw
+{
+	DEBUG_TRACE "iksdfhoisdhfoisdhfoishdhfoisdhoifhsiodfhoisdhofhsdoifhosdihfosdhfoishdofihsdofihosidhfoisdhofihsdofihsodifhoisdhfoishfo";
+#	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN { regl + 1 }->regl;
+#	3->CYCLES;
+}
+
 
