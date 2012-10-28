@@ -36,6 +36,7 @@ void SetPortW(uint16_t port,uint16_t word);
 int masterClock=0;
 
 extern uint8_t *DIS_[256];			// FROM EDL
+extern uint8_t *DIS_XX00000010[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
@@ -47,8 +48,11 @@ extern uint8_t *DIS_XX10000110[256];			// FROM EDL
 extern uint8_t *DIS_XX10001001[256];			// FROM EDL
 extern uint8_t *DIS_XX10001010[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
+extern uint8_t *DIS_XX10001100[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
+extern uint8_t *DIS_XX11010000[256];			// FROM EDL
+extern uint8_t *DIS_XX11010001[256];			// FROM EDL
 extern uint8_t *DIS_XX11010011[256];			// FROM EDL
 extern uint8_t *DIS_XX11110110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111110[256];			// FROM EDL
@@ -277,6 +281,12 @@ void DebugWPort(uint16_t port)
 		case 0x0044:
 			printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
 			break;
+		case 0x00C0:
+			printf("ADP - (Word address) - Anologue/digital port reset?\n");
+			break;
+		case 0x00E0:
+			printf("???? - (Byte address) - number pad reset?\n");
+			break;
 		default:
 			printf("PORT WRITE UNKNOWN - TODO\n");
 			exit(-1);
@@ -288,6 +298,18 @@ void DebugRPort(uint16_t port)
 {
 	switch (port)
 	{
+		case 0x0C:
+			printf("???? - (Byte Address) - controller buttons...\n");
+			break;
+		case 0x80:
+			printf("???? - (Word Address) - Possibly controller digital button status\n");
+			break;
+		case 0xC0:
+			printf("ADP - (Word Address) - Analogue/digital port status ? \n");
+			break;
+		case 0xE0:
+			printf("???? - (Byte Address) - Numberic pad read ? \n");
+			break;
 		default:
 			printf("PORT READ UNKNOWN - TODO\n");
 			exit(-1);
@@ -299,7 +321,7 @@ uint8_t GetPortB(uint16_t port)
 {
 	printf("GetPortB : %04X - TODO\n",port);
 	DebugRPort(port);
-	return 0xAA;
+	return 0x00;
 }
 
 void SetPortB(uint16_t port,uint8_t byte)
@@ -312,7 +334,7 @@ uint16_t GetPortW(uint16_t port)
 {
 	printf("GetPortW : %04X - TODO\n",port);
 	DebugRPort(port);
-	return 0xAAAA;
+	return 0x0000;
 }
 
 void SetPortW(uint16_t port,uint16_t word)
@@ -391,6 +413,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			strcat(segOveride,temporaryBuffer);
 			return segOveride;
 		}
+		if (strcmp(mnemonic,"XX00000010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00000010,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00000011")==0)
 		{
 			int tmpCount=0;
@@ -461,6 +490,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX10001100")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001100,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX10001110")==0)
 		{
 			int tmpCount=0;
@@ -472,6 +508,20 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11010000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11010000,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11010001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11010001,address+1,&tmpCount,256);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -643,17 +693,15 @@ int main(int argc,char**argv)
 
 	while (1==1)
 	{
-		if (SEGTOPHYS(CS,IP)==0x08107)
+		if (SEGTOPHYS(CS,IP)==0x8115)//0x08107)
 		{
-//			doDebug=1;
-//			debugWatchWrites=1;
-//			debugWatchReads=1;
+			doDebug=1;
+			debugWatchWrites=1;
+			debugWatchReads=1;
 			numClocks=1;
 		}
 		else
-		{
-			numClocks=CPU_STEP(doDebug);
-		}
+		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);
 		masterClock+=numClocks;
 
