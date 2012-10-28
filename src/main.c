@@ -21,7 +21,7 @@
 #define SEGTOPHYS(seg,off)	( ((seg&0xF000)<<4) + ( (((seg&0x0FFF)<<4) + off)&0xFFFF) )				// Convert Segment,offset pair to physical address
 
 unsigned char RAM[256*1024];
-
+unsigned char DSP[4*1024];
 unsigned char PALETTE[256*2];
 
 uint8_t GetByte(uint32_t addr);
@@ -31,7 +31,7 @@ void SetPortB(uint16_t port,uint8_t byte);
 uint16_t GetPortW(uint16_t port);
 void SetPortW(uint16_t port,uint16_t word);
 
-// According to docs for PAL 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
+// According to docs for PAL - 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
 //
 //  11822983 ticks / 50  = 236459.66  (236459 ticks per frame)
 //  236459 / 312 = 757 clocks per line
@@ -51,8 +51,16 @@ int hClock=0;
 int vClock=0;
 
 extern uint8_t *DIS_[256];			// FROM EDL
+extern uint8_t *DIS_XX00000011[256];			// FROM EDL
+extern uint8_t *DIS_XX00111011[256];			// FROM EDL
+extern uint8_t *DIS_XX10000000[256];			// FROM EDL
+extern uint8_t *DIS_XX10000001[256];			// FROM EDL
+extern uint8_t *DIS_XX10000011[256];			// FROM EDL
+extern uint8_t *DIS_XX10000110[256];			// FROM EDL
+extern uint8_t *DIS_XX10001001[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
+extern uint8_t *DIS_XX11000111[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 
 extern uint16_t	AX;
@@ -71,6 +79,7 @@ extern uint16_t	IP;
 extern uint16_t FLAGS;
 
 int debugWatchWrites=0;
+int debugWatchReads=0;
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -176,12 +185,30 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 uint8_t GetByte(uint32_t addr)
 {
 	addr&=0xFFFFF;
+	if (debugWatchReads)
+	{
+		printf("Reading from address : %05X->\n",addr);
+	}
 	if (addr<128*1024)
 	{
 		return RAM[addr];
 	}
+	if (addr>=0xC1000 && addr<=0xC1FFF)
+	{
+		return DSP[addr-0xC1000];
+	}
 	printf("GetByte : %05X - TODO\n",addr);
 	return 0xAA;
+}
+
+uint8_t PeekByte(uint32_t addr)
+{
+	uint8_t ret;
+	int tmp=debugWatchReads;
+	debugWatchReads=0;
+	ret=GetByte(addr);
+	debugWatchReads=tmp;
+	return ret;
 }
 
 void SetByte(uint32_t addr,uint8_t byte)
@@ -198,7 +225,12 @@ void SetByte(uint32_t addr,uint8_t byte)
 	}
 	if (addr>=0xC0000 && addr<=0xC01FF)
 	{
-		PALETTE[addr]=byte;
+		PALETTE[addr-0xC0000]=byte;
+		return;
+	}
+	if (addr>=0xC1000 && addr<=0xC1FFF)
+	{
+		DSP[addr-0xC1000]=byte;
 		return;
 	}
 	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
@@ -209,7 +241,7 @@ void DebugWPort(uint16_t port)
 	switch (port)
 	{
 		case 0x0000:
-			printf("HLP ??? Horizontal.... (Byte address)\n");
+			printf("KINT ??? Vertical line interrupt location (Word address)\n");
 			break;
 		case 0x0004:
 			printf("STARTL - screen line start (Byte address)\n");
@@ -332,10 +364,11 @@ void DUMP_REGISTERS()
 
 const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int realLength)
 {
+	static char segOveride[2048];
 	static char temporaryBuffer[2048];
 	char sprintBuffer[256];
 
-	uint8_t byte = GetByte(address);
+	uint8_t byte = PeekByte(address);
 	if (byte>realLength)
 	{
 		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
@@ -355,6 +388,65 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			return temporaryBuffer;
 		}
 	
+		if (strncmp(mnemonic,"XX001__110",10)==0)				// Segment override
+		{
+			
+			int tmpCount=0;
+			decodeDisasm(DIS_,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			strcpy(segOveride,mnemonic+10);
+			strcat(segOveride,temporaryBuffer);
+			return segOveride;
+		}
+		if (strcmp(mnemonic,"XX00000011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00000011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00111011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00111011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10000000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10000000,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10000001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10000001,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10000011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10000011,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10000110")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10000110,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10001001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001001,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX10001011")==0)
 		{
 			int tmpCount=0;
@@ -366,6 +458,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,256);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11000111")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,256);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -400,7 +499,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 					negOffs=-1;
 				}
 				int offset=(*sPtr-'0')*negOffs;
-				sprintf(sprintBuffer,"%02X",GetByte(address+offset));
+				sprintf(sprintBuffer,"%02X",PeekByte(address+offset));
 				while (*tPtr)
 				{
 					*dPtr++=*tPtr++;
@@ -427,7 +526,7 @@ int Disassemble(unsigned int address,int registers)
 		printf("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
 		for (a=0;a<numBytes+1;a++)
 		{
-			printf("%02X ",GetByte(address+a));
+			printf("%02X ",PeekByte(address+a));
 		}
 		printf("\n");
 		DUMP_REGISTERS();
@@ -442,7 +541,7 @@ int Disassemble(unsigned int address,int registers)
 
 	for (a=0;a<numBytes+1;a++)
 	{
-		printf("%02X ",GetByte(address+a));
+		printf("%02X ",PeekByte(address+a));
 	}
 	for (a=0;a<8-(numBytes+1);a++)
 	{
@@ -519,13 +618,18 @@ int main(int argc,char**argv)
 
 	//////////////////
 	
-	debugWatchWrites=1;
 //	DisassembleRange(0x0000,0x4000);
 
 	while (1==1)
 	{
-		static int doDebug=1;
+		static int doDebug=0;
 		
+		if (SEGTOPHYS(CS,IP)==0x081F9)
+		{
+			doDebug=1;
+			debugWatchWrites=1;
+			debugWatchReads=1;
+		}
 		numClocks=CPU_STEP(intClocks,doDebug);
 
 		masterClock+=numClocks;
