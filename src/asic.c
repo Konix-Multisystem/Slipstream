@@ -9,7 +9,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "video.h"
 #include "asic.h"
+
+#define RGB4_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )
 
 void INTERRUPT(uint8_t);
 
@@ -99,6 +102,7 @@ void ASIC_Write(uint16_t port,uint8_t byte)
 			break;
 		default:
 			printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			printf("Start Address : %08X\n",ASIC_SCROLL);
 			break;
 	}
 }
@@ -114,14 +118,32 @@ void ASIC_Write(uint16_t port,uint8_t byte)
 //  active display is 33 to 288 vertical		-- From documentation
 //
 
+extern unsigned char PALETTE[256*2];
+
 void TickAsic(int cycles)
 {
+	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	uint32_t screenPtr = ASIC_SCROLL;
+	outputTexture+=vClock*WIDTH + hClock;
 	while (cycles)
 	{
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{
 			INTERRUPT(0x21);
+		}
+
+		// Quick and dirty video display no contention or bus cycles
+		if (hClock>=120 && hClock<632 && vClock>ASIC_STARTL && vClock<=ASIC_ENDL)
+		{
+			uint8_t palIndex = GetByte(screenPtr + ((vClock-ASIC_STARTL)-1)*256 + (hClock-120)/2);
+			uint16_t palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+
+			*outputTexture++=RGB4_RGB8(palEntry);
+		}
+		else
+		{
+			*outputTexture++=RGB4_RGB8(ASIC_BORD);
 		}
 
 		hClock++;
