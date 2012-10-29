@@ -365,8 +365,37 @@ void DebugRPort(uint16_t port)
 #endif
 }
 
+uint8_t numPadRowSelect=0;
+uint16_t numPadState=0;
+uint16_t joyPadState=0;
+uint8_t buttonState=0;			// bits 4&5 are button state -- I can only assume on front of unit?? (Start/Select style)
+
 uint8_t GetPortB(uint16_t port)
 {
+	if (port==0x0C)
+	{
+		return buttonState;
+	}
+	if (port==0xE0)
+	{
+		switch (numPadRowSelect)
+		{
+			case 1:
+				return (numPadState&0xF);
+			case 2:
+				return ((numPadState&0xF0)>>4);
+			case 4:
+				return ((numPadState&0xF00)>>8);
+			case 8:
+				return ((numPadState&0xF000)>>12);
+			default:
+#if ENABLE_DEBUG
+				printf("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
+#endif
+				return 0xFF;
+		}
+	}
+
 #if ENABLE_DEBUG
 	printf("GetPortB : %04X - TODO\n",port);
 	DebugRPort(port);
@@ -374,9 +403,17 @@ uint8_t GetPortB(uint16_t port)
 	return 0x00;
 }
 
+
 void SetPortB(uint16_t port,uint8_t byte)
 {
-	ASIC_Write(port,byte);
+	if (port==0xE0)
+	{
+		numPadRowSelect=byte;
+	}
+	else
+	{
+		ASIC_Write(port,byte);
+	}
 #if ENABLE_DEBUG
 	DebugWPort(port);
 #endif
@@ -390,6 +427,10 @@ uint16_t GetPortW(uint16_t port)
 #endif
 	if (port==0xC0)
 		return rand()&0xFFFF;
+	if (port==0x80)
+	{
+		return 0xFFFF ^ joyPadState;
+	}
 	return 0x0000;
 }
 
@@ -402,6 +443,57 @@ void SetPortW(uint16_t port,uint16_t word)
 #endif
 }
 
+void TickKeyboard()
+{
+	int a;
+	static const int keyToJoy[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
+					0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
+	for (a=0;a<16;a++)
+	{
+		if (KeyDown(GLFW_KEY_F1+a))
+		{
+			numPadState|=(1<<a);
+		}
+		else
+		{
+			numPadState&=~(1<<a);
+		}
+	}
+	for (a=0;a<16;a++)
+	{
+		if (keyToJoy[a]!=0)
+		{
+			if (KeyDown(keyToJoy[a]))
+			{
+				joyPadState|=1<<a;
+			}
+			else
+			{
+				joyPadState&=~(1<<a);
+			}
+		}
+		else
+		{
+			joyPadState&=~(1<<a);
+		}
+	}
+	if (KeyDown(GLFW_KEY_2))
+	{
+		buttonState|=0x10;
+	}
+	else
+	{
+		buttonState&=~0x10;
+	}
+	if (KeyDown(GLFW_KEY_1))
+	{
+		buttonState|=0x20;
+	}
+	else
+	{
+		buttonState&=~0x20;
+	}
+}
 
 #if ENABLE_DEBUG
 void DUMP_REGISTERS()
@@ -779,6 +871,7 @@ int main(int argc,char**argv)
 		{	
 			masterClock-=WIDTH*HEIGHT;
 
+			TickKeyboard();
 			VideoUpdate();
 
 			if (CheckKey(GLFW_KEY_ESC))
@@ -787,7 +880,7 @@ int main(int argc,char**argv)
 			}
 			if (CheckKey(GLFW_KEY_END))
 			{
-				doDebug=1;
+//				doDebug=1;
 				ClearKey(GLFW_KEY_END);
 			}
 
