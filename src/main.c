@@ -368,7 +368,15 @@ void DebugRPort(uint16_t port)
 uint8_t numPadRowSelect=0;
 uint16_t numPadState=0;
 uint16_t joyPadState=0;
-uint8_t buttonState=0;			// bits 4&5 are button state -- I can only assume on front of unit?? (Start/Select style)
+uint8_t buttonState=0;			// bits 4&5 are button state -- I can only assume on front of unit?? (Start/Select style) -- bits 0&1 are fire button states - stored here for convenience
+uint8_t ADPSelect=0;
+
+uint8_t PotXValue=0x80;
+uint8_t PotYValue=0x10;
+uint8_t PotZValue=0xFF;
+uint8_t PotLPValue=0x01;
+uint8_t PotRPValue=0x00;
+uint8_t PotSpareValue=0x40;
 
 uint8_t GetPortB(uint16_t port)
 {
@@ -406,13 +414,17 @@ uint8_t GetPortB(uint16_t port)
 
 void SetPortB(uint16_t port,uint8_t byte)
 {
-	if (port==0xE0)
+	switch (port)
 	{
-		numPadRowSelect=byte;
-	}
-	else
-	{
-		ASIC_Write(port,byte);
+		case 0xC0:
+			ADPSelect=byte;
+			break;
+		case 0xE0:
+			numPadRowSelect=byte;
+			break;
+		default:
+			ASIC_Write(port,byte);
+			break;
 	}
 #if ENABLE_DEBUG
 	DebugWPort(port);
@@ -426,7 +438,24 @@ uint16_t GetPortW(uint16_t port)
 	DebugRPort(port);
 #endif
 	if (port==0xC0)
-		return rand()&0xFFFF;
+	{
+		uint16_t potStatus;
+
+		potStatus=buttonState&3;
+		if (ADPSelect==PotXValue)
+			potStatus|=(0x04);
+		if (ADPSelect==PotYValue)
+			potStatus|=(0x08);
+		if (ADPSelect==PotZValue)
+			potStatus|=(0x10);
+		if (ADPSelect==PotLPValue)
+			potStatus|=(0x20);
+		if (ADPSelect==PotRPValue)
+			potStatus|=(0x40);
+		if (ADPSelect==PotSpareValue)
+			potStatus|=(0x80);
+		return 0x0003 ^ potStatus;
+	}
 	if (port==0x80)
 	{
 		return 0xFFFF ^ joyPadState;
@@ -438,6 +467,10 @@ void SetPortW(uint16_t port,uint16_t word)
 {
 	ASIC_Write(port,word&0xFF);
 	ASIC_Write(port+1,word>>8);
+	if (port==0xC0)
+	{
+		ADPSelect=word&0xFF;
+	}
 #if ENABLE_DEBUG
 	DebugWPort(port);
 #endif
@@ -476,6 +509,22 @@ void TickKeyboard()
 		{
 			joyPadState&=~(1<<a);
 		}
+	}
+	if (KeyDown(GLFW_KEY_SPACE))
+	{
+		buttonState|=0x01;
+	}
+	else
+	{
+		buttonState&=~0x01;
+	}
+	if (KeyDown(GLFW_KEY_KP_5))
+	{
+		buttonState|=0x02;
+	}
+	else
+	{
+		buttonState&=~0x02;
 	}
 	if (KeyDown(GLFW_KEY_2))
 	{
