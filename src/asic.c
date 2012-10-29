@@ -12,7 +12,8 @@
 #include "video.h"
 #include "asic.h"
 
-#define RGB4_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )
+#define RGB4_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
+#define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
 void INTERRUPT(uint8_t);
 
@@ -148,11 +149,11 @@ void TickAsic(int cycles)
 			uint8_t palIndex = PeekByte(screenPtr + ((vClock-ASIC_STARTL)-1)*256 + (hClock-120)/2);
 			uint16_t palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
 
-			*outputTexture++=RGB4_RGB8(palEntry);
+			*outputTexture++=RGB565_RGB8(palEntry);
 		}
 		else
 		{
-			*outputTexture++=RGB4_RGB8(ASIC_BORD);
+			*outputTexture++=RGB565_RGB8(ASIC_BORD);
 		}
 
 		hClock++;
