@@ -20,7 +20,7 @@
 #include "keys.h"
 #include "asic.h"
 
-#define SEGTOPHYS(seg,off)	( ((seg&0xF000)<<4) + ( (((seg&0x0FFF)<<4) + off)&0xFFFF) )				// Convert Segment,offset pair to physical address
+#define SEGTOPHYS(seg,off)	( ((seg)<<4) + (off) )				// Convert Segment,offset pair to physical address
 
 unsigned char RAM[256*1024];
 unsigned char DSP[4*1024];

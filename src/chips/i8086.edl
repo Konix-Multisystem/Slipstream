@@ -65,7 +65,7 @@ FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
 
 	pageOffset<-segment;
 	physical<-ROL(physical,dummy,%0000,4);
-	pageOffset<-pageOffset+offset;
+	physical<-physical+offset;
 	byte<-CALL GetByte(physical);
 }
 
@@ -76,7 +76,7 @@ FUNCTION INTERNAL	SetByteAtPhysicalAddress	segment[16],offset[16],byte[8]
 
 	pageOffset<-segment;
 	physical<-ROL(physical,dummy,%0000,4);
-	pageOffset<-pageOffset+offset;
+	physical<-physical+offset;
 	CALL SetByte(physical,byte);
 }
 
