@@ -34,8 +34,10 @@ uint16_t DSP_GetWord(uint16_t addr)
 		word=(DSP[addr+1]<<8)|DSP[addr];
 		return word;
 	}
+#if ENABLE_DEBUG
 	printf("Out of Bounds Read from DSP %04X\n",addr);
 	exit(1);
+#endif
 }
 void DSP_SetWord(uint16_t addr,uint16_t word)
 {
@@ -45,8 +47,10 @@ void DSP_SetWord(uint16_t addr,uint16_t word)
 		DSP[addr+1]=word>>8;
 		return;
 	}
+#if ENABLE_DEBUG
 	printf("Out of Bounds Write from DSP %04X<-%04X\n",addr,word);
 	exit(1);
+#endif
 }
 
 uint8_t GetByte(uint32_t addr);
@@ -205,10 +209,12 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 uint8_t GetByte(uint32_t addr)
 {
 	addr&=0xFFFFF;
+#if ENABLE_DEBUG
 	if (debugWatchReads)
 	{
 		printf("Reading from address : %05X->\n",addr);
 	}
+#endif
 	if (addr<128*1024)
 	{
 		return RAM[addr];
@@ -217,23 +223,30 @@ uint8_t GetByte(uint32_t addr)
 	{
 		return DSP[addr-0xC1000];
 	}
+#if ENABLE_DEBUG
 	printf("GetByte : %05X - TODO\n",addr);
+#endif
 	return 0xAA;
 }
 
 uint8_t PeekByte(uint32_t addr)
 {
+#if ENABLE_DEBUG
 	uint8_t ret;
 	int tmp=debugWatchReads;
 	debugWatchReads=0;
 	ret=GetByte(addr);
 	debugWatchReads=tmp;
 	return ret;
+#else
+	return GetByte(addr);
+#endif
 }
 
 void SetByte(uint32_t addr,uint8_t byte)
 {
 	addr&=0xFFFFF;
+#if ENABLE_DEBUG
 	if (addr==doDebugTrapWriteAt)
 	{
 		printf("STOMP STOMP STOMP\n");
@@ -242,6 +255,7 @@ void SetByte(uint32_t addr,uint8_t byte)
 	{
 		printf("Writing to address : %05X<-%02X\n",addr,byte);
 	}
+#endif
 	if (addr<128*1024)
 	{
 		RAM[addr]=byte;
@@ -257,11 +271,14 @@ void SetByte(uint32_t addr,uint8_t byte)
 		DSP[addr-0xC1000]=byte;
 		return;
 	}
+#if ENABLE_DEBUG
 	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
+#endif
 }
 
 void DebugWPort(uint16_t port)
 {
+#if ENABLE_DEBUG
 	switch (port)
 	{
 		case 0x0000:
@@ -320,10 +337,12 @@ void DebugWPort(uint16_t port)
 			exit(-1);
 			break;
 	}
+#endif
 }
 
 void DebugRPort(uint16_t port)
 {
+#if ENABLE_DEBUG
 	switch (port)
 	{
 		case 0x0C:
@@ -343,25 +362,32 @@ void DebugRPort(uint16_t port)
 			exit(-1);
 			break;
 	}
+#endif
 }
 
 uint8_t GetPortB(uint16_t port)
 {
+#if ENABLE_DEBUG
 	printf("GetPortB : %04X - TODO\n",port);
 	DebugRPort(port);
+#endif
 	return 0x00;
 }
 
 void SetPortB(uint16_t port,uint8_t byte)
 {
 	ASIC_Write(port,byte);
+#if ENABLE_DEBUG
 	DebugWPort(port);
+#endif
 }
 
 uint16_t GetPortW(uint16_t port)
 {
+#if ENABLE_DEBUG
 	printf("GetPortW : %04X - TODO\n",port);
 	DebugRPort(port);
+#endif
 	if (port==0xC0)
 		return rand()&0xFFFF;
 	return 0x0000;
@@ -371,10 +397,13 @@ void SetPortW(uint16_t port,uint16_t word)
 {
 	ASIC_Write(port,word&0xFF);
 	ASIC_Write(port+1,word>>8);
+#if ENABLE_DEBUG
 	DebugWPort(port);
+#endif
 }
 
 
+#if ENABLE_DEBUG
 void DUMP_REGISTERS()
 {
 	printf("--------\n");
@@ -674,6 +703,7 @@ void DisassembleRange(unsigned int start,unsigned int end)
 		start+=Disassemble(start,0);
 	}
 }	
+#endif
 
 void DSP_RESET(void);
 void STEP(void);
@@ -689,10 +719,12 @@ void CPU_RESET()
 
 int CPU_STEP(int doDebug)
 {
+#if ENABLE_DEBUG
 	if (doDebug)
 	{
 		Disassemble(SEGTOPHYS(CS,IP),1);
 	}
+#endif
 	STEP();
 
 	return CYCLES;
@@ -728,14 +760,15 @@ int main(int argc,char**argv)
 
 	while (1==1)
 	{
-/*		if (SEGTOPHYS(CS,IP)==0x08107)
+#if ENABLE_DEBUG
+		if (SEGTOPHYS(CS,IP)==0x08107)
 		{
 			doDebug=1;
 			debugWatchWrites=1;
 //			debugWatchReads=1;
 			numClocks=1;
 		}
-//		else*/
+#endif
 		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);
 		masterClock+=numClocks;

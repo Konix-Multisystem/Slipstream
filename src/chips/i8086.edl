@@ -180,7 +180,6 @@ FUNCTION STEP
 	{
 		interruptPending<-0;
 		# Standard interrupt procedure
-		DEBUG_TRACE "VECTOR:",BASE 16,interruptVector;
 		CALL PushWord(FLAGS);
 		I<-0;
 		CALL PushWord(CS);
@@ -189,11 +188,8 @@ FUNCTION STEP
 		DECLARE dummy[2];
 		TMP<-interruptVector;
 		TMP<-ROL(TMP,dummy,%0000,2);
-		DEBUG_TRACE "VECTOR:",BASE 16,TMP;
 		CALL FetchWord($0000,TMP)->IP;
 		CALL FetchWord($0000,TMP+2)->CS;
-
-		DEBUG_TRACE "Vectored : ",BASE 16,CS,":",IP;
 
 		61->CYCLES;
 	}

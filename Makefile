@@ -5,6 +5,7 @@ GLLIBS= -L../glfw-3/lib -lglfw -lglu32 -lopengl32
 EDL=../edl/bin/edl.exe
 
 DISABLE_AUDIO=1
+ENABLE_DEBUG=0
 
 ifeq ($(DISABLE_AUDIO),1)
 ALHEADERS=
@@ -14,7 +15,7 @@ ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
 ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
 endif
 
-COMPILE=-c -O0 -g -DDISABLE_AUDIO=$(DISABLE_AUDIO) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
+COMPILE=-c -O0 -g -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
 
 clean:
 	$(RM) -rf out/*

@@ -101,7 +101,9 @@ void ASIC_Write(uint16_t port,uint8_t byte)
 			ASIC_BLTCON=byte;
 			break;
 		default:
+#if ENABLE_DEBUG
 			printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+#endif
 			break;
 	}
 }
