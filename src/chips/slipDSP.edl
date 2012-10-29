@@ -1,0 +1,47 @@
+# SlipStream DSP
+#
+# Simplified - Relatively quickly knocked together 
+#
+# Memory should be internal to chip - I`ll fix later
+#
+
+
+
+
+C_FUNC_EXTERN	[16]	GetWord		[16];
+# unsigned char GetByte(unsigned short);
+#  Called when the cpu wants to read from memory
+C_FUNC_EXTERN		SetWord		[16],[16];
+# void SetByte(unsigned short,unsigned char);
+#  Called when the cpu wants to write to memory
+C_FUNC_EXTERN		SetDAC		[8],[16];
+# void SetDAC(unsigned char,unsigned short);
+#  Called when the DSP writes to the audio DAC (first parameter is DAC mask (bit 0 left, bit 1 right)), second parameter is DAC value
+
+# Programmer registers
+
+############
+
+DECLARE IP[16];
+
+############
+
+############
+
+FUNCTION STEP
+{
+	DECLARE	IR[16]	ALIAS	Instruction[7]:Address[9];
+
+	IR<-CALL GetWord(IP);
+	IP<-IP+2;
+	
+	EXECUTE	Instruction;
+}
+
+FUNCTION RESET
+{
+	IP<-0;
+}
+
+############
+

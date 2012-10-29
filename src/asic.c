@@ -118,6 +118,12 @@ void ASIC_Write(uint16_t port,uint8_t byte)
 //
 
 extern unsigned char PALETTE[256*2];
+void DSP_STEP(void);
+
+void DoDSP()
+{
+	//DSP_STEP();
+}
 
 void TickAsic(int cycles)
 {
@@ -126,6 +132,8 @@ void TickAsic(int cycles)
 	outputTexture+=vClock*WIDTH + hClock;
 	while (cycles)
 	{
+		DoDSP();
+
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{

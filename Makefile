@@ -1,12 +1,20 @@
 all: slipstream
 
 GLHEADERS=-I../glfw-3/include
-ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
 GLLIBS= -L../glfw-3/lib -lglfw -lglu32 -lopengl32
-ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
 EDL=../edl/bin/edl.exe
 
-COMPILE=-c -O3 -g -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
+DISABLE_AUDIO=1
+
+ifeq ($(DISABLE_AUDIO),1)
+ALHEADERS=
+ALLIBS=
+else
+ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
+ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
+endif
+
+COMPILE=-c -O0 -g -DDISABLE_AUDIO=$(DISABLE_AUDIO) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
 
 clean:
 	$(RM) -rf out/*
@@ -19,6 +27,13 @@ out/i8086.lls: src/chips/i8086.edl
 
 out/i8086.lls.s: out/i8086.lls
 	llc out/i8086.lls
+
+out/slipDSP.lls: src/chips/slipDSP.edl
+	mkdir -p out
+	$(EDL) -O2 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
+
+out/slipDSP.lls.s: out/slipDSP.lls
+	llc out/slipDSP.lls
 
 out/audio.o: src/host/audio.h src/host/audio.c
 	mkdir -p out
@@ -40,6 +55,6 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	mkdir -p out
 	gcc $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/asic.o
-	gcc -O3 -g out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o
+	gcc -O0 -g out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 

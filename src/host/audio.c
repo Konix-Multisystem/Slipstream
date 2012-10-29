@@ -4,6 +4,8 @@
 
 */
 
+#if !DISABLE_AUDIO
+
 #include <al.h>
 #include <alc.h>
 
@@ -165,4 +167,5 @@ void AudioUpdate(int numClocks)
 	}
 }
 
+#endif//!DISABLE_AUDIO
 

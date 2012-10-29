@@ -26,6 +26,29 @@ unsigned char RAM[256*1024];
 unsigned char DSP[4*1024];
 unsigned char PALETTE[256*2];
 
+uint16_t DSP_GetWord(uint16_t addr)
+{
+	uint16_t word=0xAAAA;
+	if (addr<4*1024-1)
+	{
+		word=(DSP[addr+1]<<8)|DSP[addr];
+		return word;
+	}
+	printf("Out of Bounds Read from DSP %04X\n",addr);
+	exit(1);
+}
+void DSP_SetWord(uint16_t addr,uint16_t word)
+{
+	if (addr<4*1024-1)
+	{
+		DSP[addr]=word&0xFF;
+		DSP[addr+1]=word>>8;
+		return;
+	}
+	printf("Out of Bounds Write from DSP %04X<-%04X\n",addr,word);
+	exit(1);
+}
+
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 uint8_t GetPortB(uint16_t port);
@@ -74,6 +97,7 @@ extern uint16_t	IP;
 extern uint16_t FLAGS;
 
 int doDebug=0;
+uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
 
@@ -210,6 +234,10 @@ uint8_t PeekByte(uint32_t addr)
 void SetByte(uint32_t addr,uint8_t byte)
 {
 	addr&=0xFFFFF;
+	if (addr==doDebugTrapWriteAt)
+	{
+		printf("STOMP STOMP STOMP\n");
+	}
 	if (debugWatchWrites)
 	{
 		printf("Writing to address : %05X<-%02X\n",addr,byte);
@@ -334,6 +362,8 @@ uint16_t GetPortW(uint16_t port)
 {
 	printf("GetPortW : %04X - TODO\n",port);
 	DebugRPort(port);
+	if (port==0xC0)
+		return rand()&0xFFFF;
 	return 0x0000;
 }
 
@@ -645,6 +675,7 @@ void DisassembleRange(unsigned int start,unsigned int end)
 	}
 }	
 
+void DSP_RESET(void);
 void STEP(void);
 void RESET(void);
 
@@ -679,6 +710,7 @@ int main(int argc,char**argv)
 	}
 	
 	CPU_RESET();
+	DSP_RESET();
 
 	if (LoadMSU(argv[1]))
 		return 1;
@@ -691,16 +723,19 @@ int main(int argc,char**argv)
 	
 //	DisassembleRange(0x0000,0x4000);
 
+	doDebugTrapWriteAt=0x0827B;
+//	debugWatchWrites=1;
+
 	while (1==1)
 	{
-		if (SEGTOPHYS(CS,IP)==0x8115)//0x08107)
+/*		if (SEGTOPHYS(CS,IP)==0x08107)
 		{
 			doDebug=1;
 			debugWatchWrites=1;
-			debugWatchReads=1;
+//			debugWatchReads=1;
 			numClocks=1;
 		}
-		else
+//		else*/
 		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);
 		masterClock+=numClocks;
