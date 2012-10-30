@@ -4,9 +4,13 @@
 
 */
 
+#include <stdio.h>
+
 #include <GL/glfw3.h>
 
 unsigned char keyArray[512*3];
+float joystickAxis[8];
+char joystickButtons[16];
 
 int KeyDown(int key)
 {
@@ -33,6 +37,25 @@ void kbHandler( GLFWwindow window, int key, int action )		/* At present ignores 
 void KeysIntialise()
 {
 	glfwSetKeyCallback(kbHandler);
+}
+
+
+void JoystickPoll()
+{
+	int a;
+
+	glfwGetJoystickAxes(GLFW_JOYSTICK_1,joystickAxis,8);
+	glfwGetJoystickButtons(GLFW_JOYSTICK_1, joystickButtons, 16);
+}
+
+float JoystickAxis(int axis)
+{
+	return joystickAxis[axis];
+}
+
+int JoyDown(int button)
+{
+	return joystickButtons[button];
 }
 
 void KeysKill()

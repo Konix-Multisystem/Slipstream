@@ -1,7 +1,7 @@
 all: slipstream
 
 GLHEADERS=-I../glfw-3/include
-GLLIBS= -L../glfw-3/lib -lglfw -lglu32 -lopengl32
+GLLIBS= -L../glfw-3/lib -lglfw3 -lglu32 -lopengl32 -lgdi32
 EDL=../edl/bin/edl.exe
 
 DISABLE_AUDIO=1

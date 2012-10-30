@@ -8,6 +8,7 @@
 #include <GL/glext.h>
 
 #include <malloc.h>
+#include <string.h>
 
 #include "video.h"
 
@@ -86,7 +87,7 @@ void VideoInitialise(int width,int height,const char* name)
 	windowHeight[MAIN_WINDOW]=height;
 
 	// Open invaders OpenGL window 
-	if( !(windows[MAIN_WINDOW]=glfwOpenWindow( width, height, GLFW_WINDOWED,name,NULL)) ) 
+	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height, GLFW_WINDOWED,name,NULL)) ) 
 	{ 
 		glfwTerminate(); 
 		exit(1);
@@ -110,7 +111,7 @@ void VideoUpdate()
 {
 	glfwMakeContextCurrent(windows[MAIN_WINDOW]);
 	ShowScreen(MAIN_WINDOW,windowWidth[MAIN_WINDOW],windowHeight[MAIN_WINDOW]);
-	glfwSwapBuffers();
+	glfwSwapBuffers(windows[MAIN_WINDOW]);
 				
 	glfwPollEvents();
 }

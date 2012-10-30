@@ -480,7 +480,8 @@ void TickKeyboard()
 {
 	int a;
 	static const int keyToJoy[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
-					0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
+					0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
+//					0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
 	for (a=0;a<16;a++)
 	{
 		if (KeyDown(GLFW_KEY_F1+a))
@@ -496,13 +497,27 @@ void TickKeyboard()
 	{
 		if (keyToJoy[a]!=0)
 		{
-			if (KeyDown(keyToJoy[a]))
+			if (keyToJoy[a]>=0x10000000)
 			{
-				joyPadState|=1<<a;
+				if (JoyDown(keyToJoy[a]&0xF))
+				{
+					joyPadState|=1<<a;
+				}
+				else
+				{
+					joyPadState&=~(1<<a);
+				}
 			}
 			else
 			{
-				joyPadState&=~(1<<a);
+				if (KeyDown(keyToJoy[a]))
+				{
+					joyPadState|=1<<a;
+				}
+				else
+				{
+					joyPadState&=~(1<<a);
+				}
 			}
 		}
 		else
@@ -510,7 +525,7 @@ void TickKeyboard()
 			joyPadState&=~(1<<a);
 		}
 	}
-	if (KeyDown(GLFW_KEY_SPACE))
+	if (JoyDown(0))
 	{
 		buttonState|=0x01;
 	}
@@ -542,6 +557,27 @@ void TickKeyboard()
 	{
 		buttonState&=~0x20;
 	}
+
+	PotXValue=(JoystickAxis(0)*127)+128;
+	PotYValue=(JoystickAxis(1)*127)+128;
+	PotZValue=(JoystickAxis(3)*127)+128;
+	if (JoystickAxis(2)>=0.0f)
+	{
+		PotLPValue=(JoystickAxis(2)*255);
+	}
+	else
+	{
+		PotLPValue=0;
+	}
+	if (JoystickAxis(2)<0.0f)
+	{
+		PotRPValue=-(JoystickAxis(2)*255);
+	}
+	else
+	{
+		PotRPValue=0;
+	}
+	PotSpareValue=(JoystickAxis(4)*127)+128;
 }
 
 #if ENABLE_DEBUG
@@ -921,6 +957,7 @@ int main(int argc,char**argv)
 			masterClock-=WIDTH*HEIGHT;
 
 			TickKeyboard();
+			JoystickPoll();
 			VideoUpdate();
 
 			if (CheckKey(GLFW_KEY_ESC))
