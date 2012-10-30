@@ -268,6 +268,138 @@ void SetByte(uint32_t addr,uint8_t byte)
 	}
 	if (addr>=0xC1000 && addr<=0xC1FFF)
 	{
+#if ENABLE_DEBUG
+		if ((addr-0xC1000)>=0x800 && (addr-0xC1000)<0xE00 )
+		{
+			if (addr&1)
+			{
+				uint16_t pWord = DSP[addr-0xC1001] | (byte<<8);
+				uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
+				uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
+				uint8_t isConditional=(pWord&0x0400)>>10;
+				uint8_t isIndexed=(pWord&0x0200)>>9;
+
+				printf("Program Dump %04X  ",pWord);
+				
+				// Quick test
+
+				switch (pOpcode)
+				{
+					case 0:
+						printf("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 1:
+						printf("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 2:
+						printf("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 3:
+						printf("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 4:
+						printf("%s CCF\n",isConditional?"IF C THEN":"");
+						break;
+					case 5:
+						printf("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 6:
+						printf("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 7:
+						printf("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 8:
+						printf("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 9:
+						printf("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 10:
+						printf("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 11:
+						printf("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 12:
+						printf("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 13:
+						printf("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 14:
+						printf("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 15:
+						printf("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 16:
+						printf("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 17:
+						printf("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 18:
+						printf("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 19:
+						printf("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 20:
+						printf("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 21:
+						printf("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 22:
+						printf("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 23:
+						printf("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 24:
+						printf("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 25:
+						printf("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 26:
+						printf("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 27:
+						printf("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 28:
+						printf("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 29:
+						printf("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						break;
+					case 30:
+						printf("%s NOP\n",isConditional?"IF C THEN":"");
+						break;
+					case 31:
+						printf("%s INTRUDE\n",isConditional?"IF C THEN":"");
+						break;
+				}
+			}
+		}
+		else
+		{
+			if ((addr-0xC1000)>=0x300 && (addr-0xC1000)<0x800 )
+			{
+				if (addr&1)
+				{
+					uint16_t pWord = DSP[addr-0xC1001] | (byte<<8);
+					printf("Data Dump : %04X <- %04X\n",addr-0xC1001,pWord);
+				}
+			}
+			else
+			{
+				printf("Write To DSP : offset : %04X <- %02X\n",addr-0xC1000,byte);
+			}
+		}
+#endif
 		DSP[addr-0xC1000]=byte;
 		return;
 	}
