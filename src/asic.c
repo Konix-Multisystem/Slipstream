@@ -6,10 +6,13 @@
 */
 
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "video.h"
+#include "audio.h"
 #include "asic.h"
 
 #define RGB4_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
@@ -126,9 +129,144 @@ void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
 extern unsigned char PALETTE[256*2];
 void DSP_STEP(void);
 
+void DSP_SetDAC(uint8_t channels,uint16_t value)
+{
+	// Bleep
+	if (channels&1)
+	{
+		_AudioAddData(0,value);
+	}
+	if (channels&2)
+	{
+		_AudioAddData(1,value);
+	}
+}
+
+#if ENABLE_DEBUG
+
+extern uint8_t *DSP_DIS_[32];			// FROM EDL
+
+extern uint16_t	DSP_PC;
+extern uint16_t	DSP_IX;
+extern uint16_t	DSP_MZ0;
+extern uint16_t	DSP_MZ1;
+extern uint16_t	DSP_MZ2;
+extern uint16_t	DSP_MODE;
+extern uint16_t	DSP_X;
+extern uint16_t	DSP_Z;
+	
+uint16_t DSP_GetProgWord(uint16_t address);
+
+void DSP_DUMP_REGISTERS()
+{
+	printf("--------\n");
+	printf("FLAGS = C\n");
+	printf("        %s\n",	DSP_MZ2&0x10?"1":"0");
+	printf("IX = %04X\n",DSP_IX);
+	printf("MZ0= %04X\n",DSP_MZ0);
+	printf("MZ1= %04X\n",DSP_MZ1);
+	printf("MZ2= %04X\n",DSP_MZ2&0xF);
+	printf("MDE= %04X\n",DSP_MODE);
+	printf("X  = %04X\n",DSP_X);
+	printf("Z  = %04X\n",DSP_Z);
+	printf("--------\n");
+}
+
+const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+	uint16_t word=DSP_GetProgWord(address);
+	uint16_t data=word&0x1FF;
+	int index=(word&0x200)>>9;
+	const char* mnemonic=(char*)table[(word&0xF800)>>11];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='%')
+			{
+				doingDecode=1;
+			}
+			else
+			{
+				*dPtr++=*sPtr;
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			int negOffs=1;
+			if (*sPtr=='-')
+			{
+				sPtr++;
+				negOffs=-1;
+			}
+			sprintf(sprintBuffer,"%04X%s",data,index?"+IX":"");
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	
+	return temporaryBuffer;
+}
+
+int DSP_Disassemble(unsigned int address,int registers)
+{
+	const char* retVal = DSP_decodeDisasm(DSP_DIS_,address);
+
+	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
+	{
+		printf("UNKNOWN AT : %04X\n",address);
+		printf("%04X ",DSP_GetProgWord(address));
+		printf("\n");
+		DSP_DUMP_REGISTERS();
+		exit(-1);
+	}
+
+	if (registers)
+	{
+		DSP_DUMP_REGISTERS();
+	}
+	printf("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+
+	printf("%04X ",DSP_GetProgWord(address));
+	printf("   ");
+	printf("%s\n",retVal);
+
+	return 1;
+}
+
+#endif
+
+extern unsigned char DSP[4*1024];
+
 void DoDSP()
 {
-	DSP_STEP();
+	if (DSP[0xFF0]==0x10)
+	{
+#if ENABLE_DEBUG
+		DSP_Disassemble(DSP_PC,1);
+#endif
+		DSP_STEP();
+	}
 }
 
 uint8_t PeekByte(uint32_t addr);

@@ -2,7 +2,7 @@
 #
 # Simplified - Relatively quickly knocked together 
 #
-# Memory should be internal to chip - I`ll fix later
+# Memory should be internal to chip - I`ll fix later - for now its mirroring values left and right
 #
 
 
@@ -24,36 +24,139 @@ C_FUNC_EXTERN		SetDAC		[8],[16];
 # void SetDAC(unsigned char,unsigned short);
 #  Called when the DSP writes to the audio DAC (first parameter is DAC mask (bit 0 left, bit 1 right)), second parameter is DAC value
 
-# Programmer registers
-
 ############
 
-DECLARE GO[8];		# does what it says, not quite correct, will be improved in future
-
-DECLARE IP[16];
+DECLARE	PC[16];
+DECLARE	IX[16]		ALIAS	IXdc[7]:IX_ACTUAL[9];
+DECLARE	MZ0[16];
+DECLARE	MZ1[16];
+DECLARE	MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+DECLARE	MODE[16];
+DECLARE	X[16];
+DECLARE	Z[16];
 
 ############
 	
 DECLARE	INTERNAL 	IR[16]	ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
 
+
+DECLARE INTERNAL	MirrorPC[16]	ALIAS	$014A;
+DECLARE INTERNAL	MirrorIX[16]	ALIAS	$0141;
+DECLARE INTERNAL	MirrorMZ0[16]	ALIAS	$0145;
+DECLARE INTERNAL	MirrorMZ1[16]	ALIAS	$0146;
+DECLARE INTERNAL	MirrorMZ2[16]	ALIAS	$0147;
+DECLARE INTERNAL	MirrorMODE[16]	ALIAS	$014B;
+DECLARE INTERNAL	MirrorX[16]	ALIAS	$014C;
+DECLARE INTERNAL	MirrorZ[16]	ALIAS	$014D;
+
+
 ############
 
 FUNCTION STEP
 {
-	IF GO!=0
+	IR<-CALL GetProgWord(PC);
+	PC<-PC+1;
+	CALL SetDataWord(MirrorPC,PC);
+
+	IF Index
 	{
-		IR<-CALL GetProgWord(IP);
-		IP<-IP+1;
-	
+		Address<-Address + IX_ACTUAL;
+	}
+
+	IF (~Conditional) | C
+	{
 		EXECUTE	Instruction;
 	}
 }
 
 FUNCTION RESET
 {
-	IP<-0;
-	GO<-0;
+	PC<-0;
+	CALL SetDataWord(MirrorPC,PC);
 }
 
 ############
+
+INSTRUCTION	"MOV MODE,(%$1)"	%01010
+{
+	MODE<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorMODE,MODE);
+}
+
+INSTRUCTION	"MOV IX,(%$1)"		%01011
+{
+	IX<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorIX,IX);
+}
+
+INSTRUCTION	"MOV X,(%$1)"		%01101
+{
+	X<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorX,X);
+}
+
+INSTRUCTION	"ADD (%$1)"		%10000
+{
+	DECLARE tmp[16];
+	CALL GetDataWord(Address)->tmp;
+
+	AFFECT C AS CARRY(15) { tmp + X } -> Z;
+	CALL SetDataWord(MirrorZ,Z);
+	CALL SetDataWord(MirrorMZ2,MZ2);
+}
+
+INSTRUCTION	"AND (%$1)"		%10010
+{
+	CALL GetDataWord(Address) & X->Z;
+	CALL SetDataWord(MirrorZ,Z);
+}
+
+INSTRUCTION	"ADC (%$1)"		%10100
+{
+	DECLARE tmp[16];
+	CALL GetDataWord(Address)->tmp;
+
+	AFFECT C AS CARRY(15) { tmp + X + C } -> Z;
+	CALL SetDataWord(MirrorZ,Z);
+	CALL SetDataWord(MirrorMZ2,MZ2);
+}
+
+INSTRUCTION	"MOV (%$1),AZ"		%10110
+{
+	CALL SetDataWord(Address,Z);
+	CALL SetDataWord(MirrorZ,Z);
+}
+
+INSTRUCTION	"MOV DAC1,(%$1)"	%11001
+{
+	CALL SetDAC(1,CALL GetDataWord(Address));
+}
+
+INSTRUCTION	"MOV DAC2,(%$1)"	%11010
+{
+	CALL SetDAC(2,CALL GetDataWord(Address));
+}
+
+INSTRUCTION	"MOV DAC12,(%$1)"	%11011
+{
+	CALL SetDAC(3,CALL GetDataWord(Address));
+}
+
+INSTRUCTION	"MOV PC,(%$1)"		%11101
+{
+	PC<-CALL GetDataWord(Address);				### TODO - there is a 2 stage pipeline, so instruction following PC will also be executed before the use of adjusted PC
+	CALL SetDataWord(MirrorPC,PC);
+}
+
+INSTRUCTION	"NOP"			%11110
+{
+
+}
+
+
+INSTRUCTION	"INTRUDE"		%11111
+{
+	# TODO
+}
+
 
