@@ -8,11 +8,17 @@
 
 
 
-C_FUNC_EXTERN	[16]	GetWord		[16];
-# unsigned char GetByte(unsigned short);
-#  Called when the cpu wants to read from memory
-C_FUNC_EXTERN		SetWord		[16],[16];
-# void SetByte(unsigned short,unsigned char);
+C_FUNC_EXTERN	[16]	GetProgWord		[16];
+# unsigned char GetWord(unsigned short);
+#  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
+C_FUNC_EXTERN		SetProgWord		[16],[16];
+# void SetWord(unsigned short,unsigned short);
+#  Called when the cpu wants to write to memory
+C_FUNC_EXTERN	[16]	GetDataWord		[16];
+# unsigned char GetWord(unsigned short);
+#  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
+C_FUNC_EXTERN		SetDataWord		[16],[16];
+# void SetWord(unsigned short,unsigned short);
 #  Called when the cpu wants to write to memory
 C_FUNC_EXTERN		SetDAC		[8],[16];
 # void SetDAC(unsigned char,unsigned short);
@@ -22,25 +28,31 @@ C_FUNC_EXTERN		SetDAC		[8],[16];
 
 ############
 
+DECLARE GO[8];		# does what it says, not quite correct, will be improved in future
+
 DECLARE IP[16];
 
 ############
+	
+DECLARE	INTERNAL 	IR[16]	ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
 
 ############
 
 FUNCTION STEP
 {
-	DECLARE	IR[16]	ALIAS	Instruction[7]:Address[9];
-
-	IR<-CALL GetWord(IP);
-	IP<-IP+2;
+	IF GO!=0
+	{
+		IR<-CALL GetProgWord(IP);
+		IP<-IP+1;
 	
-	EXECUTE	Instruction;
+		EXECUTE	Instruction;
+	}
 }
 
 FUNCTION RESET
 {
 	IP<-0;
+	GO<-0;
 }
 
 ############

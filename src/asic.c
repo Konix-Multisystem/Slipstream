@@ -38,7 +38,7 @@ uint8_t		ASIC_DIAG=0;
 uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
 
-void ASIC_Write(uint16_t port,uint8_t byte)
+void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
 {
 	switch (port)
 	{
@@ -103,7 +103,10 @@ void ASIC_Write(uint16_t port,uint8_t byte)
 			break;
 		default:
 #if ENABLE_DEBUG
-			printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			if (warnIgnore)
+			{
+				printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			}
 #endif
 			break;
 	}
@@ -125,8 +128,10 @@ void DSP_STEP(void);
 
 void DoDSP()
 {
-	//DSP_STEP();
+	DSP_STEP();
 }
+
+uint8_t PeekByte(uint32_t addr);
 
 void TickAsic(int cycles)
 {

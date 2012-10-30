@@ -15,5 +15,6 @@ extern unsigned char *videoMemory[MAX_WINDOWS];
 void VideoInitialise(int width,int height,const char* name);
 void VideoUpdate();
 void VideoKill();
+void VideoWait();
 
 #endif//_VIDEO__H

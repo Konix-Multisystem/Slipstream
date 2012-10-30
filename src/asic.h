@@ -23,5 +23,6 @@
 #define	HEIGHT	(312)			// Should probably remove vsync period and overscan
 
 	void TickAsic(int cycles);
+	void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore);
 
 #endif//_ASIC__H

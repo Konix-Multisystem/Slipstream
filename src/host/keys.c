@@ -11,7 +11,7 @@
 unsigned char keyArray[512*3];
 int joystickDetected=0;
 float joystickAxis[8];
-char joystickButtons[16];
+unsigned char joystickButtons[16];
 
 int KeyDown(int key)
 {
@@ -54,8 +54,6 @@ void KeysIntialise()
 
 void JoystickPoll()
 {
-	int a;
-
 	glfwGetJoystickAxes(GLFW_JOYSTICK_1,joystickAxis,8);
 	glfwGetJoystickButtons(GLFW_JOYSTICK_1, joystickButtons, 16);
 }

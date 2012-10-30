@@ -26,7 +26,7 @@ unsigned char RAM[256*1024];
 unsigned char DSP[4*1024];
 unsigned char PALETTE[256*2];
 
-uint16_t DSP_GetWord(uint16_t addr)
+uint16_t DSP_GetProgWord(uint16_t addr)
 {
 	uint16_t word=0xAAAA;
 	if (addr<4*1024-1)
@@ -38,8 +38,39 @@ uint16_t DSP_GetWord(uint16_t addr)
 	printf("Out of Bounds Read from DSP %04X\n",addr);
 	exit(1);
 #endif
+
+	return 0xAAAA;
 }
-void DSP_SetWord(uint16_t addr,uint16_t word)
+void DSP_SetProgWord(uint16_t addr,uint16_t word)
+{
+	if (addr<4*1024-1)
+	{
+		DSP[addr]=word&0xFF;
+		DSP[addr+1]=word>>8;
+		return;
+	}
+#if ENABLE_DEBUG
+	printf("Out of Bounds Write from DSP %04X<-%04X\n",addr,word);
+	exit(1);
+#endif
+}
+
+uint16_t DSP_GetDataWord(uint16_t addr)
+{
+	uint16_t word=0xAAAA;
+	if (addr<4*1024-1)
+	{
+		word=(DSP[addr+1]<<8)|DSP[addr];
+		return word;
+	}
+#if ENABLE_DEBUG
+	printf("Out of Bounds Read from DSP %04X\n",addr);
+	exit(1);
+#endif
+	return 0xAAAA;
+}
+
+void DSP_SetDataWord(uint16_t addr,uint16_t word)
 {
 	if (addr<4*1024-1)
 	{
@@ -101,6 +132,7 @@ extern uint16_t	IP;
 extern uint16_t FLAGS;
 
 int doDebug=0;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -196,7 +228,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 				expectedSize-=HandleExecuteSection(inFile);
 				break;
 			default:
-				printf("Unknown section type @%d : %02X\n",ftell(inFile)-1,sectionType);
+				printf("Unknown section type @%ld : %02X\n",ftell(inFile)-1,sectionType);
 				return 1;
 		}
 	}
@@ -537,8 +569,11 @@ uint8_t GetPortB(uint16_t port)
 	}
 
 #if ENABLE_DEBUG
-	printf("GetPortB : %04X - TODO\n",port);
-	DebugRPort(port);
+	if (doShowPortStuff)
+	{
+		printf("GetPortB : %04X - TODO\n",port);
+		DebugRPort(port);
+	}
 #endif
 	return 0x00;
 }
@@ -555,19 +590,25 @@ void SetPortB(uint16_t port,uint8_t byte)
 			numPadRowSelect=byte;
 			break;
 		default:
-			ASIC_Write(port,byte);
+			ASIC_Write(port,byte,doShowPortStuff);
 			break;
 	}
 #if ENABLE_DEBUG
-	DebugWPort(port);
+	if (doShowPortStuff)
+	{
+		DebugWPort(port);
+	}
 #endif
 }
 
 uint16_t GetPortW(uint16_t port)
 {
 #if ENABLE_DEBUG
-	printf("GetPortW : %04X - TODO\n",port);
-	DebugRPort(port);
+	if (doShowPortStuff)
+	{
+		printf("GetPortW : %04X - TODO\n",port);
+		DebugRPort(port);
+	}
 #endif
 	if (port==0xC0)
 	{
@@ -597,14 +638,17 @@ uint16_t GetPortW(uint16_t port)
 
 void SetPortW(uint16_t port,uint16_t word)
 {
-	ASIC_Write(port,word&0xFF);
-	ASIC_Write(port+1,word>>8);
+	ASIC_Write(port,word&0xFF,doShowPortStuff);
+	ASIC_Write(port+1,word>>8,doShowPortStuff);
 	if (port==0xC0)
 	{
 		ADPSelect=word&0xFF;
 	}
 #if ENABLE_DEBUG
-	DebugWPort(port);
+	if (doShowPortStuff)
+	{
+		DebugWPort(port);
+	}
 #endif
 }
 
@@ -769,7 +813,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 	}
 	else
 	{
-		const char* mnemonic=table[byte];
+		const char* mnemonic=(char*)table[byte];
 		const char* sPtr=mnemonic;
 		char* dPtr=temporaryBuffer;
 		int counting = 0;
@@ -1051,7 +1095,6 @@ int CPU_STEP(int doDebug)
 	
 int main(int argc,char**argv)
 {
-	int a;
 	int numClocks;
 
 	if (argc!=2)
@@ -1074,19 +1117,19 @@ int main(int argc,char**argv)
 	
 //	DisassembleRange(0x0000,0x4000);
 
-	doDebugTrapWriteAt=0x0827B;
+//	doDebugTrapWriteAt=0x0827B;
 //	debugWatchWrites=1;
 
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x08107)
-		{
-			doDebug=1;
-			debugWatchWrites=1;
+//		if (SEGTOPHYS(CS,IP)==0x08107)
+//		{
+//			doDebug=1;
+//			debugWatchWrites=1;
 //			debugWatchReads=1;
-			numClocks=1;
-		}
+//			numClocks=1;
+//		}
 #endif
 		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);
