@@ -14,6 +14,7 @@ void ClearKey(int key);
 void KeysIntialise();
 void KeysKill();
 
+int JoystickPresent();
 void JoystickPoll();
 float JoystickAxis(int axis);
 int JoyDown(int button);

@@ -9,6 +9,7 @@
 #include <GL/glfw3.h>
 
 unsigned char keyArray[512*3];
+int joystickDetected=0;
 float joystickAxis[8];
 char joystickButtons[16];
 
@@ -37,6 +38,17 @@ void kbHandler( GLFWwindow window, int key, int action )		/* At present ignores 
 void KeysIntialise()
 {
 	glfwSetKeyCallback(kbHandler);
+
+	joystickDetected=glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_PRESENT);
+	if (!joystickDetected)
+	{
+		printf("Unable to locate Joystick, using keyboard controls\n - Note Analogue functionality will not work!\n");
+	}
+	else
+	{
+		printf("Joystick has %d axis and %d buttons\n - Currently button/axis mappings are based on 360 controller -\nApologies if your joystick does not work correctly!\n",
+			glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_AXES),glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_BUTTONS));
+	}
 }
 
 
@@ -56,6 +68,11 @@ float JoystickAxis(int axis)
 int JoyDown(int button)
 {
 	return joystickButtons[button];
+}
+
+int JoystickPresent()
+{
+	return joystickDetected;
 }
 
 void KeysKill()

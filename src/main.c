@@ -611,9 +611,16 @@ void SetPortW(uint16_t port,uint16_t word)
 void TickKeyboard()
 {
 	int a;
-	static const int keyToJoy[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
-					0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
-//					0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
+	static const int keyToJoy_KB[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
+						0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
+	static const int keyToJoy_JY[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
+						0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
+	const int* keyToJoy=keyToJoy_KB;
+	if (JoystickPresent())
+	{
+		keyToJoy=keyToJoy_JY;
+	}
+
 	for (a=0;a<16;a++)
 	{
 		if (KeyDown(GLFW_KEY_F1+a))
@@ -657,7 +664,7 @@ void TickKeyboard()
 			joyPadState&=~(1<<a);
 		}
 	}
-	if (JoyDown(0))
+	if ((JoystickPresent() && JoyDown(0))||(!JoystickPresent() && KeyDown(GLFW_KEY_SPACE)))
 	{
 		buttonState|=0x01;
 	}
@@ -690,26 +697,29 @@ void TickKeyboard()
 		buttonState&=~0x20;
 	}
 
-	PotXValue=(JoystickAxis(0)*127)+128;
-	PotYValue=(JoystickAxis(1)*127)+128;
-	PotZValue=(JoystickAxis(3)*127)+128;
-	if (JoystickAxis(2)>=0.0f)
+	if (JoystickPresent())
 	{
-		PotLPValue=(JoystickAxis(2)*255);
+		PotXValue=(JoystickAxis(0)*127)+128;
+		PotYValue=(JoystickAxis(1)*127)+128;
+		PotZValue=(JoystickAxis(3)*127)+128;
+		if (JoystickAxis(2)>=0.0f)
+		{
+			PotLPValue=(JoystickAxis(2)*255);
+		}
+		else
+		{
+			PotLPValue=0;
+		}
+		if (JoystickAxis(2)<0.0f)
+		{
+			PotRPValue=-(JoystickAxis(2)*255);
+		}
+		else
+		{
+			PotRPValue=0;
+		}
+		PotSpareValue=(JoystickAxis(4)*127)+128;
 	}
-	else
-	{
-		PotLPValue=0;
-	}
-	if (JoystickAxis(2)<0.0f)
-	{
-		PotRPValue=-(JoystickAxis(2)*255);
-	}
-	else
-	{
-		PotRPValue=0;
-	}
-	PotSpareValue=(JoystickAxis(4)*127)+128;
 }
 
 #if ENABLE_DEBUG
