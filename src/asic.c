@@ -298,6 +298,7 @@ extern unsigned char DSP[4*1024];
 
 void DoDSP()
 {
+#if !DISABLE_DSP
 	static int iamslow=10;
 	if (DSP[0xFF0]==0x10)
 	{
@@ -314,6 +315,7 @@ void DoDSP()
 		else
 			iamslow--;
 	}
+#endif
 }
 
 uint8_t PeekByte(uint32_t addr);
