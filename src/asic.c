@@ -153,7 +153,7 @@ extern uint16_t	DSP_MZ1;
 extern uint16_t	DSP_MZ2;
 extern uint16_t	DSP_MODE;
 extern uint16_t	DSP_X;
-extern uint16_t	DSP_Z;
+extern uint16_t	DSP_AZ;
 	
 uint16_t DSP_GetProgWord(uint16_t address);
 
@@ -168,8 +168,38 @@ void DSP_DUMP_REGISTERS()
 	printf("MZ2= %04X\n",DSP_MZ2&0xF);
 	printf("MDE= %04X\n",DSP_MODE);
 	printf("X  = %04X\n",DSP_X);
-	printf("Z  = %04X\n",DSP_Z);
+	printf("AZ = %04X\n",DSP_AZ);
 	printf("--------\n");
+}
+
+const char* DSP_LookupAddress(uint16_t address)
+{
+	static char sprintBuffer[256];
+
+	switch (address)
+	{
+		case 0x014A:
+			return "PC";
+		case 0x0141:
+			return "IX";
+		case 0x0145:
+			return "MZ0";
+		case 0x0146:
+			return "MZ1";
+		case 0x0147:
+			return "MZ2";
+		case 0x014B:
+			return "MODE";
+		case 0x014C:
+			return "X";
+		case 0x014D:
+			return "AZ";
+		default:
+			break;
+	}
+
+	sprintf(sprintBuffer,"(%04X)",address);
+	return sprintBuffer;
 }
 
 const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
@@ -213,7 +243,15 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 				sPtr++;
 				negOffs=-1;
 			}
-			sprintf(sprintBuffer,"%04X%s",data,index?"+IX":"");
+
+			if (index)
+			{
+				sprintf(sprintBuffer,"(%04X%s)",data,"+IX");
+			}
+			else
+			{
+				sprintf(sprintBuffer,"%s",DSP_LookupAddress(data));
+			}
 			while (*tPtr)
 			{
 				*dPtr++=*tPtr++;
