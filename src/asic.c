@@ -298,12 +298,21 @@ extern unsigned char DSP[4*1024];
 
 void DoDSP()
 {
+	static int iamslow=10;
 	if (DSP[0xFF0]==0x10)
 	{
+		if (iamslow==0)
+		{
+
 #if ENABLE_DEBUG
 		DSP_Disassemble(DSP_PC,1);
 #endif
 		DSP_STEP();
+
+			iamslow=10;
+		}
+		else
+			iamslow--;
 	}
 }
 
