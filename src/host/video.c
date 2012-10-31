@@ -9,7 +9,9 @@
 
 #include <malloc.h>
 #include <string.h>
+#include <stdint.h>
 
+#include "audio.h"
 #include "video.h"
 
 unsigned char *videoMemory[MAX_WINDOWS];
@@ -87,7 +89,7 @@ void VideoInitialise(int width,int height,const char* name)
 	windowHeight[MAIN_WINDOW]=height;
 
 	// Open invaders OpenGL window 
-	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height, GLFW_WINDOWED,name,NULL)) ) 
+	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height*2, GLFW_WINDOWED,name,NULL)) ) 
 	{ 
 		glfwTerminate(); 
 		exit(1);
@@ -101,6 +103,9 @@ void VideoInitialise(int width,int height,const char* name)
 	glfwSwapInterval(0);			// Disable VSYNC
 
 	atStart=glfwGetTime();
+
+	glViewport(0, 0, width, height*2);
+
 }
 
 void VideoKill()
@@ -125,6 +130,8 @@ void VideoWait()
 	while ((remain<0.02f))
 	{
 		now=glfwGetTime();
+
+		AudioUpdate(0);
 
 		remain = now-atStart;
 	}
