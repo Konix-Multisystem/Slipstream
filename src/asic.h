@@ -25,4 +25,7 @@
 	void TickAsic(int cycles);
 	void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore);
 
+	void ASIC_HostDSPMemWrite(uint16_t address,uint8_t byte);
+	uint8_t ASIC_HostDSPMemRead(uint16_t address);
+
 #endif//_ASIC__H
