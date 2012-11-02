@@ -69,6 +69,16 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 	DSP[0x000 + addr + 1]=word>>8;
 }
 
+void PALETTE_INIT()
+{
+	int a;
+	for (a=0;a<256;a++)			// Setup a dummy palette (helps in debugging)
+	{
+		PALETTE[a*2+0]=a;
+		PALETTE[a*2+1]=a;
+	}
+}
+
 void DSP_RAM_INIT()
 {
 	int a;
@@ -1048,6 +1058,7 @@ int main(int argc,char**argv)
 	CPU_RESET();
 	DSP_RESET();
 
+	PALETTE_INIT();
 	DSP_RAM_INIT();
 
 	if (LoadMSU(argv[1]))
