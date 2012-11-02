@@ -3,6 +3,8 @@
 	ASIC test
 
 	Currently contains some REGISTERS and some video hardware - will move to EDL eventually
+
+	Need to break this up some more, blitter going here temporarily
 */
 
 
@@ -40,6 +42,152 @@ uint8_t		ASIC_MEM=0;
 uint8_t		ASIC_DIAG=0;
 uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
+uint8_t		ASIC_BLTCMD=0;
+uint32_t	ASIC_BLTPC=0;				// 20 bit address
+
+uint8_t GetByte(uint32_t addr);
+void SetByte(uint32_t addr,uint8_t byte);
+
+void TickBlitter()
+{
+	// Step one, make the blitter "free"
+
+	if (ASIC_BLTCMD & 1)
+	{
+		int a,b;
+		uint8_t BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs!!
+		uint32_t BLT_OUTER_SRC;
+		uint32_t BLT_OUTER_DST;
+		uint8_t BLT_OUTER_MODE;
+		uint8_t BLT_OUTER_CPLG;
+		uint8_t BLT_OUTER_CNT;
+		uint16_t BLT_INNER_CNT;
+		uint8_t BLT_INNER_STEP;
+		uint8_t BLT_INNER_PAT;
+
+
+		do
+		{
+#if ENABLE_DEBUG
+		printf("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			BLT_OUTER_CMD&0x02?1:0,
+			BLT_OUTER_CMD&0x04?1:0,
+			BLT_OUTER_CMD&0x08?1:0,
+			BLT_OUTER_CMD&0x10?1:0,
+			BLT_OUTER_CMD&0x20?1:0,
+			BLT_OUTER_CMD&0x40?1:0,
+			BLT_OUTER_CMD&0x80?1:0);
+
+		if (BLT_OUTER_CMD&0x4E)
+		{
+			printf("Unsupported BLT CMD type\n");
+			exit(1);
+		}
+
+
+		printf("Fetching Program Sequence :\n");
+#endif
+		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_DST=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_DST|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_DST|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_CPLG=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_MODE=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+#if ENABLE_DEBUG
+		printf("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+		printf("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+		printf("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+		printf("Comp Logic : %02X\n",BLT_OUTER_CPLG);
+		printf("Inner Count : %02X\n",BLT_INNER_CNT);
+		printf("Mode Control : %02X\n",BLT_OUTER_MODE);
+		printf("Pattern : %02X\n",BLT_INNER_PAT);
+		printf("Step : %02X\n",BLT_INNER_STEP);
+#endif
+		for (a=0;a<BLT_OUTER_CNT;a++)
+		{
+			uint8_t tmp=0;
+
+			for (b=0;b<BLT_OUTER_CNT;b++)
+			{
+				if ((BLT_OUTER_CMD&0x80) && b==0)
+				{
+					tmp=GetByte(BLT_OUTER_SRC);
+					BLT_OUTER_SRC++;
+				}
+
+				// hard coded test
+				if (BLT_OUTER_MODE&0x80)
+				{
+					if (BLT_OUTER_MODE&0x04)
+					{
+						if (tmp& (1<<b))
+						{
+							SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
+						}
+					}
+					else
+					{
+						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
+					}
+				}
+//				else
+//				{
+//					tmp=GetByte(BLT_OUTER_SRC);
+//					BLT_OUTER_SRC++;
+//					SetByte(BLT_OUTER_DST,tmp);
+//				}
+
+				BLT_OUTER_DST++;
+			}
+
+			BLT_OUTER_DST+=BLT_INNER_STEP;
+		}
+		
+		ASIC_BLTPC++;		// skip segment address
+		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		}
+		while (BLT_OUTER_CMD&1);
+
+//		exit(1);
+
+	}
+}
+
+
 
 void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
 {
@@ -100,6 +248,22 @@ void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x002C:
 			ASIC_DIS=byte;
+			break;
+		case 0x0040:
+			ASIC_BLTPC&=0xFFF00;
+			ASIC_BLTPC|=byte;
+			break;
+		case 0x0041:
+			ASIC_BLTPC&=0xF00FF;
+			ASIC_BLTPC|=byte<<8;
+			break;
+		case 0x0042:
+			ASIC_BLTPC&=0x0FFFF;
+			ASIC_BLTPC|=(byte&0xF)<<16;
+			break;
+		case 0x0043:
+			ASIC_BLTCMD=byte;
+			TickBlitter();
 			break;
 		case 0x0044:
 			ASIC_BLTCON=byte;

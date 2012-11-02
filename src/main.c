@@ -409,6 +409,12 @@ void DebugWPort(uint16_t port)
 		case 0x002C:
 			printf("DIS - disable interupts (Byte address)\n");
 			break;
+		case 0x0040:
+			printf("BLTPC (low 16 bits) (Word address)\n");
+			break;
+		case 0x0042:
+			printf("BLTCMD (Word address)\n");
+			break;
 		case 0x0044:
 			printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
 			break;
