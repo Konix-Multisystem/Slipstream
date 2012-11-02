@@ -740,10 +740,12 @@ void ASIC_HostDSPMemWrite(uint16_t addr,uint8_t byte)
 
 uint8_t ASIC_HostDSPMemRead(uint16_t addr)
 {
-#if ENABLE_DEBUG
 	if (addr>=0x800 && addr<0xE00)
 	{
+#if ENABLE_DEBUG
 		printf("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
+#endif
+		return DSP[addr];
 	}
 	else
 	{
@@ -751,18 +753,32 @@ uint8_t ASIC_HostDSPMemRead(uint16_t addr)
 		{
 			if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 			{
+#if ENABLE_DEBUG
 				printf("Host DSP Data Read (Alternate Map) : %04X\n",addr);
+#endif
+				if (addr<0x200)
+				{
+					return DSP[addr+0x300];
+				}
+				if (addr>=0x300 && addr<0x500)
+				{
+					return DSP[addr-0x300];
+				}
 			}
 			else
 			{
+#if ENABLE_DEBUG
 				printf("Host DSP Data Read (Normal Map) : %04X\n",addr);
+#endif
+				return DSP[addr];
 			}
 		}
 		else
 		{
+#if ENABLE_DEBUG
 			printf("Host DSP Data Read (Unknown (FF0 status!)) : %04X\n",addr);
+#endif
 		}
 	}
-#endif
 	return DSP[addr];
 }
