@@ -154,8 +154,10 @@ extern uint8_t *DIS_XX00000010[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
 extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
+extern uint8_t *DIS_XX00010011[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
+extern uint8_t *DIS_XX00111010[256];			// FROM EDL
 extern uint8_t *DIS_XX00111011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000000[256];			// FROM EDL
 extern uint8_t *DIS_XX10000001[256];			// FROM EDL
@@ -174,6 +176,33 @@ extern uint8_t *DIS_XX11110110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111111[256];			// FROM EDL
 
+extern uint32_t DIS_max_;			// FROM EDL
+extern uint32_t DIS_max_XX00000010;			// FROM EDL
+extern uint32_t DIS_max_XX00000011;			// FROM EDL
+extern uint32_t DIS_max_XX00001010;			// FROM EDL
+extern uint32_t DIS_max_XX00001011;			// FROM EDL
+extern uint32_t DIS_max_XX00010011;			// FROM EDL
+extern uint32_t DIS_max_XX00110010;			// FROM EDL
+extern uint32_t DIS_max_XX00110011;			// FROM EDL
+extern uint32_t DIS_max_XX00111010;			// FROM EDL
+extern uint32_t DIS_max_XX00111011;			// FROM EDL
+extern uint32_t DIS_max_XX10000000;			// FROM EDL
+extern uint32_t DIS_max_XX10000001;			// FROM EDL
+extern uint32_t DIS_max_XX10000011;			// FROM EDL
+extern uint32_t DIS_max_XX10000110;			// FROM EDL
+extern uint32_t DIS_max_XX10001001;			// FROM EDL
+extern uint32_t DIS_max_XX10001010;			// FROM EDL
+extern uint32_t DIS_max_XX10001011;			// FROM EDL
+extern uint32_t DIS_max_XX10001100;			// FROM EDL
+extern uint32_t DIS_max_XX10001110;			// FROM EDL
+extern uint32_t DIS_max_XX11000111;			// FROM EDL
+extern uint32_t DIS_max_XX11010000;			// FROM EDL
+extern uint32_t DIS_max_XX11010001;			// FROM EDL
+extern uint32_t DIS_max_XX11010011;			// FROM EDL
+extern uint32_t DIS_max_XX11110110;			// FROM EDL
+extern uint32_t DIS_max_XX11111110;			// FROM EDL
+extern uint32_t DIS_max_XX11111111;			// FROM EDL
+
 extern uint16_t	AX;
 extern uint16_t	BX;
 extern uint16_t	CX;
@@ -190,7 +219,7 @@ extern uint16_t	IP;
 extern uint16_t FLAGS;
 
 int doDebug=0;
-int doShowPortStuff=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -767,7 +796,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			
 			int tmpCount=0;
-			decodeDisasm(DIS_,address+1,&tmpCount,256);
+			decodeDisasm(DIS_,address+1,&tmpCount,DIS_max_);
 			*count=tmpCount+1;
 			strcpy(segOveride,mnemonic+10);
 			strcat(segOveride,temporaryBuffer);
@@ -776,161 +805,175 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		if (strcmp(mnemonic,"XX00000010")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00000010,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00000010,address+1,&tmpCount,DIS_max_XX00000010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00000011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00000011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00000011,address+1,&tmpCount,DIS_max_XX00000011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00001010")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00001010,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00001010,address+1,&tmpCount,DIS_max_XX00001010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00001011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00001011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00001011,address+1,&tmpCount,DIS_max_XX00001011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00010011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00010011,address+1,&tmpCount,DIS_max_XX00010011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00110010")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00110010,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00110010,address+1,&tmpCount,DIS_max_XX00110010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00110011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,DIS_max_XX00110011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00111010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00111010,address+1,&tmpCount,DIS_max_XX00111010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX00111011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00111011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX00111011,address+1,&tmpCount,DIS_max_XX00111011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10000000")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10000000,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10000000,address+1,&tmpCount,DIS_max_XX10000000);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10000001")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10000001,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10000001,address+1,&tmpCount,DIS_max_XX10000001);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10000011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10000011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10000011,address+1,&tmpCount,DIS_max_XX10000011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10000110")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10000110,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10000110,address+1,&tmpCount,DIS_max_XX10000110);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10001001")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10001001,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10001001,address+1,&tmpCount,DIS_max_XX10001001);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10001010")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10001010,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10001010,address+1,&tmpCount,DIS_max_XX10001010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10001011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10001011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10001011,address+1,&tmpCount,DIS_max_XX10001011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10001100")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10001100,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10001100,address+1,&tmpCount,DIS_max_XX10001100);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX10001110")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,DIS_max_XX10001110);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11000111")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,DIS_max_XX11000111);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11010000")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11010000,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11010000,address+1,&tmpCount,DIS_max_XX11010000);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11010001")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11010001,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11010001,address+1,&tmpCount,DIS_max_XX11010001);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11010011")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11010011,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11010011,address+1,&tmpCount,DIS_max_XX11010011);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11110110")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11110110,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11110110,address+1,&tmpCount,DIS_max_XX11110110);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11111110")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11111110,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11111110,address+1,&tmpCount,DIS_max_XX11111110);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
 		if (strcmp(mnemonic,"XX11111111")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX11111111,address+1,&tmpCount,256);
+			decodeDisasm(DIS_XX11111111,address+1,&tmpCount,DIS_max_XX11111111);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -978,7 +1021,7 @@ int Disassemble(unsigned int address,int registers)
 {
 	int a;
 	int numBytes=0;
-	const char* retVal = decodeDisasm(DIS_,address,&numBytes,256);
+	const char* retVal = decodeDisasm(DIS_,address,&numBytes,DIS_max_);
 
 	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
 	{
@@ -1079,7 +1122,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x88058)
+		if (SEGTOPHYS(CS,IP)==0x8807C)
 		{
 			doDebug=1;
 			debugWatchWrites=1;
