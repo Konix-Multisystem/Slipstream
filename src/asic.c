@@ -388,6 +388,7 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 	uint16_t word=DSP_GetProgWord(address);
 	uint16_t data=word&0x1FF;
 	int index=(word&0x200)>>9;
+	int cond=(word&0x400)>>9;
 	const char* mnemonic=(char*)table[(word&0xF800)>>11];
 	const char* sPtr=mnemonic;
 	char* dPtr=temporaryBuffer;
@@ -404,13 +405,24 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 	{
 		if (!doingDecode)
 		{
-			if (*sPtr=='%')
+			if (*sPtr=='.')
 			{
-				doingDecode=1;
+				if (cond)
+				{
+					*dPtr++=*sPtr;
+					*dPtr++='C';
+				}
 			}
 			else
 			{
-				*dPtr++=*sPtr;
+				if (*sPtr=='%')
+				{
+					doingDecode=1;
+				}
+				else
+				{
+					*dPtr++=*sPtr;
+				}
 			}
 		}
 		else
