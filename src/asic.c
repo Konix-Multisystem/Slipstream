@@ -464,7 +464,7 @@ void DoDSP()
 {
 #if !DISABLE_DSP
 	static int iamslow=10;
-	if (DSP[0xFF0]==0x10)
+	if (DSP[0xFF0]&0x10)
 	{
 		if (iamslow==0)
 		{
@@ -734,6 +734,14 @@ void ASIC_HostDSPMemWrite(uint16_t addr,uint8_t byte)
 				printf("Host Write To DSP Data : %04X <- %04X\n",addr-1,pWord);
 			}
 #endif
+			DSP[addr]=byte;
+		}
+		if (addr>=0xE00)
+		{
+#if ENABLE_DEBUG
+			printf("Host Write to DSP Data (Unknown (FF0 status!)) : %04X\n",addr);
+#endif
+			DSP[addr]=byte;
 		}
 	}
 }
