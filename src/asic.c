@@ -412,6 +412,11 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 					*dPtr++=*sPtr;
 					*dPtr++='C';
 				}
+				if (index)
+				{
+					*dPtr++=*sPtr;
+					*dPtr++='X';
+				}
 			}
 			else
 			{
@@ -435,14 +440,7 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 				negOffs=-1;
 			}
 
-			if (index)
-			{
-				sprintf(sprintBuffer,"(%04X%s)",data,"+IX");
-			}
-			else
-			{
-				sprintf(sprintBuffer,"%s",DSP_LookupAddress(data));
-			}
+			sprintf(sprintBuffer,"%s",DSP_LookupAddress(data));
 			while (*tPtr)
 			{
 				*dPtr++=*tPtr++;
@@ -487,6 +485,8 @@ int DSP_Disassemble(unsigned int address,int registers)
 
 extern unsigned char DSP[4*1024];
 
+int doDSPDisassemble=0;
+
 void DoDSP()
 {
 #if !DISABLE_DSP
@@ -497,7 +497,14 @@ void DoDSP()
 		{
 
 #if ENABLE_DEBUG
-		DSP_Disassemble(DSP_DEBUG_PC,1);
+		if (DSP_DEBUG_PC==8)
+		{
+			doDSPDisassemble=1;
+		}
+		if (doDSPDisassemble)
+		{
+			DSP_Disassemble(DSP_DEBUG_PC,1);
+		}
 #endif
 		DSP_STEP();
 

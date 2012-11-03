@@ -28,6 +28,13 @@ unsigned char RAM[RAM_SIZE];
 unsigned char DSP[4*1024];							
 unsigned char PALETTE[256*2];			
 
+uint8_t GetByte(uint32_t addr);
+void SetByte(uint32_t addr,uint8_t byte);
+uint8_t GetPortB(uint16_t port);
+void SetPortB(uint16_t port,uint8_t byte);
+uint16_t GetPortW(uint16_t port);
+void SetPortW(uint16_t port,uint16_t word);
+
 uint16_t DSP_GetProgWord(uint16_t addr)
 {
 	addr&=0x1FF;		// 9 bits
@@ -50,6 +57,8 @@ void DSP_SetProgWord(uint16_t addr,uint16_t word)
 #endif
 }
 
+extern int doDSPDisassemble;
+
 uint16_t DSP_GetDataWord(uint16_t addr)
 {
 	// I think the memory map was slightly configurable based on comments in sources, for now make Data start at 0
@@ -61,14 +70,20 @@ uint16_t DSP_GetDataWord(uint16_t addr)
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
 #if ENABLE_DEBUG
-			printf("Reading from Alternate : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Reading from Alternate : %04X -> %04X\n",addr,DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8));
+			}
 #endif
 			return DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8);
 		}
 		else
 		{
 #if ENABLE_DEBUG
-			printf("Reading from Rom : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Reading from Rom : %04X -> %04X\n",addr,DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8));
+			}
 #endif
 		}
 	}
@@ -77,19 +92,42 @@ uint16_t DSP_GetDataWord(uint16_t addr)
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
 #if ENABLE_DEBUG
-			printf("Reading from Alternate : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Reading from Alternate : %04X -> %04X\n",addr,DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8));
+			}
 #endif
 			return DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8);
 		}
 		else
 		{
 #if ENABLE_DEBUG
-			printf("Reading from Normal : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Reading from Normal : %04X -> %04X\n",addr,DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8));
+			}
 #endif
 		}
 	}
 
 	return DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8);
+}
+
+uint16_t DSP_DMAGetWord(uint32_t addr)
+{
+#if ENABLE_DEBUG
+	printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
+#endif
+	return GetByte(addr&0xFFFFE)|(GetByte((addr&0xFFFFE) +1)<<8);
+}
+
+void DSP_DMASetWord(uint32_t addr,uint16_t word)
+{
+#if ENABLE_DEBUG
+	printf("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
+#endif
+	SetByte(addr&0xFFFFE,word&0xFF);
+	SetByte((addr&0xFFFFE)+1,word>>8);
 }
 
 void DSP_SetDataWord(uint16_t addr,uint16_t word)
@@ -103,7 +141,10 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
 #if ENABLE_DEBUG
-			printf("Writing to Alternate : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Writing to Alternate : %04X <- %04X\n",addr,word);
+			}
 #endif
 			DSP[0x300 + addr + 0]=word&0xFF;
 			DSP[0x300 + addr + 1]=word>>8;
@@ -111,7 +152,10 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 		else
 		{
 #if ENABLE_DEBUG
-			printf("Writing to ROM (ignored)!! : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Writing to ROM (ignored)!! : %04X <- %04X\n",addr,word);
+			}
 #endif
 			return;
 		}
@@ -121,7 +165,10 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
 #if ENABLE_DEBUG
-			printf("Writing to Alternate : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Writing to Alternate : %04X <- %04X\n",addr,word);
+			}
 #endif
 			DSP[(addr - 0x300) + 0]=word&0xFF;
 			DSP[(addr - 0x300) + 1]=word>>8;
@@ -129,7 +176,10 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 		else
 		{
 #if ENABLE_DEBUG
-			printf("Writing to Normal : %04X\n",addr);
+			if (doDSPDisassemble)
+			{
+				printf("Writing to Normal : %04X <- %04X\n",addr,word);
+			}
 #endif
 		}
 	}
@@ -216,12 +266,6 @@ void DSP_RAM_INIT()
 
 
 
-uint8_t GetByte(uint32_t addr);
-void SetByte(uint32_t addr,uint8_t byte);
-uint8_t GetPortB(uint16_t port);
-void SetPortB(uint16_t port,uint8_t byte);
-uint16_t GetPortW(uint16_t port);
-void SetPortW(uint16_t port,uint16_t word);
 
 int masterClock=0;
 
@@ -1179,6 +1223,8 @@ void RESET(void);
 extern uint16_t	PC;
 extern uint8_t CYCLES;
 
+extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
+
 void CPU_RESET()
 {
 	RESET();
@@ -1192,7 +1238,14 @@ int CPU_STEP(int doDebug)
 		Disassemble(SEGTOPHYS(CS,IP),1);
 	}
 #endif
-	STEP();
+	if (!DSP_CPU_HOLD)
+	{
+		STEP();
+	}
+	else
+	{
+		return 1;		// CPU HELD, MASTER CLOCKS continue
+	}
 
 	return CYCLES;
 }

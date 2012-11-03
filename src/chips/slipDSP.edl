@@ -9,6 +9,8 @@
 
 
 
+C_FUNC_EXTERN	[16]	DMAGetWord		[32];
+C_FUNC_EXTERN		DMASetWord		[32],[16];
 
 C_FUNC_EXTERN	[16]	GetProgWord		[16];
 # unsigned char GetWord(unsigned short);
@@ -33,14 +35,14 @@ DECLARE	IX[16]		ALIAS	IXdc[7]:IX_ACTUAL[9];
 DECLARE	MZ0[16];
 DECLARE	MZ1[16];
 DECLARE	MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
-DECLARE	MODE[16];
+DECLARE	MODE[16]	ALIAS	MODEdc[9]:TCX[1]:TCYN[1]:M[1]:S[4];
 DECLARE	X[16];
 DECLARE	AZ[16];
 
 ############
 
 DECLARE			DEBUG_PC[16];
-
+DECLARE			CPU_HOLD[8];
 ############
 
 DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
@@ -48,6 +50,9 @@ DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
 DECLARE INTERNAL	MirrorPC[16]	ALIAS	$014A;
 DECLARE INTERNAL	MirrorIX[16]	ALIAS	$0141;
+DECLARE INTERNAL	MirrorDMA0[16]	ALIAS	$0142;
+DECLARE INTERNAL	MirrorDMA1[16]	ALIAS	$0143;
+DECLARE INTERNAL	MirrorDMD[16]	ALIAS	$0144;
 DECLARE INTERNAL	MirrorMZ0[16]	ALIAS	$0145;
 DECLARE INTERNAL	MirrorMZ1[16]	ALIAS	$0146;
 DECLARE INTERNAL	MirrorMZ2[16]	ALIAS	$0147;
@@ -55,6 +60,9 @@ DECLARE INTERNAL	MirrorMODE[16]	ALIAS	$014B;
 DECLARE INTERNAL	MirrorX[16]	ALIAS	$014C;
 DECLARE INTERNAL	MirrorAZ[16]	ALIAS	$014D;
 
+DECLARE INTERNAL	DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+DECLARE INTERNAL	DMA0[16]	ALIAS	DMA_ADD_LO[16];
+DECLARE INTERNAL	DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 
 ############
 
@@ -80,12 +88,71 @@ FUNCTION STEP
 
 FUNCTION RESET
 {
+	CPU_HOLD<-0;
 	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
 	PC<-0;
 	CALL SetDataWord(MirrorPC,PC);
 }
 
+FUNCTION DoDMA
+{
+	DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+
+	IF DMA_BW
+	{
+		DEBUG_TRACE "DMA Byte Width Not Supported Yet!";
+	}
+	IF ~DMA_BW
+	{
+		IF DMA_RW
+		{
+			DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER[16];
+			UPPER<-DMA1[0..3];
+			LOWER<-DMA0;
+			DMD<-CALL DMAGetWord(ADDR);
+		}
+		IF ~DMA_RW
+		{
+			DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER[16];
+			UPPER<-DMA1[0..3];
+			LOWER<-DMA0;
+			CALL DMASetWord(ADDR,DMD);
+		}
+	}
+}
+
 ############
+
+INSTRUCTION	"MOV. MZ1,%$1"		%00011
+{
+	MZ1<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorMZ1,MZ1);
+}
+
+INSTRUCTION	"CCF."			%00100
+{
+	C<-~C;
+	CALL SetDataWord(MirrorMZ2,MZ2);
+}
+
+INSTRUCTION	"MOV. DMA0,%$1"		%00101
+{
+	DMA0<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorDMA0,DMA0);
+	CALL DoDMA();
+}
+
+INSTRUCTION	"MOV. DMA1,%$1"		%00110
+{
+	DMA1<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorDMA1,DMA1);
+	CPU_HOLD<-DMA_HLD;				# HLD status set/cleared on writes to this
+}
+
+INSTRUCTION	"MOV. %$1,DMD"		%01000
+{
+	CALL SetDataWord(Address,DMD);
+}
 
 INSTRUCTION	"MOV. MODE,%$1"		%01010
 {
@@ -110,6 +177,37 @@ INSTRUCTION	"MOV. %$1,X"		%01110
 	CALL SetDataWord(Address,X);
 }
 
+INSTRUCTION	"MULT. %$1,X"		%01111
+{
+	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
+	DECLARE xExt[40];
+	DECLARE tExt[40];
+	DECLARE result[40];
+
+	IF TCX
+	{
+		xExt<-$0000000000++X;
+	}
+	IF ~TCX
+	{
+		xExt<-X;
+	}
+	IF TCYN
+	{
+		tExt<-CALL GetDataWord(Address);
+	}
+	IF ~TCYN
+	{
+		tExt<-$0000000000++CALL GetDataWord(Address);
+	}
+
+	DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
+
+#	result<-xExt * tExt;
+	
+	# Need an implementation of multiply :(
+}
+
 INSTRUCTION	"ADD. %$1"		%10000
 {
 	DECLARE tmp[16];
@@ -125,7 +223,7 @@ INSTRUCTION	"SUB. %$1"		%10001
 	DECLARE tmp[16];
 	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS CARRY(15) { tmp - X } -> AZ;			## Carry might be inverted!
+	AFFECT C AS NOCARRY(15) { X - tmp } -> AZ;
 	CALL SetDataWord(MirrorAZ,AZ);
 	CALL SetDataWord(MirrorMZ2,MZ2);
 }
