@@ -60,24 +60,32 @@ uint16_t DSP_GetDataWord(uint16_t addr)
 	{
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
+#if ENABLE_DEBUG
 			printf("Reading from Alternate : %04X\n",addr);
+#endif
 			return DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8);
 		}
 		else
 		{
+#if ENABLE_DEBUG
 			printf("Reading from Rom : %04X\n",addr);
+#endif
 		}
 	}
 	if (addr>0x300 && addr<0x500)
 	{
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
+#if ENABLE_DEBUG
 			printf("Reading from Alternate : %04X\n",addr);
+#endif
 			return DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8);
 		}
 		else
 		{
+#if ENABLE_DEBUG
 			printf("Reading from Normal : %04X\n",addr);
+#endif
 		}
 	}
 
@@ -94,13 +102,17 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 	{
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
+#if ENABLE_DEBUG
 			printf("Writing to Alternate : %04X\n",addr);
+#endif
 			DSP[0x300 + addr + 0]=word&0xFF;
 			DSP[0x300 + addr + 1]=word>>8;
 		}
 		else
 		{
+#if ENABLE_DEBUG
 			printf("Writing to ROM (ignored)!! : %04X\n",addr);
+#endif
 			return;
 		}
 	}
@@ -108,13 +120,17 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 	{
 		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
 		{
+#if ENABLE_DEBUG
 			printf("Writing to Alternate : %04X\n",addr);
+#endif
 			DSP[(addr - 0x300) + 0]=word&0xFF;
 			DSP[(addr - 0x300) + 1]=word>>8;
 		}
 		else
 		{
+#if ENABLE_DEBUG
 			printf("Writing to Normal : %04X\n",addr);
+#endif
 		}
 	}
 	DSP[0x000 + addr + 0]=word&0xFF;
