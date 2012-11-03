@@ -323,6 +323,8 @@ void DSP_SetDAC(uint8_t channels,uint16_t value)
 
 extern uint8_t *DSP_DIS_[32];			// FROM EDL
 
+extern uint16_t	DSP_DEBUG_PC;
+
 extern uint16_t	DSP_PC;
 extern uint16_t	DSP_IX;
 extern uint16_t	DSP_MZ0;
@@ -483,7 +485,7 @@ void DoDSP()
 		{
 
 #if ENABLE_DEBUG
-		DSP_Disassemble(DSP_PC,1);
+		DSP_Disassemble(DSP_DEBUG_PC,1);
 #endif
 		DSP_STEP();
 

@@ -4,6 +4,8 @@
 #
 # Memory should be internal to chip - I`ll fix later - for now its mirroring values left and right
 #
+#
+# 2 stage pipeline, which means Branch Delay Slot style jumps. Implemented crude Pipeline to simulate
 
 
 
@@ -36,9 +38,13 @@ DECLARE	X[16];
 DECLARE	AZ[16];
 
 ############
-	
-DECLARE	INTERNAL 	IR[16]	ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
 
+DECLARE			DEBUG_PC[16];
+
+############
+
+DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
+DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
 DECLARE INTERNAL	MirrorPC[16]	ALIAS	$014A;
 DECLARE INTERNAL	MirrorIX[16]	ALIAS	$0141;
@@ -54,8 +60,11 @@ DECLARE INTERNAL	MirrorAZ[16]	ALIAS	$014D;
 
 FUNCTION STEP
 {
-	IR<-CALL GetProgWord(PC);
+	currentInstruction<-nextInstruction;
+	DEBUG_PC<-PC;
+	nextInstruction<-CALL GetProgWord(PC);
 	PC<-PC+1;
+	IR<-currentInstruction;
 	CALL SetDataWord(MirrorPC,PC);
 
 	IF Index
@@ -71,6 +80,7 @@ FUNCTION STEP
 
 FUNCTION RESET
 {
+	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
 	PC<-0;
 	CALL SetDataWord(MirrorPC,PC);
 }
@@ -95,12 +105,27 @@ INSTRUCTION	"MOV X,%$1"		%01101
 	CALL SetDataWord(MirrorX,X);
 }
 
+INSTRUCTION	"MOV %$1,X"		%01110
+{
+	CALL SetDataWord(Address,X);
+}
+
 INSTRUCTION	"ADD %$1"		%10000
 {
 	DECLARE tmp[16];
 	CALL GetDataWord(Address)->tmp;
 
 	AFFECT C AS CARRY(15) { tmp + X } -> AZ;
+	CALL SetDataWord(MirrorAZ,AZ);
+	CALL SetDataWord(MirrorMZ2,MZ2);
+}
+
+INSTRUCTION	"SUB %$1"		%10001
+{
+	DECLARE tmp[16];
+	CALL GetDataWord(Address)->tmp;
+
+	AFFECT C AS CARRY(15) { tmp - X } -> AZ;			## Carry might be inverted!
 	CALL SetDataWord(MirrorAZ,AZ);
 	CALL SetDataWord(MirrorMZ2,MZ2);
 }
@@ -144,7 +169,7 @@ INSTRUCTION	"MOV DAC12,%$1"		%11011
 
 INSTRUCTION	"MOV PC,%$1"		%11101
 {
-	PC<-CALL GetDataWord(Address);				### TODO - there is a 2 stage pipeline, so instruction following PC will also be executed before the use of adjusted PC
+	PC<-CALL GetDataWord(Address);
 	CALL SetDataWord(MirrorPC,PC);
 }
 
