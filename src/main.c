@@ -168,6 +168,7 @@ extern uint8_t *DIS_XX10001010[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
 extern uint8_t *DIS_XX10001100[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
+extern uint8_t *DIS_XX11000110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
 extern uint8_t *DIS_XX11010000[256];			// FROM EDL
 extern uint8_t *DIS_XX11010001[256];			// FROM EDL
@@ -195,6 +196,7 @@ extern uint32_t DIS_max_XX10001010;			// FROM EDL
 extern uint32_t DIS_max_XX10001011;			// FROM EDL
 extern uint32_t DIS_max_XX10001100;			// FROM EDL
 extern uint32_t DIS_max_XX10001110;			// FROM EDL
+extern uint32_t DIS_max_XX11000110;			// FROM EDL
 extern uint32_t DIS_max_XX11000111;			// FROM EDL
 extern uint32_t DIS_max_XX11010000;			// FROM EDL
 extern uint32_t DIS_max_XX11010001;			// FROM EDL
@@ -928,6 +930,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX11000110")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11000110,address+1,&tmpCount,DIS_max_XX11000110);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX11000111")==0)
 		{
 			int tmpCount=0;
@@ -1122,7 +1131,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x8807C)
+		if (SEGTOPHYS(CS,IP)==0x881ED)
 		{
 			doDebug=1;
 			debugWatchWrites=1;

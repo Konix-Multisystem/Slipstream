@@ -437,6 +437,13 @@ INSTRUCTION	"XX10001110"		%10001110
 	EXECUTE XX10001110 IR;
 }
 
+INSTRUCTION	"XX11000110"		%11000110
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11000110 IR;
+}
+
 INSTRUCTION	"XX11000111"		%11000111
 {
 	DECLARE IR[8];
@@ -652,7 +659,19 @@ FUNCTION INTERNAL	cyc[8]	CalculateEA	code[3],disp[16]
 	}
 }
 
-MAPPING memmod000[3]
+MAPPING memmod[3]
+{
+	%000	"BX+SI"	CALL CalculateEA(%000,EAdisp);
+	%001	"BX+DI"	CALL CalculateEA(%001,EAdisp);
+	%010	"BP+SI"	CALL CalculateEA(%010,EAdisp);
+	%011	"BP+DI"	CALL CalculateEA(%011,EAdisp);
+	%100	"SI"	CALL CalculateEA(%100,EAdisp);
+	%101	"DI"	CALL CalculateEA(%101,EAdisp);
+	%110	"BP"	CALL CalculateEA(%110,EAdisp);
+	%111	"BX"	CALL CalculateEA(%111,EAdisp);
+}
+
+MAPPING memmod00[3]
 {
 	%000	"BX+SI"	CALL CalculateEA(%000,EAdisp);
 	%001	"BX+DI"	CALL CalculateEA(%001,EAdisp);
@@ -664,12 +683,12 @@ MAPPING memmod000[3]
 	%111	"BX"	CALL CalculateEA(%111,EAdisp);
 }
 
-INSTRUCTION	XX11000111 	"MOV [%M0],#%$2%$1"	%00000:memmod000,B2[8],B3[8]
+INSTRUCTION	XX11000111 	"MOV [%M0],#%$2%$1"	%00000:memmod00,B2[8],B3[8]
 {
 	DECLARE T[16];
 	T<-CALL GetImmediateWord();
 	0->EAdisp;
-	memmod000+10->CYCLES;
+	memmod00+10->CYCLES;
 	CALL StoreWord(DS,EA,T);
 }
 
@@ -682,12 +701,12 @@ INSTRUCTION	XX11000111 	"MOV [#%$2%$1],#%$4%$3"	%00000110,B2[8],B3[8],B4[8],B5[8
 	CALL StoreWord(DS,EAdisp,T);
 }
 
-INSTRUCTION	XX11000111 	"MOV [%M0+#%$1],#%$3%$2"	%01000:memmod000,B2[8],B3[8],B4[8]
+INSTRUCTION	XX11000111 	"MOV [%M0+#%$1],#%$3%$2"	%01000:memmod00,B2[8],B3[8],B4[8]
 {
 	DECLARE T[16];
 	$0000++CALL GetImmediateByte()->EAdisp;
 	T<-CALL GetImmediateWord();
-	memmod000+4+10->CYCLES;
+	memmod00+4+10->CYCLES;
 	CALL StoreWord(DS,EA,T);
 }
 
@@ -699,10 +718,10 @@ INSTRUCTION	XX10000011	"ADD %M0,#%$1"	%11000:regw,B2[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10001011	"MOV %M0,[%M1]"	%00:regw:memmod000
+INSTRUCTION	XX10001011	"MOV %M0,[%M1]"	%00:regw:memmod00
 {
 	0->EAdisp;
-	memmod000+8->CYCLES;
+	memmod00+8->CYCLES;
 	CALL FetchWord(DS,EA)->regw;
 }
 
@@ -720,10 +739,10 @@ INSTRUCTION	XX10000001	"ADD %M0,#%$2%$1"	%11000:regw,B2[8],B3[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$1]"	%01:regw:memmod000,B2[8]
+INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$1]"	%01:regw:memmod00,B2[8]
 {
 	$0000++CALL GetImmediateByte()->EAdisp;
-	memmod000+4+8->CYCLES;
+	memmod00+4+8->CYCLES;
 	CALL FetchWord(DS,EA)->regw;
 }
 
@@ -785,10 +804,10 @@ INSTRUCTION	"J%M0 %$1"	%0111:cond,B2[8]
 	}
 }
 
-INSTRUCTION	XX10001001	"MOV [%M1],%M0"		%00:regw:memmod000
+INSTRUCTION	XX10001001	"MOV [%M1],%M0"		%00:regw:memmod00
 {
 	0->EAdisp;
-	memmod000+9->CYCLES;
+	memmod00+9->CYCLES;
 	CALL StoreWord(DS,EA,regw);
 }
 
@@ -842,13 +861,13 @@ INSTRUCTION	XX10000110	"XCHG %M0,%M1"		%11:regl:reglop2
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10000000	"CMP [%M0],#%$1"	%00111:memmod000,B2[8]
+INSTRUCTION	XX10000000	"CMP [%M0],#%$1"	%00111:memmod00,B2[8]
 {
 	DECLARE TMP[8];
 	DECLARE T[8];
 	TMP<-CALL GetImmediateByte();
 	0->EAdisp;
-	memmod000+10->CYCLES;
+	memmod00+10->CYCLES;
 	CALL FetchByte(DS,EA)->T;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,7), C AS CARRY(7), P AS PARITYEVEN { T - TMP };
 }
@@ -1141,10 +1160,10 @@ INSTRUCTION	"AND AL,#%$1"	%00100100,B2[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10001100	"MOV [%M1+#%$1],%M0"	%010:regs:memmod000,B2[8]
+INSTRUCTION	XX10001100	"MOV [%M1+#%$1],%M0"	%010:regs:memmod00,B2[8]
 {
 	$0000++CALL GetImmediateByte()->EAdisp;
-	memmod000+4+9->CYCLES;
+	memmod00+4+9->CYCLES;
 	CALL StoreWord(DS,EA,regs);
 }
 
@@ -1207,10 +1226,10 @@ INSTRUCTION	"ADD AL,#%$1"	%00000100,B2[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10001010	"MOV %M0,[%M1]"	%00:regl:memmod000
+INSTRUCTION	XX10001010	"MOV %M0,[%M1]"	%00:regl:memmod00
 {
 	0->EAdisp;
-	memmod000+8->CYCLES;
+	memmod00+8->CYCLES;
 	CALL FetchByte(DS,EA)->regl;
 }
 
@@ -1232,6 +1251,64 @@ INSTRUCTION	XX10000011	"ADC %M0,#%$1"	%11010:regw,B2[8]
 	TMP<-$0000 ++ CALL GetImmediateByte();
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { (regw + TMP)+C }->regw;
 	4->CYCLES;
+}
+
+INSTRUCTION	XX10001001	"MOV [%M1+#%$1],%M0"		%01:regw:memmod,B2[8]
+{
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL StoreWord(DS,EA,regw);
+}
+
+INSTRUCTION	XX10000011	"AND %M0,#%$1"	%11100:regw,B2[8]
+{
+	DECLARE TMP[16];
+	TMP<-$0000 ++ CALL GetImmediateByte();
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw & TMP }->regw;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX11000110 	"MOV [#%$2%$1],#%$3"	%00000110,B2[8],B3[8],B4[8]
+{
+	DECLARE T[8];
+	EAdisp<-CALL GetImmediateWord();
+	T<-CALL GetImmediateByte();
+	9+10->CYCLES;
+	CALL StoreByte(DS,EAdisp,T);
+}
+
+INSTRUCTION	"MOVSW"		%10100101
+{
+	DECLARE TMP[16];
+	CALL FetchWord(DS,SI)->TMP;
+	CALL StoreWord(ES,DI,TMP);
+	IF D==0
+	{
+		SI<-SI+2;
+		DI<-DI+2;
+	}
+	IF D==1
+	{
+		SI<-SI-2;
+		DI<-DI-2;
+	}
+	18->CYCLES;
+	IF REPEAT
+	{
+		REPEAT<-0;
+		IP<-IP - 2;
+		15->CYCLES;
+	}
+}
+
+INSTRUCTION	XX11111110	"INC [#%$2%$1]"	%00000:%110,B2[8],B3[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	9+15->CYCLES;
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$01,7), P AS PARITYEVEN { T + 1 }->T;
+	CALL StoreByte(DS,EAdisp,T);
 }
 
 
