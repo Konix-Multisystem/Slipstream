@@ -56,6 +56,31 @@ uint16_t DSP_GetDataWord(uint16_t addr)
 	addr&=0x1FF;		// 9 bits
 	addr*=2;		// byte style addressing
 	
+	if (addr<0x200)
+	{
+		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+		{
+			printf("Reading from Alternate : %04X\n",addr);
+			return DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8);
+		}
+		else
+		{
+			printf("Reading from Rom : %04X\n",addr);
+		}
+	}
+	if (addr>0x300 && addr<0x500)
+	{
+		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+		{
+			printf("Reading from Alternate : %04X\n",addr);
+			return DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8);
+		}
+		else
+		{
+			printf("Reading from Normal : %04X\n",addr);
+		}
+	}
+
 	return DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8);
 }
 
@@ -65,6 +90,41 @@ void DSP_SetDataWord(uint16_t addr,uint16_t word)
 	addr&=0x1FF;		// 9 bits
 	addr*=2;		// byte style addressing
 	
+	if (addr<0x200)
+	{
+		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+		{
+			printf("Writing to Alternate : %04X\n",addr);
+			DSP[0x300 + addr + 0]=word&0xFF;
+			DSP[0x300 + addr + 1]=word>>8;
+		}
+		else
+		{
+			printf("Writing to ROM (ignored)!! : %04X\n",addr);
+			return;
+		}
+	}
+	if (addr>0x300 && addr<0x500)
+	{
+		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+		{
+			printf("Writing to Alternate : %04X\n",addr);
+			DSP[(addr - 0x300) + 0]=word&0xFF;
+			DSP[(addr - 0x300) + 1]=word>>8;
+		}
+		else
+		{
+			printf("Writing to Normal : %04X\n",addr);
+		}
+	}
+	DSP[0x000 + addr + 0]=word&0xFF;
+	DSP[0x000 + addr + 1]=word>>8;
+}
+
+void DSP_InitDataWord(uint16_t addr,uint16_t word)		// Used only during initialisation (ignores mappings,ROM)
+{
+	addr&=0x1FF;		// 9 bits
+	addr*=2;		// byte style addressing
 	DSP[0x000 + addr + 0]=word&0xFF;
 	DSP[0x000 + addr + 1]=word>>8;
 }
@@ -120,22 +180,22 @@ void DSP_RAM_INIT()
 
 	for (a=0;a<256;a++)
 	{
-		DSP_SetDataWord(a,SIN_TAB[a]);
+		DSP_InitDataWord(a,SIN_TAB[a]);
 	}
 
-	DSP_SetDataWord(0x100,0x0000);		// Constants
-	DSP_SetDataWord(0x101,0x0001);		// Constants
-	DSP_SetDataWord(0x102,0x0002);		// Constants
-	DSP_SetDataWord(0x103,0x0004);		// Constants
-	DSP_SetDataWord(0x104,0x0008);		// Constants
-	DSP_SetDataWord(0x105,0x0010);		// Constants
-	DSP_SetDataWord(0x106,0x0020);		// Constants
-	DSP_SetDataWord(0x107,0x0040);		// Constants
-	DSP_SetDataWord(0x108,0x0080);		// Constants
-	DSP_SetDataWord(0x109,0xFFFF);		// Constants
-	DSP_SetDataWord(0x10A,0xFFFE);		// Constants
-	DSP_SetDataWord(0x10B,0xFFFC);		// Constants
-	DSP_SetDataWord(0x10C,0x8000);		// Constants
+	DSP_InitDataWord(0x100,0x0000);		// Constants
+	DSP_InitDataWord(0x101,0x0001);		// Constants
+	DSP_InitDataWord(0x102,0x0002);		// Constants
+	DSP_InitDataWord(0x103,0x0004);		// Constants
+	DSP_InitDataWord(0x104,0x0008);		// Constants
+	DSP_InitDataWord(0x105,0x0010);		// Constants
+	DSP_InitDataWord(0x106,0x0020);		// Constants
+	DSP_InitDataWord(0x107,0x0040);		// Constants
+	DSP_InitDataWord(0x108,0x0080);		// Constants
+	DSP_InitDataWord(0x109,0xFFFF);		// Constants
+	DSP_InitDataWord(0x10A,0xFFFE);		// Constants
+	DSP_InitDataWord(0x10B,0xFFFC);		// Constants
+	DSP_InitDataWord(0x10C,0x8000);		// Constants
 }
 
 
@@ -152,6 +212,7 @@ int masterClock=0;
 extern uint8_t *DIS_[256];			// FROM EDL
 extern uint8_t *DIS_XX00000010[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
+extern uint8_t *DIS_XX00001001[256];			// FROM EDL
 extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
 extern uint8_t *DIS_XX00010011[256];			// FROM EDL
@@ -172,6 +233,7 @@ extern uint8_t *DIS_XX11000110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
 extern uint8_t *DIS_XX11010000[256];			// FROM EDL
 extern uint8_t *DIS_XX11010001[256];			// FROM EDL
+extern uint8_t *DIS_XX11010010[256];			// FROM EDL
 extern uint8_t *DIS_XX11010011[256];			// FROM EDL
 extern uint8_t *DIS_XX11110110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111110[256];			// FROM EDL
@@ -180,6 +242,7 @@ extern uint8_t *DIS_XX11111111[256];			// FROM EDL
 extern uint32_t DIS_max_;			// FROM EDL
 extern uint32_t DIS_max_XX00000010;			// FROM EDL
 extern uint32_t DIS_max_XX00000011;			// FROM EDL
+extern uint32_t DIS_max_XX00001001;			// FROM EDL
 extern uint32_t DIS_max_XX00001010;			// FROM EDL
 extern uint32_t DIS_max_XX00001011;			// FROM EDL
 extern uint32_t DIS_max_XX00010011;			// FROM EDL
@@ -200,6 +263,7 @@ extern uint32_t DIS_max_XX11000110;			// FROM EDL
 extern uint32_t DIS_max_XX11000111;			// FROM EDL
 extern uint32_t DIS_max_XX11010000;			// FROM EDL
 extern uint32_t DIS_max_XX11010001;			// FROM EDL
+extern uint32_t DIS_max_XX11010010;			// FROM EDL
 extern uint32_t DIS_max_XX11010011;			// FROM EDL
 extern uint32_t DIS_max_XX11110110;			// FROM EDL
 extern uint32_t DIS_max_XX11111110;			// FROM EDL
@@ -220,8 +284,14 @@ extern uint16_t	SS;
 extern uint16_t	IP;
 extern uint16_t FLAGS;
 
+uint32_t missing(uint32_t opcode)
+{
+	printf("IP : %04X\n",IP);
+	exit(-1);
+}
+
 int doDebug=0;
-int doShowPortStuff=1;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -818,6 +888,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00001001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00001001,address+1,&tmpCount,DIS_max_XX00001001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00001010")==0)
 		{
 			int tmpCount=0;
@@ -958,6 +1035,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX11010010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11010010,address+1,&tmpCount,DIS_max_XX11010010);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX11010011")==0)
 		{
 			int tmpCount=0;
@@ -1032,7 +1116,7 @@ int Disassemble(unsigned int address,int registers)
 	int numBytes=0;
 	const char* retVal = decodeDisasm(DIS_,address,&numBytes,DIS_max_);
 
-	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
+	if (strcmp(retVal+(strlen(retVal)-14),"UNKNOWN OPCODE")==0)
 	{
 		printf("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
 		for (a=0;a<numBytes+1;a++)
@@ -1131,13 +1215,13 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x881ED)
+/*		if (SEGTOPHYS(CS,IP)==0x8832F)
 		{
 			doDebug=1;
 			debugWatchWrites=1;
 			debugWatchReads=1;
 //			numClocks=1;
-		}
+		}*/
 #endif
 		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);

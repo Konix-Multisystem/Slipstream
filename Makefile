@@ -5,7 +5,7 @@ GLLIBS= -L../glfw-3/lib -lglfw3 -lglu32 -lopengl32 -lgdi32
 EDL=../edl/bin/edl.exe
 
 DISABLE_AUDIO=0
-ENABLE_DEBUG=0
+ENABLE_DEBUG=1
 DISABLE_DSP=0
 
 ifeq ($(DISABLE_AUDIO),1)
@@ -25,7 +25,7 @@ clean:
 
 out/i8086.lls: src/chips/i8086.edl
 	mkdir -p out
-	$(EDL) -O2 src/chips/i8086.edl >out/i8086.lls
+	$(EDL) -t -O2 src/chips/i8086.edl >out/i8086.lls
 
 out/i8086.lls.s: out/i8086.lls
 	llc out/i8086.lls
