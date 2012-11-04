@@ -487,10 +487,12 @@ extern unsigned char DSP[4*1024];
 
 int doDSPDisassemble=0;
 
+#define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
+
 void DoDSP()
 {
 #if !DISABLE_DSP
-	static int iamslow=10;
+	static int iamslow=RATE_ADJUST;
 	if (DSP[0xFF0]&0x10)
 	{
 		if (iamslow==0)
@@ -508,7 +510,7 @@ void DoDSP()
 #endif
 		DSP_STEP();
 
-			iamslow=10;
+			iamslow=RATE_ADJUST;
 		}
 		else
 			iamslow--;
