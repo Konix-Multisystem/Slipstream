@@ -5,7 +5,7 @@ GLLIBS= -L../glfw-3/lib -lglfw3 -lglu32 -lopengl32 -lgdi32
 EDL=../edl/bin/edl.exe
 
 DISABLE_AUDIO=0
-ENABLE_DEBUG=1
+ENABLE_DEBUG=0
 DISABLE_DSP=0
 
 ifeq ($(DISABLE_AUDIO),1)

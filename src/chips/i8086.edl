@@ -339,6 +339,13 @@ INSTRUCTION	"XX00010011"		%00010011
 	EXECUTE XX00010011 IR;
 }
 
+INSTRUCTION	"XX00100001"		%00100001
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00100001 IR;
+}
+
 INSTRUCTION	"XX00110010"		%00110010
 {
 	DECLARE IR[8];
@@ -394,6 +401,13 @@ INSTRUCTION	"XX10000110"		%10000110
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
 	EXECUTE XX10000110 IR;
+}
+
+INSTRUCTION	"XX10001000"		%10001000
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10001000 IR;
 }
 
 INSTRUCTION	"XX10001001"		%10001001
@@ -478,6 +492,13 @@ INSTRUCTION	"XX11110110"		%11110110
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
 	EXECUTE XX11110110 IR;
+}
+
+INSTRUCTION	"XX11110111"		%11110111
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX11110111 IR;
 }
 
 INSTRUCTION	"XX11111110"		%11111110
@@ -832,7 +853,7 @@ INSTRUCTION	XX10001001	"MOV [#%$2%$1],%M0"		%00:regw:%110,B2[8],B3[8]
 	CALL StoreWord(DS,EAdisp,regw);
 }
 
-INSTRUCTION	"MOV [%$2%$1],AX"		%10100011
+INSTRUCTION	"MOV [%$2%$1],AX"		%10100011,B2[8],B3[8]
 {
 	DECLARE T[16];
 	CALL GetImmediateWord()->T;
@@ -1130,7 +1151,7 @@ INSTRUCTION	XX10000000	"CMP %M0,#%$1"	%11111:regl,B2[8]
 
 INSTRUCTION	"TEST AX,#%$2%$1"		%10101001,B2[8],B3[8]
 {
-	DECLARE T[8];
+	DECLARE T[16];
 	CALL GetImmediateWord()->T;
 	AFFECT S AS SIGN, Z AS ZERO, P AS PARITYEVEN { AX & T };
 	4->CYCLES;
@@ -1479,4 +1500,116 @@ INSTRUCTION	XX00111010	"CMP %M0,[%M1+#%$2%$1]"	%10:regl:memmod,B2[8],B3[8]
 	CALL FetchByte(DS,EA)->T;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,T,7), C AS CARRY(7), P AS PARITYEVEN { regl - T };
 }
+
+INSTRUCTION	XX11110110	"MUL %M0"		%11100:regl
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	lhs<-AL;
+	rhs<-regl;
+	AX<-lhs * rhs;
+	C<-AX[7..15]!=$00;
+	O<-C;
+
+	70->CYCLES;								# 70 - 77 cycles
+}
+
+INSTRUCTION	XX10001000	"MOV [%M1+#%$1],%M0"		%01:regl:memmod,B2[8]
+{
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL StoreByte(DS,EA,regl);
+}
+
+INSTRUCTION	"MOV [%$2%$1],AL"		%10100010,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->T;
+	CALL StoreByte(DS,T,AL);
+	10->CYCLES;
+}
+
+INSTRUCTION	XX10000001	"AND %M0,#%$2%$1"		%11100:regw,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw & TMP }->regw;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX00111011	"CMP %M0,[%M1]"	%00:regw:memmod00
+{
+	DECLARE T[16];
+	0->EAdisp;
+	memmod00+9->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,T,15), C AS CARRY(15), P AS PARITYEVEN { regw - T };
+}
+
+INSTRUCTION	XX11110111	"NOT %M0"		%11010:regw
+{
+	regw<-~regw;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX00100001	"AND [#%$2%$1],%M0"		%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+16->CYCLES;
+	CALL FetchWord(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw & TMP }->TMP;
+	CALL StoreWord(DS,EAdisp,TMP);
+}
+
+INSTRUCTION	"TEST AL,#%$1"		%10101000,B2[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateByte()->T;
+	AFFECT S AS SIGN, Z AS ZERO, P AS PARITYEVEN { AX & T };
+	4->CYCLES;
+}
+
+INSTRUCTION	XX11000110 	"MOV [%M0+#%$1],#%$2"	%01000:memmod,B2[8],B3[8]
+{
+	DECLARE T[8];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	T<-CALL GetImmediateByte();
+	memmod+4+10->CYCLES;
+	CALL StoreByte(DS,EA,T);
+}
+
+INSTRUCTION	XX11110110	"DIV %M0"		%11110:regl
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	lhs<-AX;
+	rhs<-regl;
+	AL<-lhs / rhs;
+	AH<-lhs % rhs;
+										# flags are undefined, leaving as they are for now
+	101->CYCLES;								# 101 - 112 cycles
+}
+
+INSTRUCTION	XX11110111	"DIV %M0"		%11110:regw
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DX->lhs[16..31];
+	AX->lhs[0..15];
+	rhs<-regw;
+	AX<-lhs / rhs;
+	DX<-lhs % rhs;
+										# flags are undefined, leaving as they are for now
+	144->CYCLES;								# 144 - 162 cycles
+}
+
+INSTRUCTION	XX10000000	"AND %M0,#%$1"		%11100:regl,B2[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateByte()->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regl & TMP }->regl;
+	4->CYCLES;
+}
+
 

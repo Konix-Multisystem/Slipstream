@@ -96,11 +96,11 @@ FUNCTION RESET
 
 FUNCTION DoDMA
 {
-	DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+	#DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
 
 	IF DMA_BW
 	{
-		DEBUG_TRACE "DMA Byte Width Not Supported Yet!";
+		#DEBUG_TRACE "DMA Byte Width Not Supported Yet!";
 	}
 	IF ~DMA_BW
 	{
@@ -122,6 +122,11 @@ FUNCTION DoDMA
 }
 
 ############
+
+INSTRUCTION	"MOV. %$1,MZ1"		%00001
+{
+	CALL SetDataWord(Address,MZ1);
+}
 
 INSTRUCTION	"MOV. MZ1,%$1"		%00011
 {
@@ -152,6 +157,53 @@ INSTRUCTION	"MOV. DMA1,%$1"		%00110
 INSTRUCTION	"MOV. %$1,DMD"		%01000
 {
 	CALL SetDataWord(Address,DMD);
+}
+
+INSTRUCTION	"MAC. %$1,X"		%01001
+{
+	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
+	DECLARE xExt[40];
+	DECLARE tExt[40];
+	DECLARE result[40];
+	DECLARE mac[40];
+
+	IF TCX
+	{
+		xExt<-$0000000000++X;
+	}
+	IF ~TCX
+	{
+		xExt<-X;
+	}
+	IF TCYN
+	{
+		tExt<-CALL GetDataWord(Address);
+	}
+	IF ~TCYN
+	{
+		tExt<-$0000000000++CALL GetDataWord(Address);
+	}
+
+	#DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
+
+	result<-xExt * tExt;
+	MZ0->mac[0..15];
+	MZ1->mac[16..31];
+	MZ2[0..3]->mac[32..35];
+
+	#DEBUG_TRACE "Operands for add",BASE 16,result,mac;
+
+	mac + result->result;
+
+	#DEBUG_TRACE BASE 16,result;
+
+	result[0..15]->MZ0;
+	result[16..31]->MZ1;
+	result[32..35]->MZ2[0..3];
+	C<-result[36];
+	CALL SetDataWord(MirrorMZ0,MZ0);
+	CALL SetDataWord(MirrorMZ1,MZ1);
+	CALL SetDataWord(MirrorMZ2,MZ2);
 }
 
 INSTRUCTION	"MOV. MODE,%$1"		%01010
@@ -201,11 +253,19 @@ INSTRUCTION	"MULT. %$1,X"		%01111
 		tExt<-$0000000000++CALL GetDataWord(Address);
 	}
 
-	DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
+	#DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
 
-#	result<-xExt * tExt;
-	
-	# Need an implementation of multiply :(
+	result<-xExt * tExt;
+
+	#DEBUG_TRACE BASE 16,result;
+
+	result[0..15]->MZ0;
+	result[16..31]->MZ1;
+	result[32..35]->MZ2[0..3];
+	C<-result[36];
+	CALL SetDataWord(MirrorMZ0,MZ0);
+	CALL SetDataWord(MirrorMZ1,MZ1);
+	CALL SetDataWord(MirrorMZ2,MZ2);
 }
 
 INSTRUCTION	"ADD. %$1"		%10000
@@ -234,12 +294,28 @@ INSTRUCTION	"AND. %$1"		%10010
 	CALL SetDataWord(MirrorAZ,AZ);
 }
 
+INSTRUCTION	"OR. %$1"		%10011
+{
+	CALL GetDataWord(Address) | X->AZ;
+	CALL SetDataWord(MirrorAZ,AZ);
+}
+
 INSTRUCTION	"ADC. %$1"		%10100
 {
 	DECLARE tmp[16];
 	CALL GetDataWord(Address)->tmp;
 
 	AFFECT C AS CARRY(15) { tmp + X + C } -> AZ;
+	CALL SetDataWord(MirrorAZ,AZ);
+	CALL SetDataWord(MirrorMZ2,MZ2);
+}
+
+INSTRUCTION	"SBC. %$1"		%10101
+{
+	DECLARE tmp[16];
+	CALL GetDataWord(Address)->tmp;
+
+	AFFECT C AS NOCARRY(15) { (X - tmp)-C } -> AZ;
 	CALL SetDataWord(MirrorAZ,AZ);
 	CALL SetDataWord(MirrorMZ2,MZ2);
 }

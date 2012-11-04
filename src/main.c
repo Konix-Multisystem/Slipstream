@@ -276,6 +276,7 @@ extern uint8_t *DIS_XX00001001[256];			// FROM EDL
 extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
 extern uint8_t *DIS_XX00010011[256];			// FROM EDL
+extern uint8_t *DIS_XX00100001[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 extern uint8_t *DIS_XX00111010[256];			// FROM EDL
@@ -284,6 +285,7 @@ extern uint8_t *DIS_XX10000000[256];			// FROM EDL
 extern uint8_t *DIS_XX10000001[256];			// FROM EDL
 extern uint8_t *DIS_XX10000011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000110[256];			// FROM EDL
+extern uint8_t *DIS_XX10001000[256];			// FROM EDL
 extern uint8_t *DIS_XX10001001[256];			// FROM EDL
 extern uint8_t *DIS_XX10001010[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
@@ -296,6 +298,7 @@ extern uint8_t *DIS_XX11010001[256];			// FROM EDL
 extern uint8_t *DIS_XX11010010[256];			// FROM EDL
 extern uint8_t *DIS_XX11010011[256];			// FROM EDL
 extern uint8_t *DIS_XX11110110[256];			// FROM EDL
+extern uint8_t *DIS_XX11110111[256];			// FROM EDL
 extern uint8_t *DIS_XX11111110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111111[256];			// FROM EDL
 
@@ -306,6 +309,7 @@ extern uint32_t DIS_max_XX00001001;			// FROM EDL
 extern uint32_t DIS_max_XX00001010;			// FROM EDL
 extern uint32_t DIS_max_XX00001011;			// FROM EDL
 extern uint32_t DIS_max_XX00010011;			// FROM EDL
+extern uint32_t DIS_max_XX00100001;			// FROM EDL
 extern uint32_t DIS_max_XX00110010;			// FROM EDL
 extern uint32_t DIS_max_XX00110011;			// FROM EDL
 extern uint32_t DIS_max_XX00111010;			// FROM EDL
@@ -314,6 +318,7 @@ extern uint32_t DIS_max_XX10000000;			// FROM EDL
 extern uint32_t DIS_max_XX10000001;			// FROM EDL
 extern uint32_t DIS_max_XX10000011;			// FROM EDL
 extern uint32_t DIS_max_XX10000110;			// FROM EDL
+extern uint32_t DIS_max_XX10001000;			// FROM EDL
 extern uint32_t DIS_max_XX10001001;			// FROM EDL
 extern uint32_t DIS_max_XX10001010;			// FROM EDL
 extern uint32_t DIS_max_XX10001011;			// FROM EDL
@@ -326,6 +331,7 @@ extern uint32_t DIS_max_XX11010001;			// FROM EDL
 extern uint32_t DIS_max_XX11010010;			// FROM EDL
 extern uint32_t DIS_max_XX11010011;			// FROM EDL
 extern uint32_t DIS_max_XX11110110;			// FROM EDL
+extern uint32_t DIS_max_XX11110111;			// FROM EDL
 extern uint32_t DIS_max_XX11111110;			// FROM EDL
 extern uint32_t DIS_max_XX11111111;			// FROM EDL
 
@@ -346,7 +352,7 @@ extern uint16_t FLAGS;
 
 uint32_t missing(uint32_t opcode)
 {
-	printf("IP : %04X\n",IP);
+	printf("IP : %04X:%04X\n",CS,IP);
 	exit(-1);
 }
 
@@ -976,6 +982,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00100001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00100001,address+1,&tmpCount,DIS_max_XX00100001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00110010")==0)
 		{
 			int tmpCount=0;
@@ -1029,6 +1042,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX10000110,address+1,&tmpCount,DIS_max_XX10000110);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10001000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001000,address+1,&tmpCount,DIS_max_XX10001000);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1113,6 +1133,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX11110110,address+1,&tmpCount,DIS_max_XX11110110);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX11110111")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX11110111,address+1,&tmpCount,DIS_max_XX11110111);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1284,7 +1311,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-/*		if (SEGTOPHYS(CS,IP)==0x8832F)
+/*		if (SEGTOPHYS(CS,IP)==(0x88969))
 		{
 			doDebug=1;
 			debugWatchWrites=1;

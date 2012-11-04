@@ -27,7 +27,7 @@ int vClock=0;
 int VideoInterruptLatch=0;
 
 int doShowBlits=0;
-int doShowHostDSPWrites=0;
+int doShowHostDSPWrites=1;
 int doShowHostDSPReads=0;
 
 // Current ASIC registers
@@ -497,7 +497,7 @@ void DoDSP()
 		{
 
 #if ENABLE_DEBUG
-		if (DSP_DEBUG_PC==8)
+		if (DSP_DEBUG_PC==0x78)
 		{
 			doDSPDisassemble=1;
 		}
