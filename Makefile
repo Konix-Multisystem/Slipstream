@@ -16,7 +16,15 @@ ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
 ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
 endif
 
-COMPILE=-c -O3 -Wall -Werror -g -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
+ifeq ($(ENABLE_DEBUG),1)
+SYM_OPTS=-g
+DISASSM=
+else
+SYM_OPTS=
+DISASSM=-n
+endif
+
+COMPILE=-c -O3 -Wall -Werror $(SYM_OPTS) -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
 
 clean:
 	$(RM) -rf out/*
@@ -25,14 +33,14 @@ clean:
 
 out/i8086.lls: src/chips/i8086.edl
 	mkdir -p out
-	$(EDL) -t -O2 src/chips/i8086.edl >out/i8086.lls
+	$(EDL) $(DISASSM) -t -O2 src/chips/i8086.edl >out/i8086.lls
 
 out/i8086.lls.s: out/i8086.lls
 	llc -O3 out/i8086.lls
 
 out/slipDSP.lls: src/chips/slipDSP.edl
 	mkdir -p out
-	$(EDL) -O2 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
+	$(EDL) $(DISASSM) -O2 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
 
 out/slipDSP.lls.s: out/slipDSP.lls
 	llc -O3 out/slipDSP.lls
@@ -58,5 +66,5 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	gcc $(COMPILE) src/main.c -o out/main.o
 
 slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o
-	gcc -O0 -g out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+	gcc $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 
