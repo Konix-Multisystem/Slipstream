@@ -4,6 +4,7 @@
 *.bak
 *.MSU
 *.TXT
+*.MOD
 out/*
 PROPLAY.*
 builds/*
