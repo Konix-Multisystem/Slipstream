@@ -463,6 +463,35 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 	return 0;
 }
 
+int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
+{
+	unsigned int expectedSize=0;
+	FILE* inFile = fopen(fname,"rb");
+	fseek(inFile,0,SEEK_END);
+	expectedSize=ftell(inFile);
+	fseek(inFile,0,SEEK_SET);
+
+	while (expectedSize)
+	{
+		uint8_t data;
+
+		// Read a byte
+		if (1!=fread(&data,1,1,inFile))
+		{
+			printf("Failed to read from %s\n",fname);
+			return 1;
+		}
+		SetByte(address,data);
+		address++;
+		expectedSize--;
+	}
+
+	fclose(inFile);
+
+	return 0;
+}
+
+
 uint8_t GetByte(uint32_t addr)
 {
 	addr&=0xFFFFF;
@@ -1277,24 +1306,58 @@ int CPU_STEP(int doDebug)
 	return CYCLES;
 }
 	
+
+void Usage()
+{
+	printf("slipstream [opts] program.msu\n");
+	printf("-b address file.bin\n");
+	printf("\nFor example to load the proplay.MSU :\n");
+	printf("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
+}
+
+void ParseCommandLine(int argc,char** argv)
+{
+	int a;
+	for (a=1;a<argc;a++)
+	{
+		if (argv[a][0]=='-')
+		{
+			if (strcmp(argv[a],"-b")==0)
+			{
+				if ((a+2)<argc)
+				{
+					// Grab address (hex)
+					uint32_t address;
+					sscanf(argv[a+1],"%x",&address);
+					printf("Loading Binary %s @ %05X\n",argv[a+2],address);
+					LoadBinary(argv[a+2],address);
+				}
+				else
+				{
+					return Usage();
+				}
+				a+=2;
+				continue;
+			}
+		}
+		else
+		{
+			LoadMSU(argv[a]);
+		}
+	}
+}
+
 int main(int argc,char**argv)
 {
 	int numClocks;
 
-	if (argc!=2)
-	{
-		printf("slipstream  program.msu\n");
-		return 1;
-	}
-	
 	CPU_RESET();
 	DSP_RESET();
 
 	PALETTE_INIT();
 	DSP_RAM_INIT();
 
-	if (LoadMSU(argv[1]))
-		return 1;
+	ParseCommandLine(argc,argv);
 
 	VideoInitialise(WIDTH,HEIGHT,"Slipstream - V0.001");
 	KeysIntialise();
