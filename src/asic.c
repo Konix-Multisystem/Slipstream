@@ -27,7 +27,7 @@ int vClock=0;
 int VideoInterruptLatch=0;
 
 int doShowBlits=0;
-int doShowHostDSPWrites=1;
+int doShowHostDSPWrites=0;
 int doShowHostDSPReads=0;
 
 // Current ASIC registers
@@ -311,11 +311,11 @@ void DSP_SetDAC(uint8_t channels,uint16_t value)
 	// Bleep
 	if (channels&1)
 	{
-		_AudioAddData(0,value);
+		_AudioAddData(0,value);			//(14 bit DAC)
 	}
 	if (channels&2)
 	{
-		_AudioAddData(1,value);
+		_AudioAddData(1,value);			//(14 bit DAC)
 	}
 }
 
@@ -499,7 +499,7 @@ void DoDSP()
 #if ENABLE_DEBUG
 		if (DSP_DEBUG_PC==0x78)
 		{
-			doDSPDisassemble=1;
+			doDSPDisassemble=0;
 		}
 		if (doDSPDisassemble)
 		{

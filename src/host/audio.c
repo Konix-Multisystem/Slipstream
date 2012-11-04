@@ -67,9 +67,9 @@ ALboolean ALFWShutdownOpenAL()
 
 #else
 
-#define AL_FORMAT						(AL_FORMAT_MONO16)
+#define AL_FORMAT						(AL_FORMAT_STEREO16)
 #define BUFFER_FORMAT				int16_t
-#define BUFFER_FORMAT_SIZE	(2)
+#define BUFFER_FORMAT_SIZE	(4)
 #define BUFFER_FORMAT_SHIFT	(0)
 
 #endif
@@ -78,7 +78,7 @@ int curPlayBuffer=0;
 
 #define BUFFER_LEN		(44100/50)
 
-BUFFER_FORMAT audioBuffer[BUFFER_LEN];
+BUFFER_FORMAT audioBuffer[BUFFER_LEN*2];
 int amountAdded=0;
 
 int16_t currentDAC[2] = {0,0};
@@ -133,16 +133,16 @@ void AudioUpdate(int numClocks)
 	{
 		tickCnt-=tickRate;
 
-		if (amountAdded!=BUFFER_LEN)
+		if (amountAdded!=BUFFER_LEN*2)
 		{
-			int32_t res=0;
-			res+=currentDAC[0];
-			audioBuffer[amountAdded]=res>>BUFFER_FORMAT_SHIFT;
+			audioBuffer[amountAdded]=currentDAC[0]>>BUFFER_FORMAT_SHIFT;
+			amountAdded++;
+			audioBuffer[amountAdded]=currentDAC[1]>>BUFFER_FORMAT_SHIFT;
 			amountAdded++;
 		}
 	}
 
-	if (amountAdded==BUFFER_LEN)
+	if (amountAdded==BUFFER_LEN*2)
 	{
 		/* 1 second has passed by */
 

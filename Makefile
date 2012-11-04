@@ -28,14 +28,14 @@ out/i8086.lls: src/chips/i8086.edl
 	$(EDL) -t -O2 src/chips/i8086.edl >out/i8086.lls
 
 out/i8086.lls.s: out/i8086.lls
-	llc out/i8086.lls
+	llc -O3 out/i8086.lls
 
 out/slipDSP.lls: src/chips/slipDSP.edl
 	mkdir -p out
 	$(EDL) -O2 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
 
 out/slipDSP.lls.s: out/slipDSP.lls
-	llc out/slipDSP.lls
+	llc -O3 out/slipDSP.lls
 
 out/audio.o: src/host/audio.h src/host/audio.c
 	mkdir -p out

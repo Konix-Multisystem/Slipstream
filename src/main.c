@@ -35,6 +35,13 @@ void SetPortB(uint16_t port,uint8_t byte);
 uint16_t GetPortW(uint16_t port);
 void SetPortW(uint16_t port,uint16_t word);
 
+int doDebug=0;
+int doShowDMA=0;
+int doShowPortStuff=0;
+uint32_t doDebugTrapWriteAt=0xFFFFF;
+int debugWatchWrites=0;
+int debugWatchReads=0;
+
 uint16_t DSP_GetProgWord(uint16_t addr)
 {
 	addr&=0x1FF;		// 9 bits
@@ -116,7 +123,10 @@ uint16_t DSP_GetDataWord(uint16_t addr)
 uint16_t DSP_DMAGetWord(uint32_t addr)
 {
 #if ENABLE_DEBUG
-	printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
+	if (doShowDMA)
+	{
+		printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
+	}
 #endif
 	return GetByte(addr&0xFFFFE)|(GetByte((addr&0xFFFFE) +1)<<8);
 }
@@ -124,7 +134,10 @@ uint16_t DSP_DMAGetWord(uint32_t addr)
 void DSP_DMASetWord(uint32_t addr,uint16_t word)
 {
 #if ENABLE_DEBUG
-	printf("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
+	if (doShowDMA)
+	{
+		printf("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
+	}
 #endif
 	SetByte(addr&0xFFFFE,word&0xFF);
 	SetByte((addr&0xFFFFE)+1,word>>8);
@@ -270,6 +283,8 @@ void DSP_RAM_INIT()
 int masterClock=0;
 
 extern uint8_t *DIS_[256];			// FROM EDL
+extern uint8_t *DIS_XX00000000[256];			// FROM EDL
+extern uint8_t *DIS_XX00000001[256];			// FROM EDL
 extern uint8_t *DIS_XX00000010[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
 extern uint8_t *DIS_XX00001001[256];			// FROM EDL
@@ -277,6 +292,9 @@ extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
 extern uint8_t *DIS_XX00010011[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
+extern uint8_t *DIS_XX00100010[256];			// FROM EDL
+extern uint8_t *DIS_XX00101000[256];			// FROM EDL
+extern uint8_t *DIS_XX00101011[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 extern uint8_t *DIS_XX00111010[256];			// FROM EDL
@@ -303,6 +321,8 @@ extern uint8_t *DIS_XX11111110[256];			// FROM EDL
 extern uint8_t *DIS_XX11111111[256];			// FROM EDL
 
 extern uint32_t DIS_max_;			// FROM EDL
+extern uint32_t DIS_max_XX00000000;			// FROM EDL
+extern uint32_t DIS_max_XX00000001;			// FROM EDL
 extern uint32_t DIS_max_XX00000010;			// FROM EDL
 extern uint32_t DIS_max_XX00000011;			// FROM EDL
 extern uint32_t DIS_max_XX00001001;			// FROM EDL
@@ -310,6 +330,9 @@ extern uint32_t DIS_max_XX00001010;			// FROM EDL
 extern uint32_t DIS_max_XX00001011;			// FROM EDL
 extern uint32_t DIS_max_XX00010011;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
+extern uint32_t DIS_max_XX00100010;			// FROM EDL
+extern uint32_t DIS_max_XX00101000;			// FROM EDL
+extern uint32_t DIS_max_XX00101011;			// FROM EDL
 extern uint32_t DIS_max_XX00110010;			// FROM EDL
 extern uint32_t DIS_max_XX00110011;			// FROM EDL
 extern uint32_t DIS_max_XX00111010;			// FROM EDL
@@ -355,12 +378,6 @@ uint32_t missing(uint32_t opcode)
 	printf("IP : %04X:%04X\n",CS,IP);
 	exit(-1);
 }
-
-int doDebug=0;
-int doShowPortStuff=0;
-uint32_t doDebugTrapWriteAt=0xFFFFF;
-int debugWatchWrites=0;
-int debugWatchReads=0;
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -969,6 +986,20 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			strcat(segOveride,temporaryBuffer);
 			return segOveride;
 		}
+		if (strcmp(mnemonic,"XX00000000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00000000,address+1,&tmpCount,DIS_max_XX00000000);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00000001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00000001,address+1,&tmpCount,DIS_max_XX00000001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00000010")==0)
 		{
 			int tmpCount=0;
@@ -1011,10 +1042,31 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00101000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101000,address+1,&tmpCount,DIS_max_XX00101000);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00101011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101011,address+1,&tmpCount,DIS_max_XX00101011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00100001")==0)
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX00100001,address+1,&tmpCount,DIS_max_XX00100001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00100010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00100010,address+1,&tmpCount,DIS_max_XX00100010);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1288,14 +1340,14 @@ void CPU_RESET()
 
 int CPU_STEP(int doDebug)
 {
-#if ENABLE_DEBUG
-	if (doDebug)
-	{
-		Disassemble(SEGTOPHYS(CS,IP),1);
-	}
-#endif
 	if (!DSP_CPU_HOLD)
 	{
+#if ENABLE_DEBUG
+		if (doDebug)
+		{
+			Disassemble(SEGTOPHYS(CS,IP),1);
+		}
+#endif
 		STEP();
 	}
 	else
@@ -1374,13 +1426,13 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-/*		if (SEGTOPHYS(CS,IP)==(0x88969))
+		if (SEGTOPHYS(CS,IP)==(0x88908))
 		{
 			doDebug=1;
 			debugWatchWrites=1;
 			debugWatchReads=1;
 //			numClocks=1;
-		}*/
+		}
 #endif
 		numClocks=CPU_STEP(doDebug);
 		TickAsic(numClocks);
@@ -1405,8 +1457,9 @@ int main(int argc,char**argv)
 //				doDebug=1;
 				ClearKey(GLFW_KEY_END);
 			}
-
+#if !ENABLE_DEBUG
 			VideoWait();
+#endif
 		}
 	}
 
