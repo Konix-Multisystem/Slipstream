@@ -3,6 +3,8 @@
 *.exe
 *.bak
 *.MSU
+*.P88
+*.DBG
 *.TXT
 *.MOD
 out/*
