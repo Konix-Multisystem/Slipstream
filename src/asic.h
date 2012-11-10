@@ -22,7 +22,8 @@
 #define WIDTH	(757)			// Should probably remove hsync period and overscan
 #define	HEIGHT	(312)			// Should probably remove vsync period and overscan
 
-	void TickAsic(int cycles);
+	void TickAsicMSU(int cycles);
+	void TickAsicP88(int cycles);
 	void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore);
 	void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore);
 

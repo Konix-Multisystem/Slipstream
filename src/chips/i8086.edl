@@ -50,6 +50,7 @@ DECLARE INTERNAL REPEAT[1];
 DECLARE INTERNAL EA[16];
 DECLARE INTERNAL EAdisp[16];
 
+DECLARE INTERNAL HALT[1];
 DECLARE INTERNAL SegOveride[1];
 DECLARE INTERNAL SegOverideValue[16];
 
@@ -170,14 +171,18 @@ FUNCTION STEP
 
 	IF (~interruptPending) | REPEAT
 	{
-		IR<-CALL GetByteFromPhysicalAddress(CS,IP);
-		IP<-IP+1;
+		IF ~HALT
+		{
+			IR<-CALL GetByteFromPhysicalAddress(CS,IP);
+			IP<-IP+1;
 
-		EXECUTE	IR;
+			EXECUTE	IR;
+		}
 	}
 
 	IF interruptPending & (~REPEAT)
 	{
+		HALT<-0;
 		interruptPending<-0;
 		# Standard interrupt procedure
 		CALL PushWord(FLAGS);
@@ -190,8 +195,6 @@ FUNCTION STEP
 		TMP<-ROL(TMP,dummy,%0000,2);
 		CALL FetchWord($0000,TMP)->IP;
 		CALL FetchWord($0000,TMP+2)->CS;
-
-		DEBUG_TRACE BASE 16,CS,IP;
 
 		61->CYCLES;
 	}
@@ -218,6 +221,7 @@ FUNCTION RESET
 	SS<-0;
 	ES<-0;
 	FLAGS<-0;
+	HALT<-0;
 }
 
 ############
@@ -1981,6 +1985,12 @@ INSTRUCTION	XX10000001	"XOR %M0,#%$2%$1"		%11110:regw,B2[8],B3[8]
 	CALL GetImmediateWord()->TMP;
 	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw ^ TMP }->regw;
 	4->CYCLES;
+}
+
+INSTRUCTION	"HLT"		%11110100
+{
+	HALT<-1;
+	2->CYCLES;
 }
 
 

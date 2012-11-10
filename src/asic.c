@@ -52,6 +52,19 @@ uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 
+
+uint8_t BLT_OUTER_CMD;
+uint32_t BLT_OUTER_SRC;
+uint32_t BLT_OUTER_DST;
+uint8_t BLT_OUTER_MODE;
+uint8_t BLT_OUTER_CPLG;
+uint8_t BLT_OUTER_CNT;
+uint16_t BLT_INNER_CNT;
+uint8_t BLT_INNER_STEP;
+uint8_t BLT_INNER_PAT;
+
+void DoBlit();
+
 void TickBlitterMSU()								// TODO - make this more modular!!!
 {
 	// Step one, make the blitter "free"
@@ -71,17 +84,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 
 	if (ASIC_BLTCMD & 1)
 	{
-		int a,b;
-		uint8_t BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of MSU version!!
-		uint32_t BLT_OUTER_SRC;
-		uint32_t BLT_OUTER_DST;
-		uint8_t BLT_OUTER_MODE;
-		uint8_t BLT_OUTER_CPLG;
-		uint8_t BLT_OUTER_CNT;
-		uint16_t BLT_INNER_CNT;
-		uint8_t BLT_INNER_STEP;
-		uint8_t BLT_INNER_PAT;
-
+		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of MSU version!!
 
 		do
 		{
@@ -162,45 +165,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 			printf("Step : %02X\n",BLT_INNER_STEP);
 		}
 #endif
-		for (a=0;a<BLT_OUTER_CNT;a++)
-		{
-			uint8_t tmp=0;
-
-			for (b=0;b<BLT_OUTER_CNT;b++)
-			{
-				if ((BLT_OUTER_CMD&0x80) && b==0)
-				{
-					tmp=GetByte(BLT_OUTER_SRC);
-					BLT_OUTER_SRC++;
-				}
-
-				// hard coded test
-				if (BLT_OUTER_MODE&0x80)
-				{
-					if (BLT_OUTER_MODE&0x04)
-					{
-						if (tmp& (1<<b))
-						{
-							SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-						}
-					}
-					else
-					{
-						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-					}
-				}
-//				else
-//				{
-//					tmp=GetByte(BLT_OUTER_SRC);
-//					BLT_OUTER_SRC++;
-//					SetByte(BLT_OUTER_DST,tmp);
-//				}
-
-				BLT_OUTER_DST++;
-			}
-
-			BLT_OUTER_DST+=BLT_INNER_STEP;
-		}
+		DoBlit();
 		
 		ASIC_BLTPC++;		// skip segment address
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
@@ -232,17 +197,7 @@ void TickBlitterP88()
 
 	if (ASIC_BLTCMD & 1)
 	{
-		int a,b;
-		uint8_t BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command	
-		uint32_t BLT_OUTER_SRC;
-		uint32_t BLT_OUTER_DST;
-		uint8_t BLT_OUTER_MODE;
-		uint8_t BLT_OUTER_CPLG;
-		uint8_t BLT_OUTER_CNT;
-		uint16_t BLT_INNER_CNT;
-		uint8_t BLT_INNER_STEP;
-		uint8_t BLT_INNER_PAT;
-
+		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command	
 
 		do
 		{
@@ -324,46 +279,9 @@ void TickBlitterP88()
 			printf("Pattern : %02X\n",BLT_INNER_PAT);
 		}
 #endif
-		for (a=0;a<BLT_OUTER_CNT;a++)
-		{
-			uint8_t tmp=0;
 
-			for (b=0;b<BLT_OUTER_CNT;b++)
-			{
-				if ((BLT_OUTER_CMD&0x80) && b==0)
-				{
-					tmp=GetByte(BLT_OUTER_SRC);
-					BLT_OUTER_SRC++;
-				}
+		DoBlit();
 
-				// hard coded test
-				if (BLT_OUTER_MODE&0x80)
-				{
-					if (BLT_OUTER_MODE&0x04)
-					{
-						if (tmp& (1<<b))
-						{
-							SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-						}
-					}
-					else
-					{
-						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-					}
-				}
-//				else
-//				{
-//					tmp=GetByte(BLT_OUTER_SRC);
-//					BLT_OUTER_SRC++;
-//					SetByte(BLT_OUTER_DST,tmp);
-//				}
-
-				BLT_OUTER_DST++;
-			}
-
-			BLT_OUTER_DST+=BLT_INNER_STEP;
-		}
-		
 		ASIC_BLTPC++;		// skip segment address
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
@@ -375,6 +293,54 @@ void TickBlitterP88()
 	}
 }
 
+void DoBlit()
+{
+	int a,b;
+
+	for (a=0;a<BLT_OUTER_CNT;a++)
+	{
+		uint8_t tmp=BLT_INNER_PAT;
+
+		for (b=0;b<BLT_INNER_CNT;b++)
+		{
+			if (((BLT_OUTER_CMD&0x80) && b==0) || (BLT_OUTER_CMD&0x20))
+			{
+				tmp=GetByte(BLT_OUTER_SRC);
+				BLT_OUTER_SRC++;
+			}
+
+			// hard coded test
+			if (BLT_OUTER_MODE&0x80)
+			{
+				if (BLT_OUTER_MODE&0x04)
+				{
+					if (tmp& (1<<b))
+					{
+						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
+					}
+				}
+				else
+				{
+					SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
+				}
+			}
+			else
+			{
+				if ((BLT_OUTER_MODE&0x60)==0x60)	// WORD length
+				{
+					SetByte(BLT_OUTER_DST++,tmp);
+				}
+				SetByte(BLT_OUTER_DST,tmp);
+			}
+
+			BLT_OUTER_DST++;
+		}
+
+		if ((BLT_OUTER_MODE&0x60)==0x60)	// WORD length
+			BLT_OUTER_DST+=BLT_INNER_STEP;
+		BLT_OUTER_DST+=BLT_INNER_STEP;
+	}
+}
 
 void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 {
@@ -795,7 +761,7 @@ void DoDSP()
 
 uint8_t PeekByte(uint32_t addr);
 
-void TickAsic(int cycles)
+void TickAsicMSU(int cycles)
 {
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 	uint32_t screenPtr = ASIC_SCROLL;
@@ -828,11 +794,11 @@ void TickAsic(int cycles)
 		{
 			VideoInterruptLatch=1;
 		}
-		if (hClock==(WIDTH-1))
+		if (hClock==(WIDTH))
 		{
 			hClock=0;
 			vClock++;
-			if (vClock==(HEIGHT-1))
+			if (vClock==(HEIGHT))
 			{
 				vClock=0;
 			}
@@ -841,6 +807,55 @@ void TickAsic(int cycles)
 		cycles--;
 	}
 }
+
+void TickAsicP88(int cycles)
+{
+	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	uint32_t screenPtr = ASIC_SCROLL;
+	outputTexture+=vClock*WIDTH + hClock;
+	while (cycles)
+	{
+		DoDSP();
+
+		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
+		if (VideoInterruptLatch)
+		{
+			INTERRUPT(0x21);
+		}
+
+		// Quick and dirty video display no contention or bus cycles
+		if (hClock>=120 && hClock<632 && vClock>ASIC_STARTL && vClock<=ASIC_ENDL)
+		{
+			uint8_t palIndex = PeekByte(screenPtr + ((vClock-ASIC_STARTL)-1)*256 + (hClock-120)/2);
+			uint16_t palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+
+			*outputTexture++=RGB4_RGB8(palEntry);
+		}
+		else
+		{
+			*outputTexture++=RGB4_RGB8(ASIC_BORD);
+		}
+
+		hClock++;
+		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
+		{
+			VideoInterruptLatch=1;
+		}
+		if (hClock==(WIDTH))
+		{
+			hClock=0;
+			vClock++;
+			if (vClock==(HEIGHT))
+			{
+				vClock=0;
+			}
+		}
+
+		cycles--;
+	}
+}
+
+
 
 void ASIC_HostDSPMemWrite(uint16_t addr,uint8_t byte)
 {

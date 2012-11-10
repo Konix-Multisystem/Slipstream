@@ -45,7 +45,7 @@ void SetPortW(uint16_t port,uint16_t word);
 
 int doDebug=0;
 int doShowDMA=0;
-int doShowPortStuff=1;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -538,7 +538,7 @@ int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which
 }
 
 
-uint8_t GetByte(uint32_t addr)
+uint8_t GetByteMSU(uint32_t addr)
 {
 	addr&=0xFFFFF;
 #if ENABLE_DEBUG
@@ -568,6 +568,49 @@ uint8_t GetByte(uint32_t addr)
 	return 0xAA;
 }
 
+uint8_t GetByteP88(uint32_t addr)
+{
+	addr&=0xFFFFF;
+#if ENABLE_DEBUG
+	if (debugWatchReads)
+	{
+		if (addr<0x41000 || addr>0x41FFF)		// DSP handled seperately
+		{
+			printf("Reading from address : %05X->\n",addr);
+		}
+	}
+#endif
+	if (addr<0x40000)
+	{
+		return RAM[addr];
+	}
+	if (addr>=0x80000 && addr<0xC0000)		// Expansion RAM 0
+	{
+		return RAM[addr];
+	}
+	if (addr>=0x41000 && addr<=0x41FFF)
+	{
+		return ASIC_HostDSPMemRead(addr-0x41000);
+	}
+#if ENABLE_DEBUG
+	printf("GetByte : %05X - TODO\n",addr);
+#endif
+	return 0xAA;
+}
+
+uint8_t GetByte(uint32_t addr)
+{
+	switch (curSystem)
+	{
+		case ESS_MSU:
+			return GetByteMSU(addr);
+		case ESS_P88:
+			return GetByteP88(addr);
+	}
+	return 0xBB;
+}
+
+
 uint8_t PeekByte(uint32_t addr)
 {
 #if ENABLE_DEBUG
@@ -582,7 +625,7 @@ uint8_t PeekByte(uint32_t addr)
 #endif
 }
 
-void SetByte(uint32_t addr,uint8_t byte)
+void SetByteMSU(uint32_t addr,uint8_t byte)
 {
 	addr&=0xFFFFF;
 #if ENABLE_DEBUG
@@ -616,6 +659,60 @@ void SetByte(uint32_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
 #endif
+}
+
+void SetByteP88(uint32_t addr,uint8_t byte)
+{
+	addr&=0xFFFFF;
+#if ENABLE_DEBUG
+	if (addr==doDebugTrapWriteAt)
+	{
+		printf("STOMP STOMP STOMP\n");
+	}
+	if (debugWatchWrites)
+	{
+		if (addr<0x41000 || addr>0x41FFF)		// DSP handled seperately
+		{
+			printf("Writing to address : %05X<-%02X\n",addr,byte);
+		}
+	}
+#endif
+	if (addr<0x40000)
+	{
+		RAM[addr]=byte;
+		return;
+	}
+	if (addr>=0x80000 && addr<0xC0000)		// Expansion RAM 0
+	{
+		RAM[addr]=byte;
+		return;
+	}
+	if (addr>=0x40000 && addr<=0x401FF)
+	{
+		PALETTE[addr-0x40000]=byte;
+		return;
+	}
+	if (addr>=0x41000 && addr<=0x41FFF)
+	{
+		ASIC_HostDSPMemWrite(addr-0x41000,byte);
+		return;
+	}
+#if ENABLE_DEBUG
+	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
+#endif
+}
+
+void SetByte(uint32_t addr,uint8_t byte)
+{
+	switch (curSystem)
+	{
+		case ESS_MSU:
+			SetByteMSU(addr,byte);
+			break;
+		case ESS_P88:
+			SetByteP88(addr,byte);
+			break;
+	}
 }
 
 void DebugWPort(uint16_t port)
@@ -1653,8 +1750,8 @@ int main(int argc,char**argv)
 //	DisassembleRange(0x0000,0x4000);
 
 //	doDebugTrapWriteAt=0x088DAA;
-	debugWatchWrites=1;
-	doDebug=1;
+//	debugWatchWrites=1;
+//	doDebug=1;
 
 	while (1==1)
 	{
@@ -1668,7 +1765,15 @@ int main(int argc,char**argv)
 		}
 #endif
 		numClocks=CPU_STEP(doDebug);
-		TickAsic(numClocks);
+		switch (curSystem)
+		{
+			case ESS_MSU:
+				TickAsicMSU(numClocks);
+				break;
+			case ESS_P88:
+				TickAsicP88(numClocks);
+				break;
+		}
 		masterClock+=numClocks;
 
 		AudioUpdate(numClocks);
