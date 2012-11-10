@@ -1946,4 +1946,41 @@ INSTRUCTION	"JMP #%$4%$2:%$2%$1"	%11101010,B2[8],B3[8],B4[8],B5[8]
 	15->CYCLES;
 }
 
+INSTRUCTION	XX10001001	"MOV [%M1+#%$2%$1],%M0"		%10:regw:memmod,B2[8],B3[8]
+{
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL StoreWord(DS,EA,regw);
+}
+
+INSTRUCTION	XX10001000	"MOV [%M1+#%$2%$1],%M0"		%10:regl:memmod,B2[8],B3[8]
+{
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL StoreByte(DS,EA,regl);
+}
+
+INSTRUCTION	XX00000011	"ADD %M0,[%M1]"			%00:regw:memmod00,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	0->EAdisp;
+	memmod00+9->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw + TMP }->regw;
+}
+
+INSTRUCTION	XX10001001	"MOV %M1,%M0"	%11:regw:regwop2
+{
+	regwop2<-regw;
+	2->CYCLES;
+}
+
+INSTRUCTION	XX10000001	"XOR %M0,#%$2%$1"		%11110:regw,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw ^ TMP }->regw;
+	4->CYCLES;
+}
+
 

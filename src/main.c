@@ -795,6 +795,12 @@ void DebugRPort(uint16_t port)
 
 			switch (port)
 			{
+				case 0x0040:
+					printf("PORT1 - Joystick 1\n");
+					break;
+				case 0x0050:
+					printf("PORT2 - Joystick 2\n");
+					break;
 				case 0x0060:
 					printf("DRC - Data Register C\n");
 					break;
@@ -883,6 +889,14 @@ uint8_t GetPortB(uint16_t port)
 			}
 			break;
 		case ESS_P88:
+			if (port==0x40)
+			{
+				return (0xFFFF ^ joyPadState)&0xFF;
+			}
+			if (port==0x50)
+			{
+				return (0xFFFF ^ joyPadState)>>8;
+			}
 			break;
 	}
 
