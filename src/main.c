@@ -28,6 +28,14 @@ unsigned char RAM[RAM_SIZE];
 unsigned char DSP[4*1024];							
 unsigned char PALETTE[256*2];			
 
+typedef enum 
+{
+	ESS_MSU,
+	ESS_P88
+}ESlipstreamSystem;
+
+ESlipstreamSystem curSystem=ESS_MSU;
+
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 uint8_t GetPortB(uint16_t port);
@@ -37,7 +45,7 @@ void SetPortW(uint16_t port,uint16_t word);
 
 int doDebug=0;
 int doShowDMA=0;
-int doShowPortStuff=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -216,6 +224,16 @@ void PALETTE_INIT()
 		PALETTE[a*2+0]=a;
 		PALETTE[a*2+1]=a;
 	}
+
+	// Also pre-fill vector table at $0000 to point to an IRET instruction at $400 (suspect the bios is supposed to safely setup this area before booting a program)
+	for (a=0;a<256;a++)
+	{
+		SetByte(a*4+0,0x00);
+		SetByte(a*4+1,0x04);
+		SetByte(a*4+2,0x00);
+		SetByte(a*4+3,0x00);
+	}
+	SetByte(0x400,0xCF);
 }
 
 void DSP_RAM_INIT()
@@ -287,14 +305,18 @@ extern uint8_t *DIS_XX00000000[256];			// FROM EDL
 extern uint8_t *DIS_XX00000001[256];			// FROM EDL
 extern uint8_t *DIS_XX00000010[256];			// FROM EDL
 extern uint8_t *DIS_XX00000011[256];			// FROM EDL
+extern uint8_t *DIS_XX00001000[256];			// FROM EDL
 extern uint8_t *DIS_XX00001001[256];			// FROM EDL
 extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
 extern uint8_t *DIS_XX00010011[256];			// FROM EDL
+extern uint8_t *DIS_XX00100000[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
 extern uint8_t *DIS_XX00100010[256];			// FROM EDL
 extern uint8_t *DIS_XX00101000[256];			// FROM EDL
 extern uint8_t *DIS_XX00101011[256];			// FROM EDL
+extern uint8_t *DIS_XX00110000[256];			// FROM EDL
+extern uint8_t *DIS_XX00110001[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
 extern uint8_t *DIS_XX00111010[256];			// FROM EDL
@@ -325,14 +347,18 @@ extern uint32_t DIS_max_XX00000000;			// FROM EDL
 extern uint32_t DIS_max_XX00000001;			// FROM EDL
 extern uint32_t DIS_max_XX00000010;			// FROM EDL
 extern uint32_t DIS_max_XX00000011;			// FROM EDL
+extern uint32_t DIS_max_XX00001000;			// FROM EDL
 extern uint32_t DIS_max_XX00001001;			// FROM EDL
 extern uint32_t DIS_max_XX00001010;			// FROM EDL
 extern uint32_t DIS_max_XX00001011;			// FROM EDL
 extern uint32_t DIS_max_XX00010011;			// FROM EDL
+extern uint32_t DIS_max_XX00100000;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
 extern uint32_t DIS_max_XX00100010;			// FROM EDL
 extern uint32_t DIS_max_XX00101000;			// FROM EDL
 extern uint32_t DIS_max_XX00101011;			// FROM EDL
+extern uint32_t DIS_max_XX00110000;			// FROM EDL
+extern uint32_t DIS_max_XX00110001;			// FROM EDL
 extern uint32_t DIS_max_XX00110010;			// FROM EDL
 extern uint32_t DIS_max_XX00110011;			// FROM EDL
 extern uint32_t DIS_max_XX00111010;			// FROM EDL
@@ -463,6 +489,9 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 
 		switch (sectionType)
 		{
+			case 0xFF:							// Not original specification - added to indicate system type is P88
+				curSystem=ESS_P88;
+				break;
 			case 0xC8:
 				expectedSize-=HandleLoadSection(inFile);
 				break;
@@ -529,6 +558,10 @@ uint8_t GetByte(uint32_t addr)
 	{
 		return ASIC_HostDSPMemRead(addr-0xC1000);
 	}
+	if (addr>=0xE0000)
+	{
+		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
+	}
 #if ENABLE_DEBUG
 	printf("GetByte : %05X - TODO\n",addr);
 #endif
@@ -588,68 +621,166 @@ void SetByte(uint32_t addr,uint8_t byte)
 void DebugWPort(uint16_t port)
 {
 #if ENABLE_DEBUG
-	switch (port)
+	switch (curSystem)
 	{
-		case 0x0000:
-			printf("KINT ??? Vertical line interrupt location (Word address)\n");
+		case ESS_P88:
+
+			switch (port)
+			{
+				case 0x0000:
+					printf("INTL: Vertical line interrupt location\n");
+					break;
+				case 0x0001:
+					printf("INTH: Vertical line interrupt location\n");
+					break;
+				case 0x0002:
+					printf("STARTL - screen line start\n");
+					break;
+				case 0x0003:
+					printf("STARTH - screen line start\n");
+					break;
+				case 0x0008:
+					printf("SCROLL1 - TL pixel address LSB\n");
+					break;
+				case 0x0009:
+					printf("SCROLL2 - TL pixel address middle byte\n");
+					break;
+				case 0x000A:
+					printf("SCROLL3 - TL pixel address MSB\n");
+					break;
+				case 0x000B:
+					printf("ACK - interrupt acknowledge\n");
+					break;
+				case 0x000C:
+					printf("MODE - screen mode\n");
+					break;
+				case 0x000D:
+					printf("BORDL - border colour\n");
+					break;
+				case 0x000E:
+					printf("BORDH - border colour\n");
+					break;
+				case 0x000F:
+					printf("PMASK - palette mask\n");
+					break;
+				case 0x0010:
+					printf("INDEX - palette index\n");
+					break;
+				case 0x0011:
+					printf("ENDL - screen line end\n");
+					break;
+				case 0x0012:
+					printf("ENDH - screen line end\n");
+					break;
+				case 0x0013:
+					printf("MEM - memory configuration\n");
+					break;
+				case 0x0015:
+					printf("DIAG - diagnostics\n");
+					break;
+				case 0x0016:
+					printf("DIS - disable interupts\n");
+					break;
+				case 0x0030:
+					printf("BLPROG0\n");
+					break;
+				case 0x0031:
+					printf("BLPROG1\n");
+					break;
+				case 0x0032:
+					printf("BLPROG2\n");
+					break;
+				case 0x0033:
+					printf("BLTCMD\n");
+					break;
+				case 0x0034:
+					printf("BLTCON - blitter control\n");
+					break;
+					// The below 4 ports are from the development kit <-> PC interface  | Chip Z8536 - Zilog CIO counter/timer parallel IO Unit
+				case 0x0060:
+					printf("DRC - Data Register C\n");
+					break;
+				case 0x0061:
+					printf("DRB - Data Register B\n");
+					break;
+				case 0x0062:
+					printf("DRA - Data Register A\n");
+					break;
+				case 0x0063:
+					printf("CTRL - Control Register (not sure which one yet though)\n");
+					break;
+				default:
+					printf("PORT WRITE UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
+
 			break;
-		case 0x0004:
-			printf("STARTL - screen line start (Byte address)\n");
-			break;
-		case 0x0010:
-			printf("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
-			break;
-		case 0x0012:
-			printf("SCROLL2 - TL pixel address middle byte (Word address) - byte width\n");
-			break;
-		case 0x0014:
-			printf("SCROLL3 - TL pixel address MSB (Word address) - byte width\n");
-			break;
-		case 0x0016:
-			printf("ACK - interrupt acknowledge (Byte address)\n");
-			break;
-		case 0x0018:
-			printf("MODE - screen mode (Byte address)\n");
-			break;
-		case 0x001A:
-			printf("BORD - border colour (Word address)  - Little Endian if matching V1\n");
-			break;
-		case 0x001E:
-			printf("PMASK - palette mask? (Word address) - only a byte documented\n");
-			break;
-		case 0x0020:
-			printf("INDEX - palette index (Word address) - only a byte documented\n");
-			break;
-		case 0x0022:
-			printf("ENDL - screen line end (Byte address)\n");
-			break;
-		case 0x0026:
-			printf("MEM - memory configuration (Byte address)\n");
-			break;
-		case 0x002A:
-			printf("DIAG - diagnostics (Byte address)\n");
-			break;
-		case 0x002C:
-			printf("DIS - disable interupts (Byte address)\n");
-			break;
-		case 0x0040:
-			printf("BLTPC (low 16 bits) (Word address)\n");
-			break;
-		case 0x0042:
-			printf("BLTCMD (Word address)\n");
-			break;
-		case 0x0044:
-			printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
-			break;
-		case 0x00C0:
-			printf("ADP - (Word address) - Anologue/digital port reset?\n");
-			break;
-		case 0x00E0:
-			printf("???? - (Byte address) - number pad reset?\n");
-			break;
-		default:
-			printf("PORT WRITE UNKNOWN - TODO\n");
-			exit(-1);
+		case ESS_MSU:
+			switch (port)
+			{
+				case 0x0000:
+					printf("KINT ??? Vertical line interrupt location (Word address)\n");
+					break;
+				case 0x0004:
+					printf("STARTL - screen line start (Byte address)\n");
+					break;
+				case 0x0010:
+					printf("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
+					break;
+				case 0x0012:
+					printf("SCROLL2 - TL pixel address middle byte (Word address) - byte width\n");
+					break;
+				case 0x0014:
+					printf("SCROLL3 - TL pixel address MSB (Word address) - byte width\n");
+					break;
+				case 0x0016:
+					printf("ACK - interrupt acknowledge (Byte address)\n");
+					break;
+				case 0x0018:
+					printf("MODE - screen mode (Byte address)\n");
+					break;
+				case 0x001A:
+					printf("BORD - border colour (Word address)  - Little Endian if matching V1\n");
+					break;
+				case 0x001E:
+					printf("PMASK - palette mask? (Word address) - only a byte documented\n");
+					break;
+				case 0x0020:
+					printf("INDEX - palette index (Word address) - only a byte documented\n");
+					break;
+				case 0x0022:
+					printf("ENDL - screen line end (Byte address)\n");
+					break;
+				case 0x0026:
+					printf("MEM - memory configuration (Byte address)\n");
+					break;
+				case 0x002A:
+					printf("DIAG - diagnostics (Byte address)\n");
+					break;
+				case 0x002C:
+					printf("DIS - disable interupts (Byte address)\n");
+					break;
+				case 0x0040:
+					printf("BLTPC (low 16 bits) (Word address)\n");
+					break;
+				case 0x0042:
+					printf("BLTCMD (Word address)\n");
+					break;
+				case 0x0044:
+					printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
+					break;
+				case 0x00C0:
+					printf("ADP - (Word address) - Anologue/digital port reset?\n");
+					break;
+				case 0x00E0:
+					printf("???? - (Byte address) - number pad reset?\n");
+					break;
+				default:
+					printf("PORT WRITE UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
 			break;
 	}
 #endif
@@ -658,23 +789,52 @@ void DebugWPort(uint16_t port)
 void DebugRPort(uint16_t port)
 {
 #if ENABLE_DEBUG
-	switch (port)
+	switch (curSystem)
 	{
-		case 0x0C:
-			printf("???? - (Byte Address) - controller buttons...\n");
+		case ESS_P88:
+
+			switch (port)
+			{
+				case 0x0060:
+					printf("DRC - Data Register C\n");
+					break;
+				case 0x0061:
+					printf("DRB - Data Register B\n");
+					break;
+				case 0x0062:
+					printf("DRA - Data Register A\n");
+					break;
+				case 0x0063:
+					printf("CTRL - Control Register (not sure which one yet though)\n");
+					break;
+				default:
+					printf("PORT READ UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
+
 			break;
-		case 0x80:
-			printf("???? - (Word Address) - Possibly controller digital button status\n");
-			break;
-		case 0xC0:
-			printf("ADP - (Word Address) - Analogue/digital port status ? \n");
-			break;
-		case 0xE0:
-			printf("???? - (Byte Address) - Numberic pad read ? \n");
-			break;
-		default:
-			printf("PORT READ UNKNOWN - TODO\n");
-			exit(-1);
+		case ESS_MSU:
+
+			switch (port)
+			{
+				case 0x0C:
+					printf("???? - (Byte Address) - controller buttons...\n");
+					break;
+				case 0x80:
+					printf("???? - (Word Address) - Possibly controller digital button status\n");
+					break;
+				case 0xC0:
+					printf("ADP - (Word Address) - Analogue/digital port status ? \n");
+					break;
+				case 0xE0:
+					printf("???? - (Byte Address) - Numberic pad read ? \n");
+					break;
+				default:
+					printf("PORT READ UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
 			break;
 	}
 #endif
@@ -695,28 +855,35 @@ uint8_t PotSpareValue=0x40;
 
 uint8_t GetPortB(uint16_t port)
 {
-	if (port==0x0C)
+	switch (curSystem)
 	{
-		return buttonState;
-	}
-	if (port==0xE0)
-	{
-		switch (numPadRowSelect)
-		{
-			case 1:
-				return (numPadState&0xF);
-			case 2:
-				return ((numPadState&0xF0)>>4);
-			case 4:
-				return ((numPadState&0xF00)>>8);
-			case 8:
-				return ((numPadState&0xF000)>>12);
-			default:
+		case ESS_MSU:
+			if (port==0x0C)
+			{
+				return buttonState;
+			}
+			if (port==0xE0)
+			{
+				switch (numPadRowSelect)
+				{
+					case 1:
+						return (numPadState&0xF);
+					case 2:
+						return ((numPadState&0xF0)>>4);
+					case 4:
+						return ((numPadState&0xF00)>>8);
+					case 8:
+						return ((numPadState&0xF000)>>12);
+					default:
 #if ENABLE_DEBUG
-				printf("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
+						printf("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
 #endif
-				return 0xFF;
-		}
+						return 0xFF;
+				}
+			}
+			break;
+		case ESS_P88:
+			break;
 	}
 
 #if ENABLE_DEBUG
@@ -741,7 +908,15 @@ void SetPortB(uint16_t port,uint8_t byte)
 			numPadRowSelect=byte;
 			break;
 		default:
-			ASIC_Write(port,byte,doShowPortStuff);
+			switch (curSystem)
+			{
+				case ESS_MSU:
+					ASIC_WriteMSU(port,byte,doShowPortStuff);
+					break;
+				case ESS_P88:
+					ASIC_WriteP88(port,byte,doShowPortStuff);
+					break;
+			}
 			break;
 	}
 #if ENABLE_DEBUG
@@ -761,39 +936,55 @@ uint16_t GetPortW(uint16_t port)
 		DebugRPort(port);
 	}
 #endif
-	if (port==0xC0)
+	switch (curSystem)
 	{
-		uint16_t potStatus;
+		case ESS_MSU:
+			if (port==0xC0)
+			{
+				uint16_t potStatus;
 
-		potStatus=buttonState&3;
-		if (ADPSelect==PotXValue)
-			potStatus|=(0x04);
-		if (ADPSelect==PotYValue)
-			potStatus|=(0x08);
-		if (ADPSelect==PotZValue)
-			potStatus|=(0x10);
-		if (ADPSelect==PotLPValue)
-			potStatus|=(0x20);
-		if (ADPSelect==PotRPValue)
-			potStatus|=(0x40);
-		if (ADPSelect==PotSpareValue)
-			potStatus|=(0x80);
-		return 0x0003 ^ potStatus;
-	}
-	if (port==0x80)
-	{
-		return 0xFFFF ^ joyPadState;
+				potStatus=buttonState&3;
+				if (ADPSelect==PotXValue)
+					potStatus|=(0x04);
+				if (ADPSelect==PotYValue)
+					potStatus|=(0x08);
+				if (ADPSelect==PotZValue)
+					potStatus|=(0x10);
+				if (ADPSelect==PotLPValue)
+					potStatus|=(0x20);
+				if (ADPSelect==PotRPValue)
+					potStatus|=(0x40);
+				if (ADPSelect==PotSpareValue)
+					potStatus|=(0x80);
+				return 0x0003 ^ potStatus;
+			}
+			if (port==0x80)
+			{
+				return 0xFFFF ^ joyPadState;
+			}
+			break;
+		case ESS_P88:
+			break;
 	}
 	return 0x0000;
 }
 
 void SetPortW(uint16_t port,uint16_t word)
 {
-	ASIC_Write(port,word&0xFF,doShowPortStuff);
-	ASIC_Write(port+1,word>>8,doShowPortStuff);
-	if (port==0xC0)
+	switch (curSystem)
 	{
-		ADPSelect=word&0xFF;
+		case ESS_MSU:
+			ASIC_WriteMSU(port,word&0xFF,doShowPortStuff);
+			ASIC_WriteMSU(port+1,word>>8,doShowPortStuff);
+			if (port==0xC0)
+			{
+				ADPSelect=word&0xFF;
+			}
+			break;
+		case ESS_P88:
+			ASIC_WriteP88(port,word&0xFF,doShowPortStuff);
+			ASIC_WriteP88(port+1,word>>8,doShowPortStuff);
+			break;
 	}
 #if ENABLE_DEBUG
 	if (doShowPortStuff)
@@ -1014,6 +1205,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00001000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00001000,address+1,&tmpCount,DIS_max_XX00001000);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00001001")==0)
 		{
 			int tmpCount=0;
@@ -1042,17 +1240,10 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
-		if (strcmp(mnemonic,"XX00101000")==0)
+		if (strcmp(mnemonic,"XX00100000")==0)
 		{
 			int tmpCount=0;
-			decodeDisasm(DIS_XX00101000,address+1,&tmpCount,DIS_max_XX00101000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00101011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00101011,address+1,&tmpCount,DIS_max_XX00101011);
+			decodeDisasm(DIS_XX00100000,address+1,&tmpCount,DIS_max_XX00100000);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1067,6 +1258,34 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX00100010,address+1,&tmpCount,DIS_max_XX00100010);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00101000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101000,address+1,&tmpCount,DIS_max_XX00101000);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00101011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101011,address+1,&tmpCount,DIS_max_XX00101011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00110000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00110000,address+1,&tmpCount,DIS_max_XX00110000);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00110001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00110001,address+1,&tmpCount,DIS_max_XX00110001);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1419,14 +1638,14 @@ int main(int argc,char**argv)
 	
 //	DisassembleRange(0x0000,0x4000);
 
-	doDebugTrapWriteAt=0x088DAA;
-//	debugWatchWrites=1;
-//	doDebug=1;
+//	doDebugTrapWriteAt=0x088DAA;
+	debugWatchWrites=1;
+	doDebug=1;
 
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==(0x88908))
+		if (SEGTOPHYS(CS,IP)==(0x39907))
 		{
 			doDebug=1;
 			debugWatchWrites=1;

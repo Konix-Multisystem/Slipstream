@@ -26,13 +26,13 @@ int hClock=0;
 int vClock=0;
 int VideoInterruptLatch=0;
 
-int doShowBlits=0;
+int doShowBlits=1;
 int doShowHostDSPWrites=0;
 int doShowHostDSPReads=0;
 
 // Current ASIC registers
 
-uint16_t	ASIC_KINT=0xFFFF;
+uint16_t	ASIC_KINT=0x00FF;
 uint8_t		ASIC_STARTL=0;
 uint8_t		ASIC_STARTH=0;
 uint32_t	ASIC_SCROLL=0;
@@ -55,6 +55,19 @@ void SetByte(uint32_t addr,uint8_t byte);
 void TickBlitter()
 {
 	// Step one, make the blitter "free"
+#if ENABLE_DEBUG
+	if (doShowBlits)
+	{
+		printf("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			ASIC_BLTCMD&0x02?1:0,
+			ASIC_BLTCMD&0x04?1:0,
+			ASIC_BLTCMD&0x08?1:0,
+			ASIC_BLTCMD&0x10?1:0,
+			ASIC_BLTCMD&0x20?1:0,
+			ASIC_BLTCMD&0x40?1:0,
+			ASIC_BLTCMD&0x80?1:0);
+	}
+#endif
 
 	if (ASIC_BLTCMD & 1)
 	{
@@ -202,17 +215,19 @@ void TickBlitter()
 
 
 
-void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
+void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 {
 	switch (port)
 	{
 		case 0x0000:
 			ASIC_KINT&=0xFF00;
 			ASIC_KINT|=byte;
+			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0001:
 			ASIC_KINT&=0x00FF;
 			ASIC_KINT|=(byte<<8);
+			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0004:
 			ASIC_STARTL=byte;
@@ -291,6 +306,105 @@ void ASIC_Write(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 	}
 }
+
+void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0000:
+			ASIC_KINT&=0xFF00;
+			ASIC_KINT|=byte;
+			printf("KINT : Line : %04X\n",ASIC_KINT);
+			break;
+		case 0x0001:
+			ASIC_KINT&=0x00FF;
+			ASIC_KINT|=(byte<<8);
+			printf("KINT : Line : %04X\n",ASIC_KINT);
+			break;
+		case 0x0002:
+			ASIC_STARTL=byte;
+			break;
+		case 0x0003:
+			ASIC_STARTH=byte;
+			break;
+		case 0x0008:
+			ASIC_SCROLL&=0x00FFFF00;
+			ASIC_SCROLL|=byte;
+			break;
+		case 0x0009:
+			ASIC_SCROLL&=0x00FF00FF;
+			ASIC_SCROLL|=(byte<<8);
+			break;
+		case 0x000A:
+			ASIC_SCROLL&=0x0000FFFF;
+			ASIC_SCROLL|=(byte<<16);
+			break;
+		case 0x000B:
+			// Clear video interrupt for now
+			VideoInterruptLatch=0;
+			break;
+		case 0x000C:
+			ASIC_MODE=byte;
+			break;
+		case 0x000D:
+			ASIC_BORD&=0xFF00;
+			ASIC_BORD|=byte;
+			break;
+		case 0x000E:
+			ASIC_BORD&=0x00FF;
+			ASIC_BORD|=(byte<<8);
+			break;
+		case 0x000F:
+			ASIC_PMASK=byte;
+			break;
+		case 0x0010:
+			ASIC_INDEX=byte;
+			break;
+		case 0x0011:
+			ASIC_ENDL=byte;
+			break;
+		case 0x0012:
+			ASIC_ENDH=byte;
+			break;
+		case 0x0013:
+			ASIC_MEM=byte;
+			break;
+		case 0x0015:
+			ASIC_DIAG=byte;
+			break;
+		case 0x0016:
+			ASIC_DIS=byte;
+			break;
+		case 0x0030:
+			ASIC_BLTPC&=0xFFF00;
+			ASIC_BLTPC|=byte;
+			break;
+		case 0x0031:
+			ASIC_BLTPC&=0xF00FF;
+			ASIC_BLTPC|=byte<<8;
+			break;
+		case 0x0032:
+			ASIC_BLTPC&=0x0FFFF;
+			ASIC_BLTPC|=(byte&0xF)<<16;
+			break;
+		case 0x0033:
+			ASIC_BLTCMD=byte;
+			TickBlitter();
+			break;
+		case 0x0034:
+			ASIC_BLTCON=byte;
+			break;
+		default:
+#if ENABLE_DEBUG
+			if (warnIgnore)
+			{
+				printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			}
+#endif
+			break;
+	}
+}
+
 
 // According to docs for PAL - 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
 //

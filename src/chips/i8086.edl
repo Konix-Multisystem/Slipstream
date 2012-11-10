@@ -191,6 +191,8 @@ FUNCTION STEP
 		CALL FetchWord($0000,TMP)->IP;
 		CALL FetchWord($0000,TMP+2)->CS;
 
+		DEBUG_TRACE BASE 16,CS,IP;
+
 		61->CYCLES;
 	}
 
@@ -325,6 +327,13 @@ INSTRUCTION	"XX00000011"		%00000011
 	EXECUTE XX00000011 IR;
 }
 
+INSTRUCTION	"XX00001000"		%00001000
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00001000 IR;
+}
+
 INSTRUCTION	"XX00001001"		%00001001
 {
 	DECLARE IR[8];
@@ -353,6 +362,13 @@ INSTRUCTION	"XX00010011"		%00010011
 	EXECUTE XX00010011 IR;
 }
 
+INSTRUCTION	"XX00100000"		%00100000
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00100000 IR;
+}
+
 INSTRUCTION	"XX00100001"		%00100001
 {
 	DECLARE IR[8];
@@ -379,6 +395,20 @@ INSTRUCTION	"XX00101011"		%00101011
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
 	EXECUTE XX00101011 IR;
+}
+
+INSTRUCTION	"XX00110000"		%00110000
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00110000 IR;
+}
+
+INSTRUCTION	"XX00110001"		%00110001
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00110001 IR;
 }
 
 INSTRUCTION	"XX00110010"		%00110010
@@ -1003,18 +1033,20 @@ INSTRUCTION	"LODSB"		%10101100
 INSTRUCTION	XX11010011	"SHL %M0,CL"	%11100:regw
 {
 	DECLARE dummy[16];
-	IF CL>=17
+	DECLARE shCnt[5];
+
+	shCnt<-CL;
+	IF shCnt>=17
 	{
 		regw<-$0000;
 		C<-0;
 	}
-	IF (CL>0) & (CL<17)
+	IF (shCnt>0) & (shCnt<17)
 	{
-		IF CL>1
+		IF shCnt>1
 		{
-			DECLARE TMP[16];
-			TMP<-CL-1;
-			regw<-ROL(regw,dummy,$0000,TMP);
+			shCnt<-shCnt-1;
+			regw<-ROL(regw,dummy,$0000,shCnt);
 		}
 		regw<-ROL(regw,C,$0000,1);
 	}
@@ -1038,18 +1070,20 @@ INSTRUCTION	XX00001011	"OR %M0,%M1"	%11:regw:regwop2
 INSTRUCTION	XX11010011	"SHR %M0,CL"	%11101:regw
 {
 	DECLARE dummy[16];
-	IF CL>=17
+	DECLARE shCnt[5];
+
+	shCnt<-CL;
+	IF shCnt>=17
 	{
 		regw<-$0000;
 		C<-0;
 	}
-	IF (CL>0) & (CL<17)
+	IF (shCnt>0) & (shCnt<17)
 	{
-		IF CL>1
+		IF shCnt>1
 		{
-			DECLARE TMP[16];
-			TMP<-CL-1;
-			regw<-ROR(regw,dummy,$0000,TMP);
+			shCnt<-shCnt-1;
+			regw<-ROR(regw,dummy,$0000,shCnt);
 		}
 		regw<-ROR(regw,C,$0000,1);
 	}
@@ -1407,18 +1441,20 @@ INSTRUCTION	XX10001010	"MOV %M0,[%M1+#%$1]"	%01:regl:memmod,B2[8]
 INSTRUCTION	XX11010010	"SHR %M0,CL"	%11101:regl
 {
 	DECLARE dummy[8];
-	IF CL>=9
+	DECLARE shCnt[5];
+
+	shCnt<-CL;
+	IF shCnt>=9
 	{
 		regl<-$00;
 		C<-0;
 	}
-	IF (CL>0) & (CL<9)
+	IF (shCnt>0) & (shCnt<9)
 	{
-		IF CL>1
+		IF shCnt>1
 		{
-			DECLARE TMP[8];
-			TMP<-CL-1;
-			regl<-ROR(regl,dummy,$00,TMP);
+			shCnt<-shCnt-1;
+			regl<-ROR(regl,dummy,$00,shCnt);
 		}
 		regl<-ROR(regl,C,$00,1);
 	}
@@ -1701,6 +1737,213 @@ INSTRUCTION	XX10000000	"CMP [%M0+#%$1],#%$2"	%01111:memmod,B2[8],B3[8]
 	memmod+4+10->CYCLES;
 	CALL FetchByte(DS,EA)->T;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,7), C AS CARRY(7), P AS PARITYEVEN { T - TMP };
+}
+
+INSTRUCTION	"CALL #%$4%$3:%$2%$1"	%10011010,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE offset[16];
+	DECLARE segment[16];
+	offset<-CALL GetImmediateWord();
+	segment<-CALL GetImmediateWord();
+	CALL PushWord(CS);
+	CALL PushWord(IP);
+	CS<-segment;
+	IP<-offset;
+	28->CYCLES;
+}
+
+INSTRUCTION	"RET"		%11001011
+{
+	IP<-CALL PopWord();
+	CS<-CALL PopWord();
+	18->CYCLES;
+}
+
+INSTRUCTION	XX00111011	"CMP %M0,[#%$2%$1]"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+9->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,T,15), C AS CARRY(15), P AS PARITYEVEN { regw - T };
+}
+
+INSTRUCTION	"INT #%$1"	%11001101,B2[8]
+{
+	DECLARE TMP[16];
+	DECLARE dummy[2];
+
+	TMP<-CALL GetImmediateByte();
+	CALL PushWord(FLAGS);
+	I<-0;
+	CALL PushWord(CS);
+	CALL PushWord(IP);
+	TMP<-ROL(TMP,dummy,%0000,2);
+	CALL FetchWord($0000,TMP)->IP;
+	CALL FetchWord($0000,TMP+2)->CS;
+
+	51->CYCLES;
+}
+
+#INSTRUCTION	"MOVSB"		%10100100
+#{
+#	DECLARE TMP[8];
+#	CALL FetchByte(DS,SI)->TMP;
+#	CALL StoreByte(ES,DI,TMP);
+#	IF D==0
+#	{
+#		SI<-SI+1;
+#		DI<-DI+1;
+#	}
+#	IF D==1
+#	{
+#		SI<-SI-1;
+#		DI<-DI-1;
+#	}
+#	18->CYCLES;
+#	IF REPEAT
+#	{
+#		REPEAT<-0;
+#		IP<-IP - 2;
+#		15->CYCLES;
+#	}
+#}
+
+INSTRUCTION	XX10000000	"XOR [#%$2%$1],#%$3"		%00110:%110,B2[8],B3[8],B4[8]
+{
+	DECLARE T[8];
+	DECLARE TMP[8];
+	EAdisp<-CALL GetImmediateWord();
+	9+17->CYCLES;
+	CALL GetImmediateByte()->TMP;
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { T ^ TMP }->T;
+	CALL StoreByte(DS,EAdisp,T);
+}
+
+INSTRUCTION	"XOR AL,#%$1"		%00110100,B2[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateByte()->T;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { AL ^ T }->AL;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX10000000	"OR %M0,#%$1"		%11001:regl,B2[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateByte()->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regl | TMP }->regl;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX10001000	"MOV [#%$2%$1],%M0"		%00:regl:%110,B2[8],B3[8]
+{
+	EAdisp<-CALL GetImmediateWord();
+	9+9->CYCLES;
+	CALL StoreByte(DS,EAdisp,regl);
+}
+
+INSTRUCTION	XX11010000	"RCR %M0,#1"	%11011:regl
+{
+	regl<-ROR(regl,C,C,1);
+	O<-regl[7]^regl[6];
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11010001	"RCR %M0,#1"	%11011:regw
+{
+	regw<-ROR(regw,C,C,1);
+	O<-regw[15]^regw[14];
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11111111	"JMP [%M0]"	%00100:memmod00
+{
+	DECLARE disp[8];
+	0->EAdisp;
+	memmod00+18->CYCLES;
+	CALL FetchWord(DS,EA)->IP;
+}
+
+INSTRUCTION	XX11111110	"DEC [#%$2%$1]"	%00001:%110,B2[8],B3[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	9+15->CYCLES;
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$01,7), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreByte(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX11111111	"INC [#%$2%$1]"	%00000:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+15->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T + 1 }->T;
+	CALL StoreWord(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX00110001	"XOR %M1,%M0"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regwop2 ^ regw }->regwop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX00110000	"XOR %M1,%M0"	%11:regl:reglop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { reglop2 ^ regl }->reglop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10001000	"MOV %M1,%M0"	%11:regl:reglop2
+{
+	reglop2<-regl;
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11010000	"SHL %M0,#1"	%11100:regl
+{
+	DECLARE dummy[8];
+	regl<-ROL(regl,C,$0000,1);
+	O<-1;
+	IF regl[7]==C
+	{
+		O<-0;
+	}
+	2->CYCLES;
+}
+
+INSTRUCTION	XX00001000	"OR %M1,%M0"	%11:regl:reglop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { reglop2 | regl }->reglop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10001000	"MOV [%M1],%M0"		%00:regl:memmod00,B2[8]
+{
+	0->EAdisp;
+	memmod00+9->CYCLES;
+	CALL StoreByte(DS,EA,regl);
+}
+
+INSTRUCTION	XX00100000	"AND %M1,%M0"		%11:regl:reglop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { reglop2 & regl }->reglop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	"JMP #%$4%$2:%$2%$1"	%11101010,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE off[16];
+	DECLARE seg[16];
+	off<-CALL GetImmediateWord();
+	seg<-CALL GetImmediateWord();
+	IP<-off;
+	CS<-seg;
+	15->CYCLES;
 }
 
 
