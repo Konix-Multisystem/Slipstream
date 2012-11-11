@@ -45,7 +45,7 @@ void SetPortW(uint16_t port,uint16_t word);
 
 int doDebug=0;
 int doShowDMA=0;
-int doShowPortStuff=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -314,6 +314,7 @@ extern uint8_t *DIS_XX00100000[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
 extern uint8_t *DIS_XX00100010[256];			// FROM EDL
 extern uint8_t *DIS_XX00101000[256];			// FROM EDL
+extern uint8_t *DIS_XX00101010[256];			// FROM EDL
 extern uint8_t *DIS_XX00101011[256];			// FROM EDL
 extern uint8_t *DIS_XX00110000[256];			// FROM EDL
 extern uint8_t *DIS_XX00110001[256];			// FROM EDL
@@ -356,6 +357,7 @@ extern uint32_t DIS_max_XX00100000;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
 extern uint32_t DIS_max_XX00100010;			// FROM EDL
 extern uint32_t DIS_max_XX00101000;			// FROM EDL
+extern uint32_t DIS_max_XX00101010;			// FROM EDL
 extern uint32_t DIS_max_XX00101011;			// FROM EDL
 extern uint32_t DIS_max_XX00110000;			// FROM EDL
 extern uint32_t DIS_max_XX00110001;			// FROM EDL
@@ -490,6 +492,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 		switch (sectionType)
 		{
 			case 0xFF:							// Not original specification - added to indicate system type is P88
+				printf("Found Section Konix 8088\n");
 				curSystem=ESS_P88;
 				break;
 			case 0xC8:
@@ -1379,6 +1382,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00101010")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101010,address+1,&tmpCount,DIS_max_XX00101010);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00101011")==0)
 		{
 			int tmpCount=0;
@@ -1751,7 +1761,7 @@ int main(int argc,char**argv)
 
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
-//	doDebug=1;
+	doDebug=1;
 
 	while (1==1)
 	{

@@ -17,7 +17,7 @@
 #include "audio.h"
 #include "asic.h"
 
-#define RGB4_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
+#define RGB444_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
 void INTERRUPT(uint8_t);
@@ -282,9 +282,21 @@ void TickBlitterP88()
 
 		DoBlit();
 
-		ASIC_BLTPC++;		// skip segment address
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
+#if ENABLE_DEBUG
+		if (doShowBlits)
+		{
+			printf("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+		}
+#endif
 		}
 		while (BLT_OUTER_CMD&1);
 
@@ -295,15 +307,26 @@ void TickBlitterP88()
 
 void DoBlit()
 {
-	int a,b;
+	int a;
+	uint16_t innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;
+	//uint16_t step = ((BLT_INNER_STEP<<1)|(
 
 	for (a=0;a<BLT_OUTER_CNT;a++)
 	{
 		uint8_t tmp=BLT_INNER_PAT;
+		uint8_t msk=0x01;
+		uint16_t curInner=innerCnt;
 
-		for (b=0;b<BLT_INNER_CNT;b++)
+
+		if (((BLT_OUTER_CMD&0xA0)==0x80))		// First Fetch Src enabled
 		{
-			if (((BLT_OUTER_CMD&0x80) && b==0) || (BLT_OUTER_CMD&0x20))
+			tmp=GetByte(BLT_OUTER_SRC);
+			BLT_OUTER_SRC++;
+		}
+
+		do
+		{
+			if (BLT_OUTER_CMD&0x20)
 			{
 				tmp=GetByte(BLT_OUTER_SRC);
 				BLT_OUTER_SRC++;
@@ -314,10 +337,11 @@ void DoBlit()
 			{
 				if (BLT_OUTER_MODE&0x04)
 				{
-					if (tmp& (1<<b))
+					if (tmp& msk)
 					{
 						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
 					}
+					msk<<=1;
 				}
 				else
 				{
@@ -334,10 +358,11 @@ void DoBlit()
 			}
 
 			BLT_OUTER_DST++;
-		}
 
-		if ((BLT_OUTER_MODE&0x60)==0x60)	// WORD length
-			BLT_OUTER_DST+=BLT_INNER_STEP;
+			curInner--;
+
+		}while (curInner&0x1FF);
+
 		BLT_OUTER_DST+=BLT_INNER_STEP;
 	}
 }
@@ -349,12 +374,10 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0000:
 			ASIC_KINT&=0xFF00;
 			ASIC_KINT|=byte;
-			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0001:
 			ASIC_KINT&=0x00FF;
 			ASIC_KINT|=(byte<<8);
-			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0004:
 			ASIC_STARTL=byte;
@@ -441,12 +464,10 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0000:
 			ASIC_KINT&=0xFF00;
 			ASIC_KINT|=byte;
-			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0001:
 			ASIC_KINT&=0x00FF;
 			ASIC_KINT|=(byte<<8);
-			printf("KINT : Line : %04X\n",ASIC_KINT);
 			break;
 		case 0x0002:
 			ASIC_STARTL=byte;
@@ -472,6 +493,8 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x000C:
 			ASIC_MODE=byte;
+			if (byte&0xFE)
+				printf("Warning unhandled MODE bits set - likely to be an emulation mismatch\n");
 			break;
 		case 0x000D:
 			ASIC_BORD&=0xFF00;
@@ -483,9 +506,13 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x000F:
 			ASIC_PMASK=byte;
+			if (byte!=0)
+				printf("Warning PMASK!=0 - likely to be an emulation mismatch\n");
 			break;
 		case 0x0010:
 			ASIC_INDEX=byte;
+			if (byte!=0)
+				printf("Warning INDEX!=0 - likely to be an emulation mismatch\n");
 			break;
 		case 0x0011:
 			ASIC_ENDL=byte;
@@ -495,12 +522,18 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0013:
 			ASIC_MEM=byte;
+			if (byte!=0)
+				printf("Warning MEM!=0 - (mem banking not implemented)\n");
 			break;
 		case 0x0015:
 			ASIC_DIAG=byte;
+			if (byte!=0)
+				printf("Warning DIAG!=0 - (Diagnostics not implemented)\n");
 			break;
 		case 0x0016:
 			ASIC_DIS=byte;
+			if (byte&0xFE)
+				printf("Warning unhandled DIS bits set (%02X)- (Other intterupts not implemented)\n",byte);
 			break;
 		case 0x0030:
 			ASIC_BLTPC&=0xFFF00;
@@ -520,6 +553,8 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0034:
 			ASIC_BLTCON=byte;
+			if (byte!=0)
+				printf("Warning BLTCON!=0 - (Blitter control not implemented)\n");
 			break;
 		default:
 #if ENABLE_DEBUG
@@ -761,11 +796,26 @@ void DoDSP()
 
 uint8_t PeekByte(uint32_t addr);
 
-void TickAsicMSU(int cycles)
+uint32_t ConvPaletteMSU(uint16_t pal)
 {
+	return RGB565_RGB8(pal);
+}
+
+uint32_t ConvPaletteP88(uint16_t pal)
+{
+	return RGB444_RGB8(pal);
+}
+
+void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
+{
+	uint8_t palIndex;
+	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 	uint32_t screenPtr = ASIC_SCROLL;
+	uint16_t StartL = ((ASIC_STARTH&1)<<8)|ASIC_STARTL;
+	uint16_t EndL = ((ASIC_ENDH&1)<<8)|ASIC_ENDL;
 	outputTexture+=vClock*WIDTH + hClock;
+
 	while (cycles)
 	{
 		DoDSP();
@@ -777,16 +827,33 @@ void TickAsicMSU(int cycles)
 		}
 
 		// Quick and dirty video display no contention or bus cycles
-		if (hClock>=120 && hClock<632 && vClock>ASIC_STARTL && vClock<=ASIC_ENDL)
+		if (hClock>=120 && hClock<632 && vClock>StartL && vClock<=EndL)
 		{
-			uint8_t palIndex = PeekByte(screenPtr + ((vClock-ASIC_STARTL)-1)*256 + (hClock-120)/2);
-			uint16_t palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+			switch (ASIC_MODE&1)
+			{
+				case 0:			// LoRes (2 nibbles per pixel)
+					palIndex = PeekByte(screenPtr + ((vClock-StartL)-1)*128 + (hClock-120)/4);
+					if (((vClock-StartL)-1)&1)
+					{
+						// MSB nibble
+						palIndex>>=4;
+					}
+					palIndex&=0xF;
+					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+					break;
 
-			*outputTexture++=RGB565_RGB8(palEntry);
+				case 1:			// MediumRes (1 byte per pixel)
+
+					palIndex = PeekByte(screenPtr + ((vClock-StartL)-1)*256 + (hClock-120)/2);
+					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+
+					break;
+			}
+			*outputTexture++=conv(palEntry);
 		}
 		else
 		{
-			*outputTexture++=RGB565_RGB8(ASIC_BORD);
+			*outputTexture++=conv(ASIC_BORD);
 		}
 
 		hClock++;
@@ -806,56 +873,17 @@ void TickAsicMSU(int cycles)
 
 		cycles--;
 	}
+}
+
+void TickAsicMSU(int cycles)
+{
+	TickAsic(cycles,ConvPaletteMSU);
 }
 
 void TickAsicP88(int cycles)
 {
-	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
-	uint32_t screenPtr = ASIC_SCROLL;
-	outputTexture+=vClock*WIDTH + hClock;
-	while (cycles)
-	{
-		DoDSP();
-
-		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
-		if (VideoInterruptLatch)
-		{
-			INTERRUPT(0x21);
-		}
-
-		// Quick and dirty video display no contention or bus cycles
-		if (hClock>=120 && hClock<632 && vClock>ASIC_STARTL && vClock<=ASIC_ENDL)
-		{
-			uint8_t palIndex = PeekByte(screenPtr + ((vClock-ASIC_STARTL)-1)*256 + (hClock-120)/2);
-			uint16_t palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
-
-			*outputTexture++=RGB4_RGB8(palEntry);
-		}
-		else
-		{
-			*outputTexture++=RGB4_RGB8(ASIC_BORD);
-		}
-
-		hClock++;
-		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
-		{
-			VideoInterruptLatch=1;
-		}
-		if (hClock==(WIDTH))
-		{
-			hClock=0;
-			vClock++;
-			if (vClock==(HEIGHT))
-			{
-				vClock=0;
-			}
-		}
-
-		cycles--;
-	}
+	TickAsic(cycles,ConvPaletteP88);
 }
-
-
 
 void ASIC_HostDSPMemWrite(uint16_t addr,uint8_t byte)
 {
