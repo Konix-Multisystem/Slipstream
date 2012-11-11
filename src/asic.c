@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <conio.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -19,6 +20,8 @@
 
 #define RGB444_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
+
+#define BLTDDBG(...)		//printf(__VA_ARGS__);
 
 void INTERRUPT(uint8_t);
 
@@ -53,6 +56,8 @@ uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 
 
+uint8_t BLT_OUTER_SRC_FLAGS;
+uint8_t BLT_OUTER_DST_FLAGS;
 uint8_t BLT_OUTER_CMD;
 uint32_t BLT_OUTER_SRC;
 uint32_t BLT_OUTER_DST;
@@ -117,7 +122,8 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 		ASIC_BLTPC++;
 		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
 		ASIC_BLTPC++;
-		BLT_OUTER_SRC|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		BLT_OUTER_SRC_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_SRC|=(BLT_OUTER_SRC_FLAGS&0xF)<<16;
 		ASIC_BLTPC++;
 		
 
@@ -129,7 +135,8 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 		ASIC_BLTPC++;
 		BLT_OUTER_DST|=GetByte(ASIC_BLTPC)<<8;
 		ASIC_BLTPC++;
-		BLT_OUTER_DST|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		BLT_OUTER_DST_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_DST|=(BLT_OUTER_DST_FLAGS&0xF)<<16;
 		ASIC_BLTPC++;
 		
 
@@ -230,7 +237,8 @@ void TickBlitterP88()
 		ASIC_BLTPC++;
 		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
 		ASIC_BLTPC++;
-		BLT_OUTER_SRC|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		BLT_OUTER_SRC_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_SRC|=(BLT_OUTER_SRC_FLAGS&0xF)<<16;
 		ASIC_BLTPC++;
 		
 
@@ -238,7 +246,8 @@ void TickBlitterP88()
 		ASIC_BLTPC++;
 		BLT_OUTER_DST|=GetByte(ASIC_BLTPC)<<8;
 		ASIC_BLTPC++;
-		BLT_OUTER_DST|=(GetByte(ASIC_BLTPC)&0xF)<<16;		// TODO flags
+		BLT_OUTER_DST_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_DST|=(BLT_OUTER_DST_FLAGS&0xF)<<16;
 		ASIC_BLTPC++;
 		
 
@@ -269,14 +278,49 @@ void TickBlitterP88()
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
+			printf("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
 			printf("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			printf("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+				BLT_OUTER_SRC_FLAGS&0x10?1:0,
+				BLT_OUTER_SRC_FLAGS&0x20?1:0,
+				BLT_OUTER_SRC_FLAGS&0x40?1:0,
+				BLT_OUTER_SRC_FLAGS&0x80?1:0);
 			printf("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			printf("Mode Control : %02X\n",BLT_OUTER_MODE);
-			printf("Comp Logic : %02X\n",BLT_OUTER_CPLG);
+			printf("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+				BLT_OUTER_DST_FLAGS&0x10?1:0,
+				BLT_OUTER_DST_FLAGS&0x20?1:0,
+				BLT_OUTER_DST_FLAGS&0x40?1:0,
+				BLT_OUTER_DST_FLAGS&0x80?1:0);
+			printf("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
+				BLT_OUTER_MODE&0x01?1:0,
+				BLT_OUTER_MODE&0x02?1:0,
+				BLT_OUTER_MODE&0x04?1:0,
+				BLT_OUTER_MODE&0x08?1:0,
+				BLT_OUTER_MODE&0x10?1:0,
+				BLT_OUTER_MODE&0x20?1:0,
+				BLT_OUTER_MODE&0x40?1:0,
+				BLT_OUTER_MODE&0x80?1:0);
+			printf("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
+				BLT_OUTER_CPLG&0x01?1:0,
+				BLT_OUTER_CPLG&0x02?1:0,
+				BLT_OUTER_CPLG&0x04?1:0,
+				BLT_OUTER_CPLG&0x08?1:0,
+				BLT_OUTER_CPLG&0x10?1:0,
+				BLT_OUTER_CPLG&0x20?1:0,
+				BLT_OUTER_CPLG&0x40?1:0,
+				BLT_OUTER_CPLG&0x80?1:0);
 			printf("Outer Cnt : %02X\n",BLT_OUTER_CNT);
 			printf("Inner Count : %02X\n",BLT_INNER_CNT);
 			printf("Step : %02X\n",BLT_INNER_STEP);
 			printf("Pattern : %02X\n",BLT_INNER_PAT);
+			getch();
 		}
 #endif
 
@@ -305,66 +349,366 @@ void TickBlitterP88()
 	}
 }
 
-void DoBlit()
+uint32_t ADDRESSGENERATOR_SRCADDRESS;			// 21 bit  - LSB = nibble
+uint32_t ADDRESSGENERATOR_DSTADDRESS;			// 21 bit  - LSB = nibble
+
+uint16_t DATAPATH_SRCDATA;
+uint8_t DATAPATH_DSTDATA;
+uint8_t DATAPATH_PATDATA;
+uint16_t DATAPATH_DATAOUT;
+
+/*
+
+ Data Path
+
+ 	SRCDATA_LSB----->|             |
+	DSTDATA--------->|  COMPARATOR |-----> INHIBIT
+	PATDATA--------->|             |
+
+	SRCDATA_LSB----->|       |
+	PATDATA--------->|  MUX  |------>|     |
+	DSTDATA------------------------->| LFU |-----> DATAOUT_LSB
+	SRCDATA_MSB----------------------------------> DATAOUT_MSB
+	
+
+  LFU  - 	LOG0				LOG1				LOG2				LOG3
+		(NOT SRC) AND (NOT DST)		(NOT SRC) AND DST		SRC AND (NOT DST)		SRC AND DST
+
+
+*/
+
+uint16_t BLT_INNER_CUR_CNT;
+
+int DoDataPath()
 {
-	int a;
-	uint16_t innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;
-	//uint16_t step = ((BLT_INNER_STEP<<1)|(
+	int inhibit=0;
 
-	for (a=0;a<BLT_OUTER_CNT;a++)
+	//COMPARATOR
+								// TODO CMPPLN (multi plane screen) - current comparator is working in pixel mode so CMPGT is also ignored
+
+
+	if (BLT_OUTER_CMD&0xE0)				// source or destination read -- might want to check 0xA0 since docs state : includes a source read, or a source read and a destination read
 	{
-		uint8_t tmp=BLT_INNER_PAT;
-		uint8_t msk=0x01;
-		uint16_t curInner=innerCnt;
+		BLTDDBG("COMPARATOR MAYBE ACTIVE\n");
 
-
-		if (((BLT_OUTER_CMD&0xA0)==0x80))		// First Fetch Src enabled
+		uint8_t CMP_MASK=0xFF;
+		if ((BLT_OUTER_MODE&0x20)==0)				// 4 bit mode - use destination address to figure out nibble
 		{
-			tmp=GetByte(BLT_OUTER_SRC);
-			BLT_OUTER_SRC++;
-		}
-
-		do
-		{
-			if (BLT_OUTER_CMD&0x20)
+			if (ADDRESSGENERATOR_DSTADDRESS&1)			// ODD address LSNibble
 			{
-				tmp=GetByte(BLT_OUTER_SRC);
-				BLT_OUTER_SRC++;
-			}
-
-			// hard coded test
-			if (BLT_OUTER_MODE&0x80)
-			{
-				if (BLT_OUTER_MODE&0x04)
-				{
-					if (tmp& msk)
-					{
-						SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-					}
-					msk<<=1;
-				}
-				else
-				{
-					SetByte(BLT_OUTER_DST,BLT_INNER_PAT);
-				}
+				CMP_MASK=0x0F;
 			}
 			else
 			{
-				if ((BLT_OUTER_MODE&0x60)==0x60)	// WORD length
+				CMP_MASK=0xF0;
+			}
+		}
+		BLTDDBG("COMPARATOR MASK %02X\n",CMP_MASK);
+		// COMPARATOR might be active
+
+		uint8_t CMPARATOR_A=DATAPATH_PATDATA;
+		uint8_t CMPARATOR_B=DATAPATH_PATDATA;
+		if (BLT_OUTER_SRC_FLAGS&0x10)
+			CMPARATOR_A=DATAPATH_SRCDATA&0xFF;		// TODO Might need nibble swap operation if SRC and DST nibbles are misaligned
+		if (BLT_OUTER_DST_FLAGS&0x10)
+			CMPARATOR_B=DATAPATH_DSTDATA;
+
+		CMPARATOR_A&=CMP_MASK;
+		CMPARATOR_B&=CMP_MASK;
+
+		if (BLT_OUTER_MODE&0x04)				// CMPBIT
+		{
+			if (((1<<(8-BLT_INNER_CUR_CNT)) & DATAPATH_SRCDATA)==0)
+			{
+				inhibit=1;
+			}
+		}
+		else
+		{
+			BLTDDBG("COMPARATOR A %02X  B %02X\n",CMPARATOR_A,CMPARATOR_B);
+
+			if (BLT_OUTER_CPLG&0x01)			// CMPEQ
+			{
+				if (CMPARATOR_A == CMPARATOR_B)
 				{
-					SetByte(BLT_OUTER_DST++,tmp);
+					BLTDDBG("INHIBIT A %02X == B %02X\n",CMPARATOR_A,CMPARATOR_B);
+					inhibit=1;
 				}
-				SetByte(BLT_OUTER_DST,tmp);
 			}
 
-			BLT_OUTER_DST++;
-
-			curInner--;
-
-		}while (curInner&0x1FF);
-
-		BLT_OUTER_DST+=BLT_INNER_STEP;
+			if (BLT_OUTER_CPLG&0x02)
+			{
+				if (CMPARATOR_A != CMPARATOR_B)
+				{
+					BLTDDBG("INHIBIT A %02X != B %02X\n",CMPARATOR_A,CMPARATOR_B);
+					inhibit=1;
+				}
+			}
+		}
 	}
+	
+	//LFU
+	uint8_t SRC=DATAPATH_SRCDATA&0xFF;
+	uint8_t DST=DATAPATH_DSTDATA;
+	uint8_t RES=0;
+
+	if (BLT_OUTER_CMD&0x80)					//PATSEL
+	{
+		SRC=DATAPATH_PATDATA;
+	}
+	BLTDDBG("SRC %02X DST %02X\n",SRC,DST);
+
+	if (BLT_OUTER_CPLG&0x80)
+	{
+		RES|=SRC & DST;
+		BLTDDBG("SRC&DST RES %02X\n",RES);
+	}
+	if (BLT_OUTER_CPLG&0x40)
+	{
+		RES|=SRC & (~DST);
+		BLTDDBG("SRC&~DST RES %02X\n",RES);
+	}
+	if (BLT_OUTER_CPLG&0x20)
+	{
+		RES|=(~SRC) & DST;
+		BLTDDBG("~SRC&DST RES %02X\n",RES);
+	}
+	if (BLT_OUTER_CPLG&0x10)
+	{
+		RES|=(~SRC) & (~DST);
+		BLTDDBG("~SRC&~DST RES %02X\n",RES);
+	}
+
+	DATAPATH_DATAOUT=DATAPATH_SRCDATA&0xFF00;
+	DATAPATH_DATAOUT|=RES;
+		
+	BLTDDBG("RESULT %04X\n",DATAPATH_DATAOUT);
+
+	return inhibit;
+}
+
+void AddressGeneratorSourceStep(int32_t step)
+{
+	BLTDDBG("SRCADDR %06X (%d)\n",ADDRESSGENERATOR_SRCADDRESS,step);
+	if (BLT_OUTER_SRC_FLAGS&0x40)				// SSIGN
+		step*=-1;
+	if (BLT_OUTER_SRC_FLAGS&0x20)						// SWRAP
+	{
+		uint32_t tmp = ADDRESSGENERATOR_SRCADDRESS&0xFFFE0000;		// 64K WRAP
+		ADDRESSGENERATOR_SRCADDRESS+=step;
+		ADDRESSGENERATOR_SRCADDRESS&=0x1FFFF;
+		ADDRESSGENERATOR_SRCADDRESS|=tmp;
+	}
+	else
+	{
+		ADDRESSGENERATOR_SRCADDRESS+=step;
+	}
+	BLTDDBG("SRCADDR %06X\n",ADDRESSGENERATOR_SRCADDRESS);
+}
+
+void AddressGeneratorDestinationStep(int32_t step)
+{
+	BLTDDBG("DSTADDR %06X (%d)\n",ADDRESSGENERATOR_DSTADDRESS,step);
+	if (BLT_OUTER_DST_FLAGS&0x40)				// DSIGN
+		step*=-1;
+	if (BLT_OUTER_DST_FLAGS&0x20)						// DWRAP
+	{
+		uint32_t tmp = ADDRESSGENERATOR_DSTADDRESS&0xFFFE0000;		// 64K WRAP
+		ADDRESSGENERATOR_DSTADDRESS+=step;
+		ADDRESSGENERATOR_DSTADDRESS&=0x1FFFF;
+		ADDRESSGENERATOR_DSTADDRESS|=tmp;
+	}
+	else
+	{
+		ADDRESSGENERATOR_DSTADDRESS+=step;
+	}
+
+	BLTDDBG("DSTADDR %06X\n",ADDRESSGENERATOR_DSTADDRESS);
+}
+
+void AddressGeneratorSourceRead()
+{
+	int32_t increment=0;
+	switch (BLT_OUTER_MODE&0x60)		//RES0 RES1
+	{
+		case 0x00:				//4 bits  (256 pixel)
+		case 0x40:				//4 bits  (512 pixel)
+			if (ADDRESSGENERATOR_SRCADDRESS&1)			// ODD address LSNibble
+			{
+				DATAPATH_SRCDATA&=0xFFF0;
+				DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF;
+			}
+			else
+			{
+				DATAPATH_SRCDATA&=0xFF0F;
+				DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF0;
+			}
+			increment=1;
+			break;
+		case 0x20:				//8 bits  (256 pixel)
+			DATAPATH_SRCDATA&=0xFF00;
+			DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1);
+			increment=2;
+			break;
+		case 0x60:				//16 bits (N/A)
+			DATAPATH_SRCDATA=(GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)<<8)|GetByte((ADDRESSGENERATOR_SRCADDRESS>>1)+1);
+			increment=4;
+			break;
+	}
+	BLTDDBG("SRCREAD %04X  (%d)\n",DATAPATH_SRCDATA,increment);
+
+	AddressGeneratorSourceStep(increment);
+}
+
+
+void AddressGeneratorDestinationRead()
+{
+	switch (BLT_OUTER_MODE&0x60)		//RES0 RES1
+	{
+		case 0x00:				//4 bits  (256 pixel)
+		case 0x40:				//4 bits  (512 pixel)
+			if (ADDRESSGENERATOR_DSTADDRESS&1)			// ODD address LSNibble
+			{
+				DATAPATH_DSTDATA&=0xF0;
+				DATAPATH_DSTDATA|=GetByte(ADDRESSGENERATOR_DSTADDRESS>>1)&0xF;
+			}
+			else
+			{
+				DATAPATH_DSTDATA&=0x0F;
+				DATAPATH_DSTDATA|=GetByte(ADDRESSGENERATOR_DSTADDRESS>>1)&0xF0;
+			}
+			break;
+		case 0x20:				//8 bits  (256 pixel)
+			DATAPATH_DSTDATA=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1);
+			break;
+		case 0x60:				//16 bits (N/A)  - Not sure if this should read both (since destination is only 8 bits!!!
+			DATAPATH_DSTDATA=(GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)<<8)|GetByte((ADDRESSGENERATOR_SRCADDRESS>>1)+1);
+			break;
+	}
+	BLTDDBG("DSTREAD %02X\n",DATAPATH_DSTDATA);
+}
+
+void AddressGeneratorDestinationWrite()
+{
+	switch (BLT_OUTER_MODE&0x60)		//RES0 RES1
+	{
+		case 0x00:				//4 bits  (256 pixel)
+		case 0x40:				//4 bits  (512 pixel)
+			SetByte(ADDRESSGENERATOR_DSTADDRESS>>1,DATAPATH_DATAOUT);
+			break;
+		case 0x20:				//8 bits  (256 pixel)
+			SetByte(ADDRESSGENERATOR_DSTADDRESS>>1,DATAPATH_DATAOUT);
+			break;
+		case 0x60:				//16 bits (N/A)  - Not sure if this should read both (since destination is only 8 bits!!!
+			SetByte(ADDRESSGENERATOR_DSTADDRESS>>1,DATAPATH_DATAOUT>>8);
+			SetByte((ADDRESSGENERATOR_DSTADDRESS>>1)+1,DATAPATH_DATAOUT);
+			break;
+	}
+}
+
+void AddressGeneratorDestinationUpdate()
+{
+	int32_t increment=0;
+	switch (BLT_OUTER_MODE&0x60)		//RES0 RES1
+	{
+		case 0x00:				//4 bits  (256 pixel)
+		case 0x40:				//4 bits  (512 pixel)
+			increment=1;
+			break;
+		case 0x20:				//8 bits  (256 pixel)
+			increment=2;
+			break;
+		case 0x60:				//16 bits (N/A)  - Not sure if this should read both (since destination is only 8 bits!!!
+			increment=4;
+			break;
+	}
+	AddressGeneratorDestinationStep(increment);
+}
+
+void DoBlitInner()
+{
+	BLTDDBG("InnerCnt : %03X\n",BLT_INNER_CUR_CNT);
+	do
+	{
+		BLTDDBG("-----\nINNER %d\n-----\n",BLT_INNER_CUR_CNT);
+		if (BLT_OUTER_CMD&0x20)
+		{
+			AddressGeneratorSourceRead();
+		}
+
+		if (BLT_OUTER_CMD&0x40)
+		{
+			AddressGeneratorDestinationRead();
+		}
+
+		if (DoDataPath())			// If it returns true the write is inhibited
+		{
+			// TODO - check for collision stop
+		}
+		else
+		{
+			AddressGeneratorDestinationWrite();
+		}
+
+		AddressGeneratorDestinationUpdate();
+
+		BLT_INNER_CUR_CNT--;
+
+	}while (BLT_INNER_CUR_CNT&0x1FF);
+}
+
+
+void DoBlitOuter()
+{
+	uint8_t outerCnt = BLT_OUTER_CNT;
+
+	uint16_t step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1
+	uint16_t innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+
+	//Not clear if reloaded for between blocks (but for now assume it is)
+	DATAPATH_SRCDATA=BLT_INNER_PAT|(BLT_INNER_PAT<<8);
+	DATAPATH_DSTDATA=BLT_INNER_PAT;
+	DATAPATH_PATDATA=BLT_INNER_PAT;
+
+	BLTDDBG("OuterCnt : %02X\n",outerCnt);
+	BLTDDBG("SRCDATA : %04X\n",DATAPATH_SRCDATA);
+	BLTDDBG("DSTDATA : %02X\n",DATAPATH_DSTDATA);
+	BLTDDBG("PATDATA : %02X\n",DATAPATH_PATDATA);
+	while (1)
+	{
+		BLTDDBG("-----\nOUTER %d\n-----\n",outerCnt);
+		if ((BLT_OUTER_CMD&0xA0)==0x80)			// SRCENF enabled (ignored if SRCEN also enabled)
+		{
+			AddressGeneratorSourceRead();
+		}
+
+		BLT_INNER_CUR_CNT=innerCnt;
+		DoBlitInner();
+
+		outerCnt--;
+		if (outerCnt==0)
+			break;
+
+		if (BLT_OUTER_CMD&0x10)				//DSTUP
+		{
+			AddressGeneratorDestinationStep(step);			// ?? Does step just apply, or should it be multiplied by pixel width?
+		}
+
+		if (BLT_OUTER_CMD&0x08)
+		{
+			AddressGeneratorSourceStep(step);
+		}
+	}
+}
+
+void DoBlit()
+{
+	ADDRESSGENERATOR_SRCADDRESS=(BLT_OUTER_SRC<<1) | ((BLT_OUTER_SRC_FLAGS&0x80)>>7);
+	ADDRESSGENERATOR_DSTADDRESS=(BLT_OUTER_DST<<1) | ((BLT_OUTER_DST_FLAGS&0x80)>>7);
+	BLTDDBG("SRCADDR : %06X\n",ADDRESSGENERATOR_SRCADDRESS);
+	BLTDDBG("DSTADDR : %06X\n",ADDRESSGENERATOR_DSTADDRESS);
+
+	DoBlitOuter();
 }
 
 void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
