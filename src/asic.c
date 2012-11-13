@@ -1156,9 +1156,12 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 	uint32_t screenPtr = ASIC_SCROLL;
+	uint32_t wrapOffset;
 	uint16_t StartL = ((ASIC_STARTH&1)<<8)|ASIC_STARTL;
 	uint16_t EndL = ((ASIC_ENDH&1)<<8)|ASIC_ENDL;
 	outputTexture+=vClock*WIDTH + hClock;
+
+	// Video addresses are expected to be aligned to 256/128 byte boundaries - this allows for wrap to occur for a given line
 
 	while (cycles)
 	{
@@ -1176,8 +1179,11 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 			switch (ASIC_MODE&1)
 			{
 				case 0:			// LoRes (2 nibbles per pixel)
-					palIndex = PeekByte(screenPtr + ((vClock-StartL)-1)*128 + (hClock-120)/4);
-					if (((vClock-StartL)-1)&1)
+					wrapOffset=(screenPtr+((vClock-StartL)-1)*128)&0xFFFFFF80;
+					wrapOffset|=(screenPtr+((hClock-120)/4))&0x7F;
+
+					palIndex = PeekByte(wrapOffset);
+					if (((hClock-120)/2)&1)
 					{
 						// MSB nibble
 						palIndex>>=4;
@@ -1187,8 +1193,10 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 					break;
 
 				case 1:			// MediumRes (1 byte per pixel)
+					wrapOffset=(screenPtr+((vClock-StartL)-1)*256)&0xFFFFFF00;
+					wrapOffset|=(screenPtr+((hClock-120)/2))&0xFF;
 
-					palIndex = PeekByte(screenPtr + ((vClock-StartL)-1)*256 + (hClock-120)/2);
+					palIndex = PeekByte(wrapOffset);
 					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
 
 					break;
