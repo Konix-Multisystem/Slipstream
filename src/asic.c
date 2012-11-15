@@ -18,7 +18,7 @@
 #include "audio.h"
 #include "asic.h"
 
-#define RGB444_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old multistream is 444 format
+#define RGB444_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old slipstream is 444 format
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
 #define BLTDDBG(...)		//printf(__VA_ARGS__);
@@ -221,7 +221,7 @@ void TickBlitterP88()
 				BLT_OUTER_CMD&0x80?1:0);
 		}
 
-		if (BLT_OUTER_CMD&0x4E)
+		if (BLT_OUTER_CMD&0x46)
 		{
 			printf("Unsupported BLT CMD type\n");
 			exit(1);
@@ -320,7 +320,7 @@ void TickBlitterP88()
 			printf("Inner Count : %02X\n",BLT_INNER_CNT);
 			printf("Step : %02X\n",BLT_INNER_STEP);
 			printf("Pattern : %02X\n",BLT_INNER_PAT);
-			getch();
+			//getch();
 		}
 #endif
 
@@ -662,8 +662,19 @@ void DoBlitOuter()
 {
 	uint8_t outerCnt = BLT_OUTER_CNT;
 
-	uint16_t step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1
+	uint16_t step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
 	uint16_t innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+
+	switch (BLT_OUTER_MODE&0x60)
+	{
+		case 0x00:
+		case 0x40:
+			innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
+			break;
+		case 0x20:
+		case 0x60:
+			break;
+	}
 
 	//Not clear if reloaded for between blocks (but for now assume it is)
 	DATAPATH_SRCDATA=BLT_INNER_PAT|(BLT_INNER_PAT<<8);
@@ -837,6 +848,10 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x000C:
 			ASIC_MODE=byte;
+			if (byte&0x01)
+				printf("256 Colour Screen Mode\n");
+			else
+				printf("16 Colour Screen Mode\n");
 			if (byte&0xFE)
 				printf("Warning unhandled MODE bits set - likely to be an emulation mismatch\n");
 			break;
@@ -911,6 +926,29 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0000:				// HLPL
+			return hClock&0xFF;
+		case 0x0001:				// HLPH
+			return (hClock>>8)&0xFF;
+		case 0x0002:				// VLPL
+			return vClock&0xFF;
+		case 0x0003:
+			return (vClock>>8)&0xFF;
+		default:
+#if ENABLE_DEBUG
+			if (warnIgnore)
+			{
+				printf("ASIC READ IGNORE %04X - TODO?\n",port);
+			}
+#endif
+			break;
+	}
+	return 0xAA;
+}
 
 // According to docs for PAL - 17.734475 Mhz crystal - divided by 1.5	-- 11.822983 Mhz clock
 //

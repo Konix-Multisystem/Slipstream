@@ -314,23 +314,27 @@ extern uint8_t *DIS_XX00100000[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
 extern uint8_t *DIS_XX00100010[256];			// FROM EDL
 extern uint8_t *DIS_XX00101000[256];			// FROM EDL
+extern uint8_t *DIS_XX00101001[256];			// FROM EDL
 extern uint8_t *DIS_XX00101010[256];			// FROM EDL
 extern uint8_t *DIS_XX00101011[256];			// FROM EDL
 extern uint8_t *DIS_XX00110000[256];			// FROM EDL
 extern uint8_t *DIS_XX00110001[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
+extern uint8_t *DIS_XX00111001[256];			// FROM EDL
 extern uint8_t *DIS_XX00111010[256];			// FROM EDL
 extern uint8_t *DIS_XX00111011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000000[256];			// FROM EDL
 extern uint8_t *DIS_XX10000001[256];			// FROM EDL
 extern uint8_t *DIS_XX10000011[256];			// FROM EDL
 extern uint8_t *DIS_XX10000110[256];			// FROM EDL
+extern uint8_t *DIS_XX10000111[256];			// FROM EDL
 extern uint8_t *DIS_XX10001000[256];			// FROM EDL
 extern uint8_t *DIS_XX10001001[256];			// FROM EDL
 extern uint8_t *DIS_XX10001010[256];			// FROM EDL
 extern uint8_t *DIS_XX10001011[256];			// FROM EDL
 extern uint8_t *DIS_XX10001100[256];			// FROM EDL
+extern uint8_t *DIS_XX10001101[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
@@ -357,23 +361,27 @@ extern uint32_t DIS_max_XX00100000;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
 extern uint32_t DIS_max_XX00100010;			// FROM EDL
 extern uint32_t DIS_max_XX00101000;			// FROM EDL
+extern uint32_t DIS_max_XX00101001;			// FROM EDL
 extern uint32_t DIS_max_XX00101010;			// FROM EDL
 extern uint32_t DIS_max_XX00101011;			// FROM EDL
 extern uint32_t DIS_max_XX00110000;			// FROM EDL
 extern uint32_t DIS_max_XX00110001;			// FROM EDL
 extern uint32_t DIS_max_XX00110010;			// FROM EDL
 extern uint32_t DIS_max_XX00110011;			// FROM EDL
+extern uint32_t DIS_max_XX00111001;			// FROM EDL
 extern uint32_t DIS_max_XX00111010;			// FROM EDL
 extern uint32_t DIS_max_XX00111011;			// FROM EDL
 extern uint32_t DIS_max_XX10000000;			// FROM EDL
 extern uint32_t DIS_max_XX10000001;			// FROM EDL
 extern uint32_t DIS_max_XX10000011;			// FROM EDL
 extern uint32_t DIS_max_XX10000110;			// FROM EDL
+extern uint32_t DIS_max_XX10000111;			// FROM EDL
 extern uint32_t DIS_max_XX10001000;			// FROM EDL
 extern uint32_t DIS_max_XX10001001;			// FROM EDL
 extern uint32_t DIS_max_XX10001010;			// FROM EDL
 extern uint32_t DIS_max_XX10001011;			// FROM EDL
 extern uint32_t DIS_max_XX10001100;			// FROM EDL
+extern uint32_t DIS_max_XX10001101;			// FROM EDL
 extern uint32_t DIS_max_XX10001110;			// FROM EDL
 extern uint32_t DIS_max_XX11000110;			// FROM EDL
 extern uint32_t DIS_max_XX11000111;			// FROM EDL
@@ -544,15 +552,6 @@ int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which
 uint8_t GetByteMSU(uint32_t addr)
 {
 	addr&=0xFFFFF;
-#if ENABLE_DEBUG
-	if (debugWatchReads)
-	{
-		if (addr<0xC1000 || addr>0xC1FFF)		// DSP handled seperately
-		{
-			printf("Reading from address : %05X->\n",addr);
-		}
-	}
-#endif
 	if (addr<RAM_SIZE)
 	{
 		return RAM[addr];
@@ -574,15 +573,6 @@ uint8_t GetByteMSU(uint32_t addr)
 uint8_t GetByteP88(uint32_t addr)
 {
 	addr&=0xFFFFF;
-#if ENABLE_DEBUG
-	if (debugWatchReads)
-	{
-		if (addr<0x41000 || addr>0x41FFF)		// DSP handled seperately
-		{
-			printf("Reading from address : %05X->\n",addr);
-		}
-	}
-#endif
 	if (addr<0x40000)
 	{
 		return RAM[addr];
@@ -603,12 +593,20 @@ uint8_t GetByteP88(uint32_t addr)
 
 uint8_t GetByte(uint32_t addr)
 {
+	uint8_t retVal;
 	switch (curSystem)
 	{
 		case ESS_MSU:
 			return GetByteMSU(addr);
 		case ESS_P88:
-			return GetByteP88(addr);
+			retVal=GetByteP88(addr);
+#if ENABLE_DEBUG
+			if (debugWatchReads)
+			{
+				printf("Reading from address : %05X->%02X\n",addr,retVal);
+			}
+#endif
+			return retVal;
 	}
 	return 0xBB;
 }
@@ -895,6 +893,18 @@ void DebugRPort(uint16_t port)
 
 			switch (port)
 			{
+				case 0x0000:
+					printf("HLPL - Horizontal scanline position low byte\n");
+					break;
+				case 0x0001:
+					printf("HLPH - Horizontal scanline position hi byte\n");
+					break;
+				case 0x0002:
+					printf("VLPL - Vertical scanline position low byte\n");
+					break;
+				case 0x0003:
+					printf("VLPH - Vertical scanline position hi byte\n");
+					break;
 				case 0x0040:
 					printf("PORT1 - Joystick 1\n");
 					break;
@@ -989,6 +999,10 @@ uint8_t GetPortB(uint16_t port)
 			}
 			break;
 		case ESS_P88:
+			if (port<=3)
+			{
+				return ASIC_ReadP88(port,doShowPortStuff);
+			}
 			if (port==0x40)
 			{
 				return (0xFFFF ^ joyPadState)&0xFF;
@@ -1078,6 +1092,10 @@ uint16_t GetPortW(uint16_t port)
 			}
 			break;
 		case ESS_P88:
+			if (port<=3)
+			{
+				return (ASIC_ReadP88(port+1,doShowPortStuff)<<8)|ASIC_ReadP88(port,doShowPortStuff);
+			}
 			break;
 	}
 	return 0x0000;
@@ -1382,6 +1400,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00101001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00101001,address+1,&tmpCount,DIS_max_XX00101001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00101010")==0)
 		{
 			int tmpCount=0;
@@ -1421,6 +1446,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,DIS_max_XX00110011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00111001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00111001,address+1,&tmpCount,DIS_max_XX00111001);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1466,6 +1498,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX10000111")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10000111,address+1,&tmpCount,DIS_max_XX10000111);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX10001000")==0)
 		{
 			int tmpCount=0;
@@ -1498,6 +1537,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX10001100,address+1,&tmpCount,DIS_max_XX10001100);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10001101")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001101,address+1,&tmpCount,DIS_max_XX10001101);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1761,12 +1807,12 @@ int main(int argc,char**argv)
 
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
-	doDebug=1;
+//	doDebug=1;
 
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==(0x39907))
+		if (SEGTOPHYS(CS,IP)==0)//(0x82419))
 		{
 			doDebug=1;
 			debugWatchWrites=1;

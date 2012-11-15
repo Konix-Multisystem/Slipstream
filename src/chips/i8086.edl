@@ -394,6 +394,13 @@ INSTRUCTION	"XX00101000"		%00101000
 	EXECUTE XX00101000 IR;
 }
 
+INSTRUCTION	"XX00101001"		%00101001
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00101001 IR;
+}
+
 INSTRUCTION	"XX00101010"		%00101010
 {
 	DECLARE IR[8];
@@ -434,6 +441,13 @@ INSTRUCTION	"XX00110011"		%00110011
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
 	EXECUTE XX00110011 IR;
+}
+
+INSTRUCTION	"XX00111001"		%00111001
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00111001 IR;
 }
 
 INSTRUCTION	"XX00111010"		%00111010
@@ -479,6 +493,13 @@ INSTRUCTION	"XX10000110"		%10000110
 	EXECUTE XX10000110 IR;
 }
 
+INSTRUCTION	"XX10000111"		%10000111
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10000111 IR;
+}
+
 INSTRUCTION	"XX10001000"		%10001000
 {
 	DECLARE IR[8];
@@ -512,6 +533,13 @@ INSTRUCTION	"XX10001100"		%10001100
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
 	EXECUTE XX10001100 IR;
+}
+
+INSTRUCTION	"XX10001101"		%10001101
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX10001101 IR;
 }
 
 INSTRUCTION	"XX10001110"		%10001110
@@ -849,10 +877,10 @@ INSTRUCTION	XX10000001	"ADD %M0,#%$2%$1"	%11000:regw,B2[8],B3[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$1]"	%01:regw:memmod00,B2[8]
+INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$1]"	%01:regw:memmod,B2[8]
 {
 	$0000++CALL GetImmediateByte()->EAdisp;
-	memmod00+4+8->CYCLES;
+	memmod+4+8->CYCLES;
 	CALL FetchWord(DS,EA)->regw;
 }
 
@@ -1109,7 +1137,7 @@ INSTRUCTION	"DEC %M0"	%01001:regw
 
 INSTRUCTION	XX11110110	"NEG %M0"		%11011:regl
 {
-	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN, C AS CARRY(7) { 0 - regl }->regl;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW($00,regl,7), P AS PARITYEVEN, C AS CARRY(7) { 0 - regl }->regl;
 	3->CYCLES;
 }
 
@@ -1159,14 +1187,6 @@ INSTRUCTION	XX11111110	"DEC %M0"	%11001:regl
 	3->CYCLES;
 }
 
-INSTRUCTION	XX11111111	"TODO %M0"	%11001:regw
-{
-	DEBUG_TRACE "iksdfhoisdhfoisdhfoishdhfoisdhoifhsiodfhoisdhofhsdoifhosdihfosdhfoishdofihsdofihosidhfoisdhofihsdofihsodifhoisdhfoishfo";
-	IP<-IP-2;
-#	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,$01,7), P AS PARITYEVEN { regl + 1 }->regl;
-#	3->CYCLES;
-}
-
 INSTRUCTION	"IN AL,#%$1"		%11100100,B2[8]
 {
 	CALL GetPortB(CALL GetImmediateByte())->AL;
@@ -1184,7 +1204,7 @@ INSTRUCTION	XX11010001	"SHL %M0,#1"	%11100:regw
 	DECLARE dummy[16];
 	regw<-ROL(regw,C,$0000,1);
 	O<-1;
-	IF regw[15]==C
+	IF regw[15..15]==C
 	{
 		O<-0;
 	}
@@ -1590,7 +1610,7 @@ INSTRUCTION	XX11110110	"MUL %M0"		%11100:regl
 	lhs<-AL;
 	rhs<-regl;
 	AX<-lhs * rhs;
-	C<-AX[7..15]!=$00;
+	C<-AH!=$00;
 	O<-C;
 
 	70->CYCLES;								# 70 - 77 cycles
@@ -1858,14 +1878,14 @@ INSTRUCTION	XX10001000	"MOV [#%$2%$1],%M0"		%00:regl:%110,B2[8],B3[8]
 INSTRUCTION	XX11010000	"RCR %M0,#1"	%11011:regl
 {
 	regl<-ROR(regl,C,C,1);
-	O<-regl[7]^regl[6];
+	O<-regl[7..7]^regl[6..6];
 	2->CYCLES;
 }
 
 INSTRUCTION	XX11010001	"RCR %M0,#1"	%11011:regw
 {
 	regw<-ROR(regw,C,C,1);
-	O<-regw[15]^regw[14];
+	O<-regw[15..15]^regw[14..14];
 	2->CYCLES;
 }
 
@@ -1920,7 +1940,7 @@ INSTRUCTION	XX11010000	"SHL %M0,#1"	%11100:regl
 	DECLARE dummy[8];
 	regl<-ROL(regl,C,$0000,1);
 	O<-1;
-	IF regl[7]==C
+	IF regl[7..7]==C
 	{
 		O<-0;
 	}
@@ -1971,7 +1991,7 @@ INSTRUCTION	XX10001000	"MOV [%M1+#%$2%$1],%M0"		%10:regl:memmod,B2[8],B3[8]
 	CALL StoreByte(DS,EA,regl);
 }
 
-INSTRUCTION	XX00000011	"ADD %M0,[%M1]"			%00:regw:memmod00,B2[8],B3[8]
+INSTRUCTION	XX00000011	"ADD %M0,[%M1]"			%00:regw:memmod00
 {
 	DECLARE TMP[16];
 	0->EAdisp;
@@ -2008,7 +2028,7 @@ INSTRUCTION	XX10000000	"ADD %M0,#%$1"	%11000:regl,B2[8]
 	4->CYCLES;
 }
 
-INSTRUCTION	XX00000001	"ADD %M1,%M0"		%11:regw:regwop2,B2[8]
+INSTRUCTION	XX00000001	"ADD %M1,%M0"		%11:regw:regwop2
 {
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regwop2,regw,15), C AS CARRY(15), P AS PARITYEVEN { regwop2 + regw }->regwop2;
 	3->CYCLES;
@@ -2030,4 +2050,651 @@ INSTRUCTION	XX00101010	"SUB %M0,[#%$2%$1]"	%00:regl:%110,B2[8],B3[8]
 	CALL FetchByte(DS,EAdisp)->TMP;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,TMP,7), C AS CARRY(7), P AS PARITYEVEN { regl - TMP }->regl;
 }
+
+INSTRUCTION	XX10001011	"MOV %M0,[%M1+#%$2%$1]"	%10:regw:memmod,B2[8],B3[8]
+{
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+8->CYCLES;
+	CALL FetchWord(DS,EA)->regw;
+}
+
+INSTRUCTION	XX00111001	"CMP %M1,%M0"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regwop2,regw,15), C AS CARRY(15), P AS PARITYEVEN { regwop2 - regw };
+	3->CYCLES;
+}
+
+INSTRUCTION	XX00101001	"SUB %M1,%M0"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regwop2,regw,15), C AS CARRY(15), P AS PARITYEVEN { regwop2 - regw }->regwop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10000001	"SUB %M0,#%$2%$1"	%11101:regw,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	TMP<-CALL GetImmediateWord();
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP }->regw;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX11110111	"NEG %M0"		%11011:regw
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW($0000,regw,15), P AS PARITYEVEN, C AS CARRY(15) { 0 - regw }->regw;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10000001	"ADD [#%$2%$1],#%$4%$3"	%00000:%110,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateWord();
+	9+17->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T + TMP }->T;
+	CALL StoreWord(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX10001100	"MOV [%M1],%M0"		%000:regs:memmod00
+{
+	0->EAdisp;
+	memmod00+9->CYCLES;
+	CALL StoreWord(DS,EA,regs);
+}
+
+INSTRUCTION	"PUSHF"		%10011100
+{
+	CALL PushWord(FLAGS);
+	10->CYCLES;
+}
+
+INSTRUCTION	"POPF"		%10011101
+{
+	CALL PopWord()->FLAGS;
+	8->CYCLES;
+}
+
+INSTRUCTION	XX11110111	"TEST [#%$2%$1],#%$4%$3"		%00000:%110,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateWord();
+	9+11->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, P AS PARITYEVEN { TMP & T };
+}
+
+INSTRUCTION	XX00110011	"XOR %M0,[#%$2%$1]"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	9+9->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw ^ T }->regw;
+}
+
+INSTRUCTION	XX11110110	"TEST [#%$2%$1],#%$3"		%00000:%110,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[8];
+	DECLARE T[8];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateByte();
+	9+11->CYCLES;
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, P AS PARITYEVEN { TMP & T };
+}
+
+INSTRUCTION	XX11010001	"SAR %M0,#1"	%11111:regw
+{
+	DECLARE dummy[16];
+	O<-0;
+	regw<-ROR(regw,C,regw[15..15],1);
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11111111	"JMP %M0"	%11100:regw
+{
+	IP<-regw;
+	11->CYCLES;
+}
+
+INSTRUCTION	XX10000111	"XCHG %M0,%M1"		%11:regw:regwop2
+{
+	regw<->regwop2;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX00101000	"SUB %M1,%M0"	%11:regl:reglop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(reglop2,regl,7), C AS CARRY(7), P AS PARITYEVEN { reglop2 - regl }->reglop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX11110110	"IMUL %M0"		%11101:regl
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	lhs<-$0000 ++ AL;
+	rhs<-$0000 ++ regl;
+	AX<-lhs * rhs;
+	C<-(AH!=$00) & (AH!=$FF);
+	O<-C;
+
+	80->CYCLES;								# 80 - 98 cycles
+}
+
+INSTRUCTION	XX11010011	"SAR %M0,CL"	%11111:regw
+{
+	DECLARE dummy[16];
+	DECLARE fill[16];
+	DECLARE shCnt[5];
+
+	shCnt<-CL;
+
+	IF regw[15..15]==1
+	{
+		fill<-$FFFF;
+	}
+	IF regw[15..15]==0
+	{
+		fill<-$0000;
+	}
+	IF shCnt>=17
+	{
+		regw<-fill;
+		C<-fill[15];
+	}
+	IF (shCnt>0) & (shCnt<17)
+	{
+		IF shCnt>1
+		{
+			shCnt<-shCnt-1;
+			regw<-ROR(regw,dummy,fill,shCnt);
+		}
+		regw<-ROR(regw,C,fill,1);
+	}
+	8+CL->CYCLES;
+}
+
+INSTRUCTION	XX00001001	"OR %M1,%M0"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regwop2 | regw }->regwop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX10000000	"ADD [#%$2%$1],#%$3"	%00000:%110,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[8];
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	TMP<-CALL GetImmediateByte();
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,7), C AS CARRY(7), P AS PARITYEVEN { T + TMP}->T;
+	CALL StoreByte(DS,EAdisp,T);
+	9+17->CYCLES;
+}
+
+INSTRUCTION	XX11111111	"CALL %M0"	%11010:regw
+{
+	CALL PushWord(IP);
+	IP<-regw;
+	16->CYCLES;
+}
+
+INSTRUCTION	"CBW"		%10011000
+{
+	AX<-$0000++AL;
+	2->CYCLES;
+}
+
+INSTRUCTION	XX11010001	"ROL %M0,#1"	%11000:regw
+{
+	regw<-ROL(regw,C,regw[14..14],1);
+	O<-C^(regw[15..15]);
+	2->CYCLES;
+}
+
+INSTRUCTION	XX10000000	"XOR %M0,#%$1"		%11110:regl,B2[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateByte()->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regl ^ TMP }->regl;
+	4->CYCLES;
+}
+
+INSTRUCTION	XX10000000	"CMP [%M0+#%$2%$1],#%$3"	%10111:memmod,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[8];
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+10->CYCLES;
+	TMP<-CALL GetImmediateByte();
+	CALL FetchByte(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,7), C AS CARRY(7), P AS PARITYEVEN { T - TMP };
+}
+
+INSTRUCTION	XX00000001	"ADD [#%$2%$1],%M0"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+16->CYCLES;
+	CALL FetchWord(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP + regw }->TMP;
+	CALL StoreWord(DS,EAdisp,TMP);
+}
+
+INSTRUCTION	XX00000000	"ADD %M1,%M0"		%11:regl:reglop2,B2[8]
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(reglop2,regl,7), C AS CARRY(7), P AS PARITYEVEN { reglop2 + regl }->reglop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	XX11010001	"ROR %M0,#1"	%11001:regw
+{
+	regw<-ROR(regw,C,regw[0..0],1);
+	O<-(regw[14..14])^(regw[15..15]);
+	2->CYCLES;
+}
+
+INSTRUCTION	XX10001010	"MOV %M0,[%M1+#%$2%$1]"	%10:regl:memmod,B2[8],B3[8]
+{
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+8->CYCLES;
+	CALL FetchByte(DS,EA)->regl;
+}
+
+INSTRUCTION	XX00101010	"SUB %M0,[%M1]"		%00:regl:memmod00
+{
+	DECLARE TMP[8];
+	$0000->EAdisp;
+	memmod00+9->CYCLES;
+	CALL FetchByte(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,TMP,7), C AS CARRY(7), P AS PARITYEVEN { regl - TMP }->regl;
+}
+
+INSTRUCTION	XX00101011	"SUB %M0,[#%$2%$1]"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+9->CYCLES;
+	CALL FetchWord(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP }->regw;
+}
+
+INSTRUCTION	XX11110111	"TEST %M0,#%$2%$1"		%11000:regw,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	TMP<-CALL GetImmediateWord();
+	AFFECT S AS SIGN, Z AS ZERO, P AS PARITYEVEN { TMP & regw };
+	5->CYCLES;
+}
+
+INSTRUCTION	XX00000010	"ADD %M0,[#%$2%$1]"	%00:regl:%110,B2[8],B3[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateWord()->EAdisp;
+	9+9->CYCLES;
+	CALL FetchByte(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,TMP,7), C AS CARRY(7), P AS PARITYEVEN { regl + TMP }->regl;
+}
+
+INSTRUCTION	XX11111111	"DEC [#%$2%$1]"	%00001:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+15->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreWord(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX10000000	"SUB [#%$2%$1],#%$3"	%00101:%110,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[8];
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	TMP<-CALL GetImmediateByte();
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,7), C AS CARRY(7), P AS PARITYEVEN { T - TMP}->T;
+	CALL StoreByte(DS,EAdisp,T);
+	9+17->CYCLES;
+}
+
+INSTRUCTION	XX10000001	"CMP [%M0+#%$2%$1],#%$4%$3"	%10111:memmod,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+10->CYCLES;
+	TMP<-CALL GetImmediateWord();
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP };
+}
+
+INSTRUCTION	XX10001101	"LEA %M0,[%M1+#%$2%$1]"		%10:regw:memmod,B2[8],B3[8]
+{
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+2->CYCLES;
+	regw<-EA;
+}
+
+INSTRUCTION	XX10000001	"CMP [%M0],#%$2%$1"	%00111:memmod00,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	$0000->EAdisp;
+	memmod00+10->CYCLES;
+	TMP<-CALL GetImmediateWord();
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP };
+}
+
+INSTRUCTION	XX11111111	"DEC [%M0]"	%00001:memmod00
+{
+	DECLARE T[16];
+	$0000->EAdisp;
+	memmod00+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11111111	"DEC [%M0+#%$2%$1]"	%10001:memmod,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX10000001	"ADD [%M0+#%$2%$1],#%$4%$3"	%10000:memmod,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateWord();
+	memmod+4+17->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T + TMP }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX10000001	"AND [%M0+#%$2%$1],#%$4%$3"	%10100:memmod,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateWord();
+	memmod+4+17->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { T & TMP }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11111111	"INC [%M0+#%$2%$1]"	%10000:memmod,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T + 1 }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11000111 	"MOV [%M0+#%$2%$1],#%$4%$3"	%10000:memmod,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	T<-CALL GetImmediateWord();
+	memmod+4+10->CYCLES;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11110110	"NEG [#%$2%$1]"		%00011:%110,B2[8],B3[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	9+16->CYCLES;
+	CALL FetchByte(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW($00,T,7), P AS PARITYEVEN, C AS CARRY(7) { 0 - T }->T;
+	CALL StoreByte(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX00111001	"CMP [#%$2%$1],%M0"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+9->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,regw,15), C AS CARRY(15), P AS PARITYEVEN { T - regw };
+}
+
+INSTRUCTION	XX10000001	"SUB [#%$2%$1],#%$4%$3"	%00101:%110,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	TMP<-CALL GetImmediateWord();
+	CALL FetchWord(DS,EAdisp)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP}->T;
+	CALL StoreWord(DS,EAdisp,T);
+	9+17->CYCLES;
+}
+
+INSTRUCTION	XX10000111	"XCHG [#%$2%$1],%M0"		%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+17->CYCLES;
+	CALL FetchWord(DS,EAdisp)->T;
+	regw<->T;
+	CALL StoreWord(DS,EAdisp,T);
+}
+
+INSTRUCTION	XX10000001	"SUB [%M0+#%$2%$1],#%$4%$3"	%10101:memmod,B2[8],B3[8],B4[8],B5[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-CALL GetImmediateWord();
+	TMP<-CALL GetImmediateWord();
+	memmod+4+17->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP}->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11000110 	"MOV [%M0],#%$1"	%00000:memmod00,B2[8]
+{
+	DECLARE T[8];
+	$0000->EAdisp;
+	T<-CALL GetImmediateByte();
+	memmod00+10->CYCLES;
+	CALL StoreByte(DS,EA,T);
+}
+
+INSTRUCTION	XX11000110 	"MOV [%M0+#%$2%$1],#%$3"	%10000:memmod,B2[8],B3[8],B4[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	T<-CALL GetImmediateByte();
+	memmod+4+10->CYCLES;
+	CALL StoreByte(DS,EA,T);
+}
+
+INSTRUCTION	XX11111110	"DEC [%M0+#%$2%$1]"	%10001:memmod,B2[8],B3[8]
+{
+	DECLARE T[8];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchByte(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$01,7), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreByte(DS,EA,T);
+}
+
+INSTRUCTION	XX00000011	"ADD %M0,[%M1+#%$2%$1]"			%10:regw:memmod,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw + TMP }->regw;
+}
+
+INSTRUCTION	XX00111011	"CMP %M0,[%M1+#%$2%$1]"	%10:regw:memmod,B2[8],B3[8]
+{
+	DECLARE T[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,T,15), C AS CARRY(15), P AS PARITYEVEN { regw - T };
+}
+
+INSTRUCTION	XX00101001	"SUB [%M1+#%$2%$1],%M0"	%10:regw:memmod,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+16->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP - regw }->TMP;
+	CALL StoreWord(DS,EA,TMP);
+}
+
+INSTRUCTION	XX00000010	"ADD %M0,[%M1+#%$2%$1]"			%10:regl:memmod,B2[8],B3[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchByte(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,TMP,7), C AS CARRY(7), P AS PARITYEVEN { regl + TMP }->regl;
+}
+
+INSTRUCTION	XX00000001	"ADD [%M1+#%$2%$1],%M0"			%10:regw:memmod,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+16->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP + regw }->TMP;
+	CALL StoreWord(DS,EA,TMP);
+}
+
+INSTRUCTION	XX00101011	"SUB %M0,[%M1+#%$2%$1]"			%10:regw:memmod,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP }->regw;
+}
+
+INSTRUCTION	XX10000001	"CMP [%M0+#%$1],#%$3%$2"	%01111:memmod,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+10->CYCLES;
+	TMP<-CALL GetImmediateWord();
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP };
+}
+
+INSTRUCTION	XX10001101	"LEA %M0,[%M1+#%$1]"		%01:regw:memmod,B2[8]
+{
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+2->CYCLES;
+	regw<-EA;
+}
+
+INSTRUCTION	XX11111111	"DEC [%M0+#%$1]"	%01001:memmod,B2[8]
+{
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11111111	"INC [%M0+#%$1]"	%01000:memmod,B2[8]
+{
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$0001,15), P AS PARITYEVEN { T + 1 }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX10000001	"SUB [%M0+#%$1],#%$3%$2"	%01101:memmod,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-$0000++CALL GetImmediateByte();
+	TMP<-CALL GetImmediateWord();
+	memmod+4+17->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T - TMP}->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11111110	"DEC [%M0+#%$1]"	%01001:memmod,B2[8]
+{
+	DECLARE T[8];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchByte(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,$01,7), P AS PARITYEVEN { T - 1 }->T;
+	CALL StoreByte(DS,EA,T);
+}
+
+INSTRUCTION	XX00000011	"ADD %M0,[%M1+#%$1]"			%01:regw:memmod,B2[8]
+{
+	DECLARE TMP[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw + TMP }->regw;
+}
+
+INSTRUCTION	XX00111011	"CMP %M0,[%M1+#%$1]"	%01:regw:memmod,B2[8]
+{
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,T,15), C AS CARRY(15), P AS PARITYEVEN { regw - T };
+}
+
+INSTRUCTION	XX00101001	"SUB [%M1+#%$1],%M0"	%01:regw:memmod,B2[8]
+{
+	DECLARE TMP[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+16->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP - regw }->TMP;
+	CALL StoreWord(DS,EA,TMP);
+}
+
+INSTRUCTION	XX00000010	"ADD %M0,[%M1+#%$1]"			%01:regl:memmod,B2[8]
+{
+	DECLARE TMP[8];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchByte(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regl,TMP,7), C AS CARRY(7), P AS PARITYEVEN { regl + TMP }->regl;
+}
+
+INSTRUCTION	XX00101011	"SUB %M0,[%M1+#%$1]"			%01:regw:memmod,B2[8]
+{
+	DECLARE TMP[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+9->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP }->regw;
+}
+
 

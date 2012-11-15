@@ -27,6 +27,8 @@
 	void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore);
 	void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore);
 
+	uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore);
+
 	void ASIC_HostDSPMemWrite(uint16_t address,uint8_t byte);
 	uint8_t ASIC_HostDSPMemRead(uint16_t address);
 
