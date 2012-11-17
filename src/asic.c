@@ -29,7 +29,7 @@ int hClock=0;
 int vClock=0;
 int VideoInterruptLatch=0;
 
-int doShowBlits=1;
+int doShowBlits=0;
 int doShowHostDSPWrites=0;
 int doShowHostDSPReads=0;
 
@@ -320,7 +320,13 @@ void TickBlitterP88()
 			printf("Inner Count : %02X\n",BLT_INNER_CNT);
 			printf("Step : %02X\n",BLT_INNER_STEP);
 			printf("Pattern : %02X\n",BLT_INNER_PAT);
+
 			//getch();
+		}
+		if (BLT_OUTER_MODE&0x08)
+		{
+			printf("Unsupported blitter mode\n");
+			return;/// CHEAP
 		}
 #endif
 

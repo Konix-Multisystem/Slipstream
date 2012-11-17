@@ -313,6 +313,7 @@ extern uint8_t *DIS_XX00010011[256];			// FROM EDL
 extern uint8_t *DIS_XX00100000[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
 extern uint8_t *DIS_XX00100010[256];			// FROM EDL
+extern uint8_t *DIS_XX00100011[256];			// FROM EDL
 extern uint8_t *DIS_XX00101000[256];			// FROM EDL
 extern uint8_t *DIS_XX00101001[256];			// FROM EDL
 extern uint8_t *DIS_XX00101010[256];			// FROM EDL
@@ -337,6 +338,7 @@ extern uint8_t *DIS_XX10001011[256];			// FROM EDL
 extern uint8_t *DIS_XX10001100[256];			// FROM EDL
 extern uint8_t *DIS_XX10001101[256];			// FROM EDL
 extern uint8_t *DIS_XX10001110[256];			// FROM EDL
+extern uint8_t *DIS_XX10001111[256];			// FROM EDL
 extern uint8_t *DIS_XX11000110[256];			// FROM EDL
 extern uint8_t *DIS_XX11000111[256];			// FROM EDL
 extern uint8_t *DIS_XX11010000[256];			// FROM EDL
@@ -361,6 +363,7 @@ extern uint32_t DIS_max_XX00010011;			// FROM EDL
 extern uint32_t DIS_max_XX00100000;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
 extern uint32_t DIS_max_XX00100010;			// FROM EDL
+extern uint32_t DIS_max_XX00100011;			// FROM EDL
 extern uint32_t DIS_max_XX00101000;			// FROM EDL
 extern uint32_t DIS_max_XX00101001;			// FROM EDL
 extern uint32_t DIS_max_XX00101010;			// FROM EDL
@@ -385,6 +388,7 @@ extern uint32_t DIS_max_XX10001011;			// FROM EDL
 extern uint32_t DIS_max_XX10001100;			// FROM EDL
 extern uint32_t DIS_max_XX10001101;			// FROM EDL
 extern uint32_t DIS_max_XX10001110;			// FROM EDL
+extern uint32_t DIS_max_XX10001111;			// FROM EDL
 extern uint32_t DIS_max_XX11000110;			// FROM EDL
 extern uint32_t DIS_max_XX11000111;			// FROM EDL
 extern uint32_t DIS_max_XX11010000;			// FROM EDL
@@ -1007,11 +1011,11 @@ uint8_t GetPortB(uint16_t port)
 			}
 			if (port==0x40)
 			{
-				return (0xFFFF ^ joyPadState)&0xFF;
+				return (0xFFFF ^ joyPadState)>>8;
 			}
 			if (port==0x50)
 			{
-				return (0xFFFF ^ joyPadState)>>8;
+				return (0xFFFF ^ joyPadState)&0xFF;
 			}
 			break;
 	}
@@ -1395,6 +1399,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00100011")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00100011,address+1,&tmpCount,DIS_max_XX00100011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00101000")==0)
 		{
 			int tmpCount=0;
@@ -1560,6 +1571,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,DIS_max_XX10001110);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX10001111")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX10001111,address+1,&tmpCount,DIS_max_XX10001111);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
@@ -1794,6 +1812,8 @@ void ParseCommandLine(int argc,char** argv)
 	}
 }
 
+extern int doShowBlits;
+
 int main(int argc,char**argv)
 {
 	int numClocks;
@@ -1821,11 +1841,12 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0)//(0x82419))
+		if (SEGTOPHYS(CS,IP)==0)//(0x80ECF))
 		{
 			doDebug=1;
 			debugWatchWrites=1;
 			debugWatchReads=1;
+			doShowBlits=1;
 //			numClocks=1;
 		}
 #endif
