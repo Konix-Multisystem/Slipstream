@@ -29,7 +29,4 @@
 
 	uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore);
 
-	void ASIC_HostDSPMemWrite(uint16_t address,uint8_t byte);
-	uint8_t ASIC_HostDSPMemRead(uint16_t address);
-
 #endif//_ASIC__H

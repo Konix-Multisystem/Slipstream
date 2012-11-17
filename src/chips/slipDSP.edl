@@ -15,9 +15,6 @@ C_FUNC_EXTERN		DMASetWord		[32],[16];
 C_FUNC_EXTERN	[16]	GetProgWord		[16];
 # unsigned char GetWord(unsigned short);
 #  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
-C_FUNC_EXTERN		SetProgWord		[16],[16];
-# void SetWord(unsigned short,unsigned short);
-#  Called when the cpu wants to write to memory
 C_FUNC_EXTERN	[16]	GetDataWord		[16];
 # unsigned char GetWord(unsigned short);
 #  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
@@ -122,6 +119,11 @@ FUNCTION DoDMA
 }
 
 ############
+
+INSTRUCTION	"MOV. %$1,MZ0"		%00000
+{
+	CALL SetDataWord(Address,MZ0);
+}
 
 INSTRUCTION	"MOV. %$1,MZ1"		%00001
 {
@@ -339,6 +341,34 @@ INSTRUCTION	"MOV. DAC2,%$1"		%11010
 INSTRUCTION	"MOV. DAC12,%$1"	%11011
 {
 	CALL SetDAC(3,CALL GetDataWord(Address));
+}
+
+INSTRUCTION	"GAI. %$1"		%11100
+{
+	DECLARE A[16];
+	DECLARE B[16];
+
+	A<-X;
+	B<-CALL GetDataWord(Address);
+
+	IF M
+	{
+		IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
+		{
+			A | B -> AZ;
+			CALL SetDataWord(MirrorAZ,AZ);
+		}
+		IF S!=%0110
+		{
+			PC<-$56;				# Temporary waiting to see if it gets hit!
+			DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+		}
+	}
+	IF ~M
+	{	
+		PC<-$56;				# Temporary waiting to see if it gets hit!
+		DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+	}
 }
 
 INSTRUCTION	"MOV. PC,%$1"		%11101

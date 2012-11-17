@@ -57,14 +57,18 @@ out/keys.o: src/host/keys.h src/host/keys.c
 	mkdir -p out
 	gcc $(COMPILE) src/host/keys.c -o out/keys.o
 
-out/asic.o: src/asic.h src/asic.c
+out/asic.o: src/asic.h src/asic.c src/dsp.h
 	mkdir -p out
 	gcc $(COMPILE) src/asic.c -o out/asic.o
 
-out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h
+out/dsp.o: src/dsp.h src/dsp.c src/system.h
+	mkdir -p out
+	gcc $(COMPILE) src/dsp.c -o out/dsp.o
+
+out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h
 	mkdir -p out
 	gcc $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o
-	gcc $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o
+	gcc $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 
