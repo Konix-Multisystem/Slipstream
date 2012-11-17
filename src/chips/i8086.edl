@@ -443,6 +443,13 @@ INSTRUCTION	"XX00110011"		%00110011
 	EXECUTE XX00110011 IR;
 }
 
+INSTRUCTION	"XX00111000"		%00111000
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00111000 IR;
+}
+
 INSTRUCTION	"XX00111001"		%00111001
 {
 	DECLARE IR[8];
@@ -1077,8 +1084,7 @@ INSTRUCTION	XX11010011	"SHL %M0,CL"	%11100:regw
 	shCnt<-CL;
 	IF shCnt>=17
 	{
-		regw<-$0000;
-		C<-0;
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $0000 }->regw;
 	}
 	IF (shCnt>0) & (shCnt<17)
 	{
@@ -1087,7 +1093,8 @@ INSTRUCTION	XX11010011	"SHL %M0,CL"	%11100:regw
 			shCnt<-shCnt-1;
 			regw<-ROL(regw,dummy,$0000,shCnt);
 		}
-		regw<-ROL(regw,C,$0000,1);
+
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(regw,C,$0000,1) }->regw;
 	}
 	8+CL->CYCLES;
 }
@@ -1114,8 +1121,7 @@ INSTRUCTION	XX11010011	"SHR %M0,CL"	%11101:regw
 	shCnt<-CL;
 	IF shCnt>=17
 	{
-		regw<-$0000;
-		C<-0;
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $0000 }->regw;
 	}
 	IF (shCnt>0) & (shCnt<17)
 	{
@@ -1124,7 +1130,7 @@ INSTRUCTION	XX11010011	"SHR %M0,CL"	%11101:regw
 			shCnt<-shCnt-1;
 			regw<-ROR(regw,dummy,$0000,shCnt);
 		}
-		regw<-ROR(regw,C,$0000,1);
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regw,C,$0000,1) }->regw;
 	}
 	8+CL->CYCLES;
 }
@@ -1202,7 +1208,7 @@ INSTRUCTION	"IN AX,#%$1"		%11100101,B2[8]
 INSTRUCTION	XX11010001	"SHL %M0,#1"	%11100:regw
 {
 	DECLARE dummy[16];
-	regw<-ROL(regw,C,$0000,1);
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(regw,C,$0000,1) }->regw;
 	O<-1;
 	IF regw[15..15]==C
 	{
@@ -1215,7 +1221,7 @@ INSTRUCTION	XX11010000	"SHR %M0,#1"	%11101:regl
 {
 	DECLARE dummy[8];
 	O<-regl[7];
-	regl<-ROR(regl,C,$00,1);
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regl,C,$00,1) }->regl;
 	2->CYCLES;
 }
 
@@ -1231,7 +1237,7 @@ INSTRUCTION	XX11010001	"SHR %M0,#1"	%11101:regw
 {
 	DECLARE dummy[16];
 	O<-regw[15];
-	regw<-ROR(regw,C,$0000,1);
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regw,C,$0000,1) }->regw;
 	2->CYCLES;
 }
 
@@ -1477,8 +1483,7 @@ INSTRUCTION	XX11010010	"SHR %M0,CL"	%11101:regl
 	shCnt<-CL;
 	IF shCnt>=9
 	{
-		regl<-$00;
-		C<-0;
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $00 }->regl;
 	}
 	IF (shCnt>0) & (shCnt<9)
 	{
@@ -1487,7 +1492,7 @@ INSTRUCTION	XX11010010	"SHR %M0,CL"	%11101:regl
 			shCnt<-shCnt-1;
 			regl<-ROR(regl,dummy,$00,shCnt);
 		}
-		regl<-ROR(regl,C,$00,1);
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regl,C,$00,1) }->regl;
 	}
 	8+CL->CYCLES;
 }
@@ -1938,7 +1943,7 @@ INSTRUCTION	XX10001000	"MOV %M1,%M0"	%11:regl:reglop2
 INSTRUCTION	XX11010000	"SHL %M0,#1"	%11100:regl
 {
 	DECLARE dummy[8];
-	regl<-ROL(regl,C,$0000,1);
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(regl,C,$00,1) }->regl;
 	O<-1;
 	IF regl[7..7]==C
 	{
@@ -2150,7 +2155,7 @@ INSTRUCTION	XX11010001	"SAR %M0,#1"	%11111:regw
 {
 	DECLARE dummy[16];
 	O<-0;
-	regw<-ROR(regw,C,regw[15..15],1);
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regw,C,regw[15..15],1) }->regw;
 	2->CYCLES;
 }
 
@@ -2203,8 +2208,7 @@ INSTRUCTION	XX11010011	"SAR %M0,CL"	%11111:regw
 	}
 	IF shCnt>=17
 	{
-		regw<-fill;
-		C<-fill[15];
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS BIT(15) { fill }->regw;
 	}
 	IF (shCnt>0) & (shCnt<17)
 	{
@@ -2213,7 +2217,7 @@ INSTRUCTION	XX11010011	"SAR %M0,CL"	%11111:regw
 			shCnt<-shCnt-1;
 			regw<-ROR(regw,dummy,fill,shCnt);
 		}
-		regw<-ROR(regw,C,fill,1);
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(regw,C,fill,1) }->regw;
 	}
 	8+CL->CYCLES;
 }
@@ -2695,6 +2699,85 @@ INSTRUCTION	XX00101011	"SUB %M0,[%M1+#%$1]"			%01:regw:memmod,B2[8]
 	memmod+4+9->CYCLES;
 	CALL FetchWord(DS,EA)->TMP;
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regw,TMP,15), C AS CARRY(15), P AS PARITYEVEN { regw - TMP }->regw;
+}
+
+INSTRUCTION	XX00101001	"SUB [#%$2%$1],%M0"	%00:regw:%110,B2[8],B3[8]
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->EAdisp;
+	9+16->CYCLES;
+	CALL FetchWord(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP - regw }->TMP;
+	CALL StoreWord(DS,EAdisp,TMP);
+}
+
+INSTRUCTION	XX00001010	"OR %M0,[#%$2%$1]"		%00:regl:%110,B2[8],B3[8]
+{
+	DECLARE TMP[8];
+	CALL GetImmediateWord()->EAdisp;
+	9+9->CYCLES;
+	CALL FetchByte(DS,EAdisp)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regl | TMP }->regl;
+}
+
+INSTRUCTION	XX00111000	"CMP %M1,%M0"	%11:regl:reglop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(reglop2,regl,7), C AS CARRY(7), P AS PARITYEVEN { reglop2 - regl };
+	3->CYCLES;
+}
+
+INSTRUCTION	XX11110111	"NEG [%M0]"		%00011:memmod00
+{
+	DECLARE T[16];
+	$0000->EAdisp;
+	memmod00+16->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW($0000,T,15), P AS PARITYEVEN, C AS CARRY(15) { 0 - T }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX00000001	"ADD [%M1],%M0"		%00:regw:memmod00
+{
+	DECLARE TMP[16];
+	$0000->EAdisp;
+	memmod00+16->CYCLES;
+	CALL FetchWord(DS,EA)->TMP;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(TMP,regw,15), C AS CARRY(15), P AS PARITYEVEN { TMP + regw }->TMP;
+	CALL StoreWord(DS,EA,TMP);
+}
+
+INSTRUCTION	XX10000001	"ADD [%M0+#%$1],#%$3%$2"	%01000:memmod,B2[8],B3[8],B4[8]
+{
+	DECLARE TMP[16];
+	DECLARE T[16];
+	EAdisp<-$0000++CALL GetImmediateByte();
+	TMP<-CALL GetImmediateWord();
+	memmod+4+17->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(T,TMP,15), C AS CARRY(15), P AS PARITYEVEN { T + TMP }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11110111	"NEG [%M0+#%$1]"		%01011:memmod,B2[8]
+{
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+16->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW($0000,T,15), P AS PARITYEVEN, C AS CARRY(15) { 0 - T }->T;
+	CALL StoreWord(DS,EA,T);
+}
+
+INSTRUCTION	XX11010001	"SAR [%M0+#%$1],#1"	%01111:memmod,B2[8]
+{
+	DECLARE dummy[16];
+	DECLARE T[16];
+	$0000++CALL GetImmediateByte()->EAdisp;
+	memmod+4+15->CYCLES;
+	CALL FetchWord(DS,EA)->T;
+	AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(T,C,T[15..15],1) }->T;
+	CALL StoreWord(DS,EA,T);
+	O<-0;
 }
 
 

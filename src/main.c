@@ -321,6 +321,7 @@ extern uint8_t *DIS_XX00110000[256];			// FROM EDL
 extern uint8_t *DIS_XX00110001[256];			// FROM EDL
 extern uint8_t *DIS_XX00110010[256];			// FROM EDL
 extern uint8_t *DIS_XX00110011[256];			// FROM EDL
+extern uint8_t *DIS_XX00111000[256];			// FROM EDL
 extern uint8_t *DIS_XX00111001[256];			// FROM EDL
 extern uint8_t *DIS_XX00111010[256];			// FROM EDL
 extern uint8_t *DIS_XX00111011[256];			// FROM EDL
@@ -368,6 +369,7 @@ extern uint32_t DIS_max_XX00110000;			// FROM EDL
 extern uint32_t DIS_max_XX00110001;			// FROM EDL
 extern uint32_t DIS_max_XX00110010;			// FROM EDL
 extern uint32_t DIS_max_XX00110011;			// FROM EDL
+extern uint32_t DIS_max_XX00111000;			// FROM EDL
 extern uint32_t DIS_max_XX00111001;			// FROM EDL
 extern uint32_t DIS_max_XX00111010;			// FROM EDL
 extern uint32_t DIS_max_XX00111011;			// FROM EDL
@@ -1446,6 +1448,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		{
 			int tmpCount=0;
 			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,DIS_max_XX00110011);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
+		if (strcmp(mnemonic,"XX00111000")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00111000,address+1,&tmpCount,DIS_max_XX00111000);
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
