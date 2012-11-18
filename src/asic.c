@@ -321,13 +321,7 @@ void TickBlitterP88()
 
 			//getch();
 		}
-		if (BLT_OUTER_MODE&0x08)
-		{
-			printf("Unsupported blitter mode\n");
-			return;/// CHEAP
-		}
 #endif
-
 		DoBlit();
 
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
@@ -530,6 +524,24 @@ void AddressGeneratorDestinationStep(int32_t step)
 	BLTDDBG("DSTADDR %06X\n",ADDRESSGENERATOR_DSTADDRESS);
 }
 
+void AddressGeneratorDestinationLineStep(int32_t step)
+{
+	BLTDDBG("DSTADDR %06X (%d)\n",ADDRESSGENERATOR_DSTADDRESS,step);
+	if (BLT_OUTER_DST_FLAGS&0x20)						// DWRAP
+	{
+		uint32_t tmp = ADDRESSGENERATOR_DSTADDRESS&0xFFFE0000;		// 64K WRAP
+		ADDRESSGENERATOR_DSTADDRESS+=step;
+		ADDRESSGENERATOR_DSTADDRESS&=0x1FFFF;
+		ADDRESSGENERATOR_DSTADDRESS|=tmp;
+	}
+	else
+	{
+		ADDRESSGENERATOR_DSTADDRESS+=step;
+	}
+
+	BLTDDBG("DSTADDR %06X\n",ADDRESSGENERATOR_DSTADDRESS);
+}
+
 void AddressGeneratorSourceRead()
 {
 	int32_t increment=0;
@@ -661,6 +673,112 @@ void DoBlitInner()
 	}while (BLT_INNER_CUR_CNT&0x1FF);
 }
 
+void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16 bit modes and maybe wrong in 4 bit modes too
+{
+	uint8_t outerCnt = BLT_OUTER_CNT;			// This should be 1!
+
+	uint8_t delta1Orig = (BLT_OUTER_SRC&0x00FF00)>>8;
+	uint8_t delta1Work = (BLT_OUTER_SRC&0x0000FF);
+	uint8_t delta2 = BLT_INNER_STEP;
+	uint8_t length = BLT_INNER_CNT;
+	uint16_t step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+
+	int32_t deltaXStep=2;
+	int32_t deltaYStep=512;
+	
+	if (BLT_OUTER_SRC_FLAGS&0x40)
+		deltaXStep*=-1;
+	if (BLT_OUTER_DST_FLAGS&0x40)
+		deltaYStep*=-1;
+
+	//Not clear if reloaded for between blocks (but for now assume it is)
+	DATAPATH_SRCDATA=BLT_INNER_PAT|(BLT_INNER_PAT<<8);
+	DATAPATH_DSTDATA=BLT_INNER_PAT;
+	DATAPATH_PATDATA=BLT_INNER_PAT;
+
+	while (1)
+	{
+		BLTDDBG("-----\nOUTER LINE %d\n-----\n",outerCnt);
+		if ((BLT_OUTER_CMD&0xA0)==0x80)			// SRCENF enabled (ignored if SRCEN also enabled)
+		{
+			AddressGeneratorSourceRead();				// Should never happen because source address is not really a source address in line mode - but leave the read in case someone used it for effect
+		}
+
+		BLT_INNER_CUR_CNT=length;
+
+		BLTDDBG("InnerCnt : %03X\n",BLT_INNER_CUR_CNT);
+		do
+		{
+			BLTDDBG("-----\nINNER LINE %d\n-----\n",BLT_INNER_CUR_CNT);
+			if (BLT_OUTER_CMD&0x20)
+			{
+				AddressGeneratorSourceRead();			// Again should never happen
+			}
+
+			if (BLT_OUTER_CMD&0x40)
+			{
+				AddressGeneratorDestinationRead();		// Could happen for 4 bit modes
+			}
+
+			if (DoDataPath())			// If it returns true the write is inhibited
+			{
+				// TODO - check for collision stop
+			}
+			else
+			{
+				AddressGeneratorDestinationWrite();
+			}
+
+			// Now update Destination and source ptrs in line mode style .. not sure if line draw is pre/post increment... try post
+
+			if (BLT_OUTER_MODE&0x10)		// YFRAC - set means step always X, sometimes Y
+			{
+				AddressGeneratorDestinationLineStep(deltaXStep);
+				if (delta1Work<delta2)
+				{
+					delta1Work-=delta2;
+					delta1Work+=delta1Orig;
+					AddressGeneratorDestinationLineStep(deltaYStep);
+				}
+				else
+				{
+					delta1Work-=delta2;
+				}
+			}
+			else
+			{					// clear means step always Y, sometimes X
+				AddressGeneratorDestinationLineStep(deltaYStep);
+				if (delta1Work<delta2)
+				{
+					delta1Work-=delta2;
+					delta1Work+=delta1Orig;
+					AddressGeneratorDestinationLineStep(deltaXStep);
+				}
+				else
+				{
+					delta1Work-=delta2;
+				}
+			}
+
+			BLT_INNER_CUR_CNT--;
+
+		}while (BLT_INNER_CUR_CNT&0x1FF);
+
+		outerCnt--;
+		if (outerCnt==0)
+			break;
+
+		if (BLT_OUTER_CMD&0x10)				//DSTUP
+		{
+			AddressGeneratorDestinationStep(step);			// Should never reach here in line mode!
+		}
+
+		if (BLT_OUTER_CMD&0x08)
+		{
+			AddressGeneratorSourceStep(step);
+		}
+	}
+}
 
 void DoBlitOuter()
 {
@@ -723,7 +841,21 @@ void DoBlit()
 	BLTDDBG("SRCADDR : %06X\n",ADDRESSGENERATOR_SRCADDRESS);
 	BLTDDBG("DSTADDR : %06X\n",ADDRESSGENERATOR_DSTADDRESS);
 
-	DoBlitOuter();
+	if (BLT_OUTER_MODE&0x08)		// Line Draw
+	{
+		BLTDDBG("Line Parameters :\n");
+
+		BLTDDBG("Delta One : %02X\n",(BLT_OUTER_SRC&0x00FF00)>>8);
+		BLTDDBG("Delta One Working : %02X\n",(BLT_OUTER_SRC&0x0000FF));
+		BLTDDBG("Delta Two : %02X\n",BLT_INNER_STEP);
+		BLTDDBG("Gradient : %f",(float)((BLT_OUTER_SRC&0x00FF00)>>8) / (float)BLT_INNER_STEP);
+
+		DoBlitOuterLine();
+	}
+	else
+	{
+		DoBlitOuter();
+	}
 }
 
 void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
