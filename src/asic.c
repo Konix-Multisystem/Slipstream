@@ -273,7 +273,6 @@ void TickBlitterP88()
 		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 
-
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{

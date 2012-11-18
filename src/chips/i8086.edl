@@ -57,6 +57,8 @@ DECLARE INTERNAL SegOverideValue[16];
 DECLARE INTERNAL interruptPending[1];
 DECLARE INTERNAL interruptVector[8];
 
+DECLARE INTERNAL IRQBlock[1];
+
 ############
 
 FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
@@ -169,6 +171,8 @@ FUNCTION STEP
 
 	SegOveride<-0;
 
+	IRQBlock<-0;
+
 	IF (~interruptPending) | REPEAT
 	{
 		IF ~HALT
@@ -204,7 +208,7 @@ FUNCTION STEP
 FUNCTION INTERRUPT	vector[8]
 {
 	#Flag interrupt pending (if interrupts enabled or NMI) -- Interrupt will occur at next possible cpu step
-	IF I
+	IF I & (~IRQBlock)
 	{
 		interruptPending<-1;
 		interruptVector<-vector;
@@ -214,6 +218,7 @@ FUNCTION INTERRUPT	vector[8]
 FUNCTION RESET
 {
 	interruptPending<-0;
+	IRQBlock<-0;
 	REPEAT<-0;
 	IP<-0;
 	CS<-$FFFF;
@@ -231,10 +236,9 @@ MAPPING	flags[4]
 	%1000	"CLC"	C<-0;
 	%0101	"CMC"	C<-~C;
 	%1001	"STC"	C<-1;
+	%1010	"CLI"	I<-0;
 	%1100	"CLD"	D<-0;
 	%1101	"STD"	D<-1;
-	%1010	"CLI"	I<-0;
-	%1011	"STI"	I<-1;
 }
 
 MAPPING	regl[3]
@@ -646,6 +650,13 @@ INSTRUCTION	"XX11111111"		%11111111
 INSTRUCTION	"%M0"	%1111:flags
 {
 	flags;
+	2->CYCLES;
+}
+
+INSTRUCTION	"STI"	%11111011
+{
+	I<-1;
+	IRQBlock<-1;
 	2->CYCLES;
 }
 
