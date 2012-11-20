@@ -10,6 +10,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "audio.h"
 #include "video.h"
@@ -121,11 +122,24 @@ void VideoUpdate()
 	glfwPollEvents();
 }
 
+float totalTime=0.f;
+int totalCnt=0;
+
 void VideoWait()
 {
 	now=glfwGetTime();
 
 	remain = now-atStart;
+
+	totalTime+=remain;
+	totalCnt+=1;
+
+	if (totalCnt==50)
+	{
+		printf("Average FPS %f\n",1.f/(remain));
+		totalTime=0.f;
+		totalCnt=0;
+	}
 
 	while ((remain<0.02f))
 	{
@@ -135,6 +149,7 @@ void VideoWait()
 
 		remain = now-atStart;
 	}
+
 	atStart=glfwGetTime();
 }
 
