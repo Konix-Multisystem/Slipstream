@@ -22,7 +22,11 @@
 #define RGB444_RGB8(x)		( ((x&0x000F)<<4) | ((x&0x00F0)<<8) | ((x&0x0F00)<<12) )				// Old slipstream is 444 format
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
-#define BLTDDBG(...)		//printf(__VA_ARGS__);
+#if ENABLE_DEBUG
+#define BLTDDBG(...)		if (doShowBlits) { printf(__VA_ARGS__); }
+#else
+#define BLTDDBG(...)		//
+#endif
 
 void INTERRUPT(uint8_t);
 
@@ -220,7 +224,7 @@ void TickBlitterP88()
 				BLT_OUTER_CMD&0x80?1:0);
 		}
 
-		if (BLT_OUTER_CMD&0x46)
+		if (BLT_OUTER_CMD&0x42)
 		{
 			printf("Unsupported BLT CMD type\n");
 			exit(1);
@@ -669,8 +673,9 @@ void DoBlitInner()
 		AddressGeneratorDestinationUpdate();
 
 		BLT_INNER_CUR_CNT--;
+		BLT_INNER_CUR_CNT&=0x1FF;
 
-	}while (BLT_INNER_CUR_CNT&0x1FF);
+	}while (BLT_INNER_CUR_CNT);
 }
 
 void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16 bit modes and maybe wrong in 4 bit modes too
@@ -821,6 +826,46 @@ void DoBlitOuter()
 		outerCnt--;
 		if (outerCnt==0)
 			break;
+
+		if (BLT_OUTER_CMD&0x04)
+		{
+			BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+
+			BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+
+			BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+	
+#if ENABLE_DEBUG
+			if (doShowBlits)
+			{
+				printf("Inner Count : %02X\n",BLT_INNER_CNT);
+				printf("Step : %02X\n",BLT_INNER_STEP);
+				printf("Pattern : %02X\n",BLT_INNER_PAT);
+			}
+#endif
+
+			step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+			innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+
+			switch (BLT_OUTER_MODE&0x60)
+			{
+				case 0x00:
+				case 0x40:
+					innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
+					break;
+				case 0x20:
+				case 0x60:
+					break;
+			}
+
+			//Not clear if reloaded for between blocks (but for now assume it is)
+			DATAPATH_SRCDATA=BLT_INNER_PAT|(BLT_INNER_PAT<<8);
+			DATAPATH_DSTDATA=BLT_INNER_PAT;
+			DATAPATH_PATDATA=BLT_INNER_PAT;
+		}
 
 		if (BLT_OUTER_CMD&0x10)				//DSTUP
 		{

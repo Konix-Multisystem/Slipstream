@@ -11,6 +11,8 @@
 
 C_FUNC_EXTERN	[16]	DMAGetWord		[32];
 C_FUNC_EXTERN		DMASetWord		[32],[16];
+C_FUNC_EXTERN	[8]	DMAGetByte		[32];
+C_FUNC_EXTERN		DMASetByte		[32],[8];
 
 C_FUNC_EXTERN	[16]	GetProgWord		[16];
 # unsigned char GetWord(unsigned short);
@@ -35,6 +37,9 @@ DECLARE	MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 DECLARE	MODE[16]	ALIAS	MODEdc[9]:TCX[1]:TCYN[1]:M[1]:S[4];
 DECLARE	X[16];
 DECLARE	AZ[16];
+DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
+DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 
 ############
 
@@ -57,9 +62,6 @@ DECLARE INTERNAL	MirrorMODE[16]	ALIAS	$014B;
 DECLARE INTERNAL	MirrorX[16]	ALIAS	$014C;
 DECLARE INTERNAL	MirrorAZ[16]	ALIAS	$014D;
 
-DECLARE INTERNAL	DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
-DECLARE INTERNAL	DMA0[16]	ALIAS	DMA_ADD_LO[16];
-DECLARE INTERNAL	DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 
 ############
 
@@ -93,26 +95,46 @@ FUNCTION RESET
 
 FUNCTION DoDMA
 {
-	#DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+	DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
+
+	DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+
+	UPPER<-DMA1[0..3];
+	LOWER16<-DMA0;
 
 	IF DMA_BW
 	{
-		#DEBUG_TRACE "DMA Byte Width Not Supported Yet!";
+		IF DMA_RW
+		{
+			IF DMA_LOHI
+			{
+				CALL DMAGetByte(ADDR)->DMA_DATA_HI;
+			}
+			IF ~DMA_LOHI
+			{
+				CALL DMAGetByte(ADDR)->DMA_DATA_LO;
+			}
+		}
+		IF ~DMA_RW
+		{
+			IF DMA_LOHI
+			{
+				CALL DMASetByte(ADDR,DMA_DATA_HI);
+			}
+			IF ~DMA_LOHI
+			{
+				CALL DMASetByte(ADDR,DMA_DATA_LO);
+			}
+		}
 	}
 	IF ~DMA_BW
 	{
 		IF DMA_RW
 		{
-			DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER[16];
-			UPPER<-DMA1[0..3];
-			LOWER<-DMA0;
 			DMD<-CALL DMAGetWord(ADDR);
 		}
 		IF ~DMA_RW
 		{
-			DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER[16];
-			UPPER<-DMA1[0..3];
-			LOWER<-DMA0;
 			CALL DMASetWord(ADDR,DMD);
 		}
 	}
@@ -128,6 +150,12 @@ INSTRUCTION	"MOV. %$1,MZ0"		%00000
 INSTRUCTION	"MOV. %$1,MZ1"		%00001
 {
 	CALL SetDataWord(Address,MZ1);
+}
+
+INSTRUCTION	"MOV. MZ0,%$1"		%00010
+{
+	MZ0<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorMZ0,MZ0);
 }
 
 INSTRUCTION	"MOV. MZ1,%$1"		%00011
@@ -156,12 +184,18 @@ INSTRUCTION	"MOV. DMA1,%$1"		%00110
 	CPU_HOLD<-DMA_HLD;				# HLD status set/cleared on writes to this
 }
 
+INSTRUCTION	"MOV. DMD,%$1"		%00111
+{
+	DMD<-CALL GetDataWord(Address);
+	CALL SetDataWord(MirrorDMD,DMD);
+}
+
 INSTRUCTION	"MOV. %$1,DMD"		%01000
 {
 	CALL SetDataWord(Address,DMD);
 }
 
-INSTRUCTION	"MAC. %$1,X"		%01001
+INSTRUCTION	"MAC. %$1"		%01001
 {
 	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
 	DECLARE xExt[40];
@@ -220,6 +254,11 @@ INSTRUCTION	"MOV. IX,%$1"		%01011
 	CALL SetDataWord(MirrorIX,IX);
 }
 
+INSTRUCTION	"MOV. %$1,PC"		%01100
+{
+	CALL SetDataWord(Address,PC);
+}
+
 INSTRUCTION	"MOV. X,%$1"		%01101
 {
 	X<-CALL GetDataWord(Address);
@@ -231,7 +270,7 @@ INSTRUCTION	"MOV. %$1,X"		%01110
 	CALL SetDataWord(Address,X);
 }
 
-INSTRUCTION	"MULT. %$1,X"		%01111
+INSTRUCTION	"MULT. %$1"		%01111
 {
 	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
 	DECLARE xExt[40];
@@ -317,7 +356,7 @@ INSTRUCTION	"SBC. %$1"		%10101
 	DECLARE tmp[16];
 	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS NOCARRY(15) { (X - tmp)-C } -> AZ;
+	AFFECT C AS NOCARRY(15) { (X - tmp)-(~C) } -> AZ;
 	CALL SetDataWord(MirrorAZ,AZ);
 	CALL SetDataWord(MirrorMZ2,MZ2);
 }
@@ -325,6 +364,11 @@ INSTRUCTION	"SBC. %$1"		%10101
 INSTRUCTION	"MOV. %$1,AZ"		%10110
 {
 	CALL SetDataWord(Address,AZ);
+}
+
+INSTRUCTION	"MOV. AZ,%$1"		%10111
+{
+	AZ<-CALL GetDataWord(Address);
 	CALL SetDataWord(MirrorAZ,AZ);
 }
 
@@ -355,7 +399,7 @@ INSTRUCTION	"GAI. %$1"		%11100
 	{
 		IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
 		{
-			A | B -> AZ;
+			A ^ B -> AZ;
 			CALL SetDataWord(MirrorAZ,AZ);
 		}
 		IF S!=%0110

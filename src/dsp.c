@@ -23,7 +23,7 @@ void SetByte(uint32_t addr,uint8_t byte);
 int doDSPDisassemble=0;
 int doShowHostDSPWrites=0;
 int doShowHostDSPReads=0;
-int doShowDMA=1;
+int doShowDMA=0;
 
 unsigned char DSP[4*1024];
 
@@ -121,6 +121,29 @@ void DSP_DMASetWord(uint32_t addr,uint16_t word)
 	SetByte(addr&0xFFFFE,word&0xFF);
 	SetByte((addr&0xFFFFE)+1,word>>8);
 }
+
+uint8_t DSP_DMAGetByte(uint32_t addr)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFF);
+	}
+#endif
+	return GetByte(addr&0xFFFFF);
+}
+
+void DSP_DMASetByte(uint32_t addr,uint8_t byte)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		printf("DSP DMA DSP->HOST %05X (%02X)\n",addr&0xFFFFF,byte);
+	}
+#endif
+	SetByte(addr&0xFFFFF,byte);
+}
+
 
 void DSP_SetDataWord(uint16_t addr,uint16_t word)
 {
@@ -277,6 +300,7 @@ extern uint16_t	DSP_MZ2;
 extern uint16_t	DSP_MODE;
 extern uint16_t	DSP_X;
 extern uint16_t	DSP_AZ;
+extern uint16_t	DSP_DMD;
 	
 uint16_t DSP_GetProgWord(uint16_t address);
 
@@ -292,6 +316,7 @@ void DSP_DUMP_REGISTERS()
 	printf("MDE= %04X\n",DSP_MODE);
 	printf("X  = %04X\n",DSP_X);
 	printf("AZ = %04X\n",DSP_AZ);
+	printf("DMD= %04X\n",DSP_DMD);
 	printf("--------\n");
 }
 
@@ -453,12 +478,12 @@ void TickDSP()
 #if ENABLE_DEBUG
 		if (DSP_DEBUG_PC==0x56)
 		{
-			doDSPDisassemble=1;
+			//doDSPDisassemble=1;
 		}
 		if (doDSPDisassemble)
 		{
 			DSP_Disassemble(DSP_DEBUG_PC,1);
-			exit(111);
+//			exit(111);
 		}
 #endif
 		DSP_STEP();

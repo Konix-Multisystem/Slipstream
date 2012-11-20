@@ -363,6 +363,13 @@ INSTRUCTION	"XX00001011"		%00001011
 	EXECUTE XX00001011 IR;
 }
 
+INSTRUCTION	"XX00010001"		%00010001
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+	EXECUTE XX00010001 IR;
+}
+
 INSTRUCTION	"XX00010011"		%00010011
 {
 	DECLARE IR[8];
@@ -1846,30 +1853,6 @@ INSTRUCTION	"INT #%$1"	%11001101,B2[8]
 	51->CYCLES;
 }
 
-#INSTRUCTION	"MOVSB"		%10100100
-#{
-#	DECLARE TMP[8];
-#	CALL FetchByte(DS,SI)->TMP;
-#	CALL StoreByte(ES,DI,TMP);
-#	IF D==0
-#	{
-#		SI<-SI+1;
-#		DI<-DI+1;
-#	}
-#	IF D==1
-#	{
-#		SI<-SI-1;
-#		DI<-DI-1;
-#	}
-#	18->CYCLES;
-#	IF REPEAT
-#	{
-#		REPEAT<-0;
-#		IP<-IP - 2;
-#		15->CYCLES;
-#	}
-#}
-
 INSTRUCTION	XX10000000	"XOR [#%$2%$1],#%$3"		%00110:%110,B2[8],B3[8],B4[8]
 {
 	DECLARE T[8];
@@ -2964,6 +2947,87 @@ INSTRUCTION	XX00100001	"AND %M1,%M0"			%11:regw:regwop2
 {
 	AFFECT S AS SIGN, Z AS ZERO, O AS FORCERESET, C AS FORCERESET, P AS PARITYEVEN { regw & regwop2 }->regwop2;
 	3->CYCLES;
+}
+
+INSTRUCTION	XX11110111	"IMUL [#%$2%$1]"		%00101:%110,B2[8],B3[8]
+{
+	DECLARE T[16];
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DECLARE res[32]		ALIAS upper[16]:lower[16];
+
+	CALL GetImmediateWord()->EAdisp;
+	9+134->CYCLES;								# 134-160 cycles
+	CALL FetchWord(DS,EAdisp)->T;
+
+	lhs<-$00000000 ++ AX;
+	rhs<-$00000000 ++ T;
+	res<-lhs * rhs;
+	DX<-upper;
+	AX<-lower;
+
+	C<-(DX!=$0000) & (DX!=$FFFF);
+	O<-C;
+}
+
+INSTRUCTION	XX11110111	"IMUL %M0"		%11101:regw
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DECLARE res[32]		ALIAS upper[16]:lower[16];
+
+	lhs<-$00000000 ++ AX;
+	rhs<-$00000000 ++ regw;
+	res<-lhs * rhs;
+	DX<-upper;
+	AX<-lower;
+	C<-(DX!=$0000) & (DX!=$FFFF);
+	O<-C;
+
+	80->CYCLES;								# 80 - 98 cycles
+}
+
+INSTRUCTION	XX11110111	"IDIV %M0"		%11111:regw
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DX->lhs[16..31];
+	AX->lhs[0..15];
+	rhs<-regw;
+	AX<-lhs // rhs;
+	DX<-lhs %% rhs;
+										# flags are undefined, leaving as they are for now
+	165->CYCLES;								# 165 - 184 cycles
+}
+
+INSTRUCTION	XX00010001	"ADC %M1,%M0"	%11:regw:regwop2
+{
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(regwop2,regw,15), C AS CARRY(15), P AS PARITYEVEN { regwop2 + regw + C }->regwop2;
+	3->CYCLES;
+}
+
+INSTRUCTION	"MOVSB"		%10100100
+{
+	DECLARE TMP[8];
+	CALL FetchByte(DS,SI)->TMP;
+	CALL StoreByte(ES,DI,TMP);
+	IF D==0
+	{
+		SI<-SI+1;
+		DI<-DI+1;
+	}
+	IF D==1
+	{
+		SI<-SI-1;
+		DI<-DI-1;
+	}
+	18->CYCLES;
+	IF REPEAT
+	{
+		REPEAT<-0;
+		IP<-IP - 2;
+		15->CYCLES;
+	}
 }
 
 

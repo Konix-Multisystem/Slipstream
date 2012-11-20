@@ -39,7 +39,7 @@ uint16_t GetPortW(uint16_t port);
 void SetPortW(uint16_t port,uint16_t word);
 
 int doDebug=0;
-int doShowPortStuff=1;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -77,6 +77,7 @@ extern uint8_t *DIS_XX00001000[256];			// FROM EDL
 extern uint8_t *DIS_XX00001001[256];			// FROM EDL
 extern uint8_t *DIS_XX00001010[256];			// FROM EDL
 extern uint8_t *DIS_XX00001011[256];			// FROM EDL
+extern uint8_t *DIS_XX00010001[256];			// FROM EDL
 extern uint8_t *DIS_XX00010011[256];			// FROM EDL
 extern uint8_t *DIS_XX00100000[256];			// FROM EDL
 extern uint8_t *DIS_XX00100001[256];			// FROM EDL
@@ -127,6 +128,7 @@ extern uint32_t DIS_max_XX00001000;			// FROM EDL
 extern uint32_t DIS_max_XX00001001;			// FROM EDL
 extern uint32_t DIS_max_XX00001010;			// FROM EDL
 extern uint32_t DIS_max_XX00001011;			// FROM EDL
+extern uint32_t DIS_max_XX00010001;			// FROM EDL
 extern uint32_t DIS_max_XX00010011;			// FROM EDL
 extern uint32_t DIS_max_XX00100000;			// FROM EDL
 extern uint32_t DIS_max_XX00100001;			// FROM EDL
@@ -1139,6 +1141,13 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			*count=tmpCount+1;
 			return temporaryBuffer;
 		}
+		if (strcmp(mnemonic,"XX00010001")==0)
+		{
+			int tmpCount=0;
+			decodeDisasm(DIS_XX00010001,address+1,&tmpCount,DIS_max_XX00010001);
+			*count=tmpCount+1;
+			return temporaryBuffer;
+		}
 		if (strcmp(mnemonic,"XX00010011")==0)
 		{
 			int tmpCount=0;
@@ -1609,7 +1618,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0)//(0x80ECF))
+		if (SEGTOPHYS(CS,IP)==0x00000)//(0x80ECF))
 		{
 			doDebug=1;
 			debugWatchWrites=1;
