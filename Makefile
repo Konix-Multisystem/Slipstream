@@ -4,8 +4,11 @@ GLHEADERS=-I../glfw-3/include
 GLLIBS= -L../glfw-3/lib -lglfw3 -lglu32 -lopengl32 -lgdi32
 EDL=../edl/bin/edl.exe
 
-DISABLE_AUDIO=0
+COMPILER=gcc
+
 ENABLE_DEBUG=0
+ENABLE_GRPOF=0
+DISABLE_AUDIO=0
 DISABLE_DSP=0
 
 ifeq ($(DISABLE_AUDIO),1)
@@ -16,11 +19,17 @@ ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
 ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
 endif
 
+ifeq ($(ENABLE_GPROF),1)
+PROF_OPTS=-pg
+else
+PROF_OPTS=
+endif
+
 ifeq ($(ENABLE_DEBUG),1)
-SYM_OPTS=-g
+SYM_OPTS=-g $(PROF_OPTS)
 DISASSM=
 else
-SYM_OPTS=
+SYM_OPTS=$(PROF_OPTS)
 DISASSM=-n
 endif
 
@@ -47,28 +56,28 @@ out/slipDSP.lls.s: out/slipDSP.lls
 
 out/audio.o: src/host/audio.h src/host/audio.c
 	mkdir -p out
-	gcc $(COMPILE) src/host/audio.c -o out/audio.o
+	$(COMPILER) $(COMPILE) src/host/audio.c -o out/audio.o
 
 out/video.o: src/host/video.h src/host/video.c
 	mkdir -p out
-	gcc $(COMPILE) src/host/video.c -o out/video.o
+	$(COMPILER) $(COMPILE) src/host/video.c -o out/video.o
 
 out/keys.o: src/host/keys.h src/host/keys.c
 	mkdir -p out
-	gcc $(COMPILE) src/host/keys.c -o out/keys.o
+	$(COMPILER) $(COMPILE) src/host/keys.c -o out/keys.o
 
 out/asic.o: src/asic.h src/asic.c src/dsp.h
 	mkdir -p out
-	gcc $(COMPILE) src/asic.c -o out/asic.o
+	$(COMPILER) $(COMPILE) src/asic.c -o out/asic.o
 
 out/dsp.o: src/dsp.h src/dsp.c src/system.h
 	mkdir -p out
-	gcc $(COMPILE) src/dsp.c -o out/dsp.o
+	$(COMPILER) $(COMPILE) src/dsp.c -o out/dsp.o
 
 out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h
 	mkdir -p out
-	gcc $(COMPILE) src/main.c -o out/main.o
+	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
 slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o
-	gcc $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 
