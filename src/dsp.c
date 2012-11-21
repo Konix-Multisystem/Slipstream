@@ -20,84 +20,15 @@
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 
+void DSP_POKE(uint16_t,uint16_t);
+uint16_t DSP_PEEK(uint16_t);
+void DSP_POKE_BYTE(uint16_t,uint8_t);
+uint8_t DSP_PEEK_BYTE(uint16_t);
+
 int doDSPDisassemble=0;
 int doShowHostDSPWrites=0;
 int doShowHostDSPReads=0;
 int doShowDMA=0;
-
-unsigned char DSP[4*1024];
-
-uint16_t DSP_GetProgWord(uint16_t addr)
-{
-	addr&=0x1FF;		// 9 bits
-	addr*=2;		// byte style addressing
-	
-	switch (curSystem)
-	{
-		case ESS_P88:
-			return DSP[0x400 + addr + 0] | (DSP[0x400 + addr + 1]<<8);
-		case ESS_MSU:
-			return DSP[0x800 + addr + 0] | (DSP[0x800 + addr + 1]<<8);
-	}
-
-	return 0;
-}
-
-int doDSPDisassemble;
-
-uint16_t DSP_GetDataWord(uint16_t addr)
-{
-	// I think the memory map was slightly configurable based on comments in sources, for now make Data start at 0
-	addr&=0x1FF;		// 9 bits
-	addr*=2;		// byte style addressing
-	
-	if (addr<0x200)
-	{
-		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Reading from Alternate : %04X -> %04X\n",addr,DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8));
-			}
-#endif
-			return DSP[0x300 + addr + 0] | (DSP[0x300 + addr + 1]<<8);
-		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Reading from Rom : %04X -> %04X\n",addr,DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8));
-			}
-#endif
-		}
-	}
-	if (addr>0x300 && addr<0x500)
-	{
-		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Reading from Alternate : %04X -> %04X\n",addr,DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8));
-			}
-#endif
-			return DSP[(addr-0x300) + 0] | (DSP[(addr-0x300) + 1]<<8);
-		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Reading from Normal : %04X -> %04X\n",addr,DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8));
-			}
-#endif
-		}
-	}
-
-	return DSP[0x000 + addr + 0] | (DSP[0x000 + addr + 1]<<8);
-}
 
 uint16_t DSP_DMAGetWord(uint32_t addr)
 {
@@ -144,70 +75,9 @@ void DSP_DMASetByte(uint32_t addr,uint8_t byte)
 	SetByte(addr&0xFFFFF,byte);
 }
 
-
-void DSP_SetDataWord(uint16_t addr,uint16_t word)
-{
-	// I think the memory map was slightly configurable based on comments in sources, for now make Data start at 0
-	addr&=0x1FF;		// 9 bits
-	addr*=2;		// byte style addressing
-	
-	if (addr<0x200)
-	{
-		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Writing to Alternate : %04X <- %04X\n",addr,word);
-			}
-#endif
-			DSP[0x300 + addr + 0]=word&0xFF;
-			DSP[0x300 + addr + 1]=word>>8;
-		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Writing to ROM (ignored)!! : %04X <- %04X\n",addr,word);
-			}
-#endif
-			return;
-		}
-	}
-	if (addr>0x300 && addr<0x500)
-	{
-		if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Writing to Alternate : %04X <- %04X\n",addr,word);
-			}
-#endif
-			DSP[(addr - 0x300) + 0]=word&0xFF;
-			DSP[(addr - 0x300) + 1]=word>>8;
-		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doDSPDisassemble)
-			{
-				printf("Writing to Normal : %04X <- %04X\n",addr,word);
-			}
-#endif
-		}
-	}
-	DSP[0x000 + addr + 0]=word&0xFF;
-	DSP[0x000 + addr + 1]=word>>8;
-}
-
 void DSP_InitDataWord(uint16_t addr,uint16_t word)		// Used only during initialisation (ignores mappings,ROM)
 {
-	addr&=0x1FF;		// 9 bits
-	addr*=2;		// byte style addressing
-	DSP[0x000 + addr + 0]=word&0xFF;
-	DSP[0x000 + addr + 1]=word>>8;
+	DSP_POKE(addr,word);
 }
 
 void DSP_RAM_INIT()
@@ -273,16 +143,16 @@ void DSP_RAM_INIT()
 
 void DSP_STEP(void);
 
-void DSP_SetDAC(uint8_t channels,uint16_t value)
+void DSP_SetDAC(uint8_t channels,int16_t value)
 {
 	// Bleep
 	if (channels&1)
 	{
-		_AudioAddData(0,value);			//(14 bit DAC)
+		_AudioAddData(0,value>>2);			//(14 bit DAC)
 	}
 	if (channels&2)
 	{
-		_AudioAddData(1,value);			//(14 bit DAC)
+		_AudioAddData(1,value>>2);			//(14 bit DAC)
 	}
 }
 
@@ -292,31 +162,19 @@ extern uint8_t *DSP_DIS_[32];			// FROM EDL
 
 extern uint16_t	DSP_DEBUG_PC;
 
-extern uint16_t	DSP_PC;
-extern uint16_t	DSP_IX;
-extern uint16_t	DSP_MZ0;
-extern uint16_t	DSP_MZ1;
-extern uint16_t	DSP_MZ2;
-extern uint16_t	DSP_MODE;
-extern uint16_t	DSP_X;
-extern uint16_t	DSP_AZ;
-extern uint16_t	DSP_DMD;
-	
-uint16_t DSP_GetProgWord(uint16_t address);
-
 void DSP_DUMP_REGISTERS()
 {
 	printf("--------\n");
 	printf("FLAGS = C\n");
-	printf("        %s\n",	DSP_MZ2&0x10?"1":"0");
-	printf("IX = %04X\n",DSP_IX);
-	printf("MZ0= %04X\n",DSP_MZ0);
-	printf("MZ1= %04X\n",DSP_MZ1);
-	printf("MZ2= %04X\n",DSP_MZ2&0xF);
-	printf("MDE= %04X\n",DSP_MODE);
-	printf("X  = %04X\n",DSP_X);
-	printf("AZ = %04X\n",DSP_AZ);
-	printf("DMD= %04X\n",DSP_DMD);
+	printf("        %s\n",	DSP_PEEK(0x147*2)&0x10?"1":"0");
+	printf("IX = %04X\n",DSP_PEEK(0x141*2));
+	printf("MZ0= %04X\n",DSP_PEEK(0x145*2));
+	printf("MZ1= %04X\n",DSP_PEEK(0x146*2));
+	printf("MZ2= %04X\n",DSP_PEEK(0x147*2)&0xF);
+	printf("MDE= %04X\n",DSP_PEEK(0x14B*2));
+	printf("X  = %04X\n",DSP_PEEK(0x14C*2));
+	printf("AZ = %04X\n",DSP_PEEK(0x14D*2));
+	printf("DMD= %04X\n",DSP_PEEK(0x144*2));
 	printf("--------\n");
 }
 
@@ -354,7 +212,7 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 {
 	static char temporaryBuffer[2048];
 	char sprintBuffer[256];
-	uint16_t word=DSP_GetProgWord(address);
+	uint16_t word=DSP_PEEK(0x400+address);
 	uint16_t data=word&0x1FF;
 	int index=(word&0x200)>>9;
 	int cond=(word&0x400)>>9;
@@ -431,7 +289,7 @@ int DSP_Disassemble(unsigned int address,int registers)
 	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
 	{
 		printf("UNKNOWN AT : %04X\n",address);
-		printf("%04X ",DSP_GetProgWord(address));
+		printf("%04X ",DSP_PEEK(0x400+address));
 		printf("\n");
 		DSP_DUMP_REGISTERS();
 		exit(-1);
@@ -443,7 +301,7 @@ int DSP_Disassemble(unsigned int address,int registers)
 	}
 	printf("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
-	printf("%04X ",DSP_GetProgWord(address));
+	printf("%04X ",DSP_PEEK(0x400+address));
 	printf("   ");
 	printf("%s\n",retVal);
 
@@ -454,22 +312,14 @@ int DSP_Disassemble(unsigned int address,int registers)
 
 #define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
 
+uint16_t DSP_STATUS=0;
+
 void TickDSP()
 {
 #if !DISABLE_DSP
 	static int iamslow=RATE_ADJUST;
-	static int running=0;
-	
-	switch (curSystem)
-	{
-		case ESS_MSU:
-			running=DSP[0xFF0]&0x10;
-			break;
-		case ESS_P88:
-			running=DSP[0x600]&0x10;
-			iamslow=0;
-			break;
-	}
+	int running=DSP_STATUS&0x10;
+
 	if (running)
 	{
 		if (iamslow==0)
@@ -483,7 +333,7 @@ void TickDSP()
 		if (doDSPDisassemble)
 		{
 			DSP_Disassemble(DSP_DEBUG_PC,1);
-//			exit(111);
+			//exit(111);
 		}
 #endif
 		DSP_STEP();
@@ -505,7 +355,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		{
 			if (doShowHostDSPWrites)
 			{
-				uint16_t pWord = DSP[addr-1] | (byte<<8);
+				uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 				uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
 				uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
 				uint8_t isConditional=(pWord&0x0400)>>10;
@@ -617,7 +467,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			}
 		}
 #endif
-		DSP[addr]=byte;
+		DSP_POKE_BYTE(addr,byte);
 	}
 	else
 	{
@@ -628,12 +478,12 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
-			DSP[addr]=byte;
+			DSP_POKE_BYTE(addr,byte);
 		}
 		if (addr>=0x200 && addr<0x280)
 		{
@@ -642,7 +492,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
@@ -651,19 +501,19 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		}
 		if (addr<0x200)
 		{
-			if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (addr&1)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP[addr-1] | (byte<<8);
+						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 						printf("Host Write To DSP Data (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
-				DSP[addr+0x300]=byte;
+				DSP_POKE_BYTE(addr+0x300,byte);
 			}
 			else
 			{
@@ -672,7 +522,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP[addr-1] | (byte<<8);
+						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 						printf("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
@@ -682,14 +532,14 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		}
 		if (addr>=0x300 && addr<0x500)
 		{
-			if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (addr&1)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP[addr-1] | (byte<<8);
+						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 						printf("Host Write To DSP ROM (ignored) (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
@@ -703,12 +553,12 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP[addr-1] | (byte<<8);
+						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 						printf("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
-				DSP[addr]=byte;
+				DSP_POKE_BYTE(addr,byte);
 			}
 		}
 		if (addr>=0x500 && addr<0x800)
@@ -718,12 +568,12 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Data : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
-			DSP[addr]=byte;
+			DSP_POKE_BYTE(addr,byte);
 		}
 		if (addr>=0xE00)
 		{
@@ -733,7 +583,19 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				printf("Host Write to DSP Data (Unknown (FF0 status!)) : %04X\n",addr);
 			}
 #endif
-			DSP[addr]=byte;
+			if (addr==0xFF0)
+			{
+				DSP_STATUS&=0xFF00;
+				DSP_STATUS|=byte;
+				return;
+			}
+			if (addr==0xFF1)
+			{
+				DSP_STATUS&=0x00FF;
+				DSP_STATUS|=byte<<8;
+				return;
+			}
+			DSP_POKE_BYTE(addr,byte);
 		}
 	}
 }
@@ -748,13 +610,13 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 			printf("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
 		}
 #endif
-		return DSP[addr];
+		return DSP_PEEK_BYTE(addr);
 	}
 	else
 	{
 		if (addr<0x800)
 		{
-			if (DSP[0x14B*2] & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (doShowHostDSPReads)
@@ -764,11 +626,11 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #endif
 				if (addr<0x200)
 				{
-					return DSP[addr+0x300];
+					return DSP_PEEK_BYTE(addr+0x300);
 				}
 				if (addr>=0x300 && addr<0x500)
 				{
-					return DSP[addr-0x300];
+					return DSP_PEEK_BYTE(addr-0x300);
 				}
 			}
 			else
@@ -779,7 +641,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 					printf("Host DSP Data Read (Normal Map) : %04X\n",addr);
 				}
 #endif
-				return DSP[addr];
+				return DSP_PEEK_BYTE(addr);
 			}
 		}
 		else
@@ -792,7 +654,15 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #endif
 		}
 	}
-	return DSP[addr];
+	if (addr==0xFF0)
+	{
+		return DSP_STATUS&0XFF;
+	}
+	if (addr==0xFF1)
+	{
+		return DSP_STATUS>>8;
+	}
+	return DSP_PEEK_BYTE(addr);
 }
 
 void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
@@ -804,7 +674,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 		{
 			if (doShowHostDSPWrites)
 			{
-				uint16_t pWord = DSP[addr-1] | (byte<<8);
+				uint16_t pWord = DSP_PEEK_BYTE((addr+0x400)-1) | (byte<<8);
 				uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
 				uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
 				uint8_t isConditional=(pWord&0x0400)>>10;
@@ -916,7 +786,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			}
 		}
 #endif
-		DSP[addr]=byte;
+		DSP_POKE_BYTE(addr+0x400,byte);
 	}
 	else
 	{
@@ -927,12 +797,12 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
-			DSP[addr]=byte;
+			DSP_POKE_BYTE(addr,byte);
 		}
 		if (addr>=0x200 && addr<0x280)
 		{
@@ -941,7 +811,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
@@ -955,7 +825,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
@@ -968,12 +838,12 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP[addr-1] | (byte<<8);
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
 					printf("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
-			DSP[addr]=byte;
+			DSP_POKE_BYTE(addr,byte);
 		}
 		if (addr>=0x600)
 		{
@@ -983,7 +853,19 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				printf("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
 			}
 #endif
-			DSP[addr]=byte;
+			if (addr==0x600)
+			{
+				DSP_STATUS&=0xFF00;
+				DSP_STATUS|=byte;
+				return;
+			}
+			if (addr==0x601)
+			{
+				DSP_STATUS&=0x00FF;
+				DSP_STATUS|=byte<<8;
+				return;
+			}
+			DSP_POKE_BYTE(addr,byte);
 		}
 	}
 }
@@ -998,7 +880,7 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 			printf("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
 		}
 #endif
-		return DSP[addr];
+		return DSP_PEEK_BYTE(addr+0x400);
 	}
 	else
 	{
@@ -1010,7 +892,7 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 				printf("Host DSP Data Read (Normal Map) : %04X\n",addr);
 			}
 #endif
-			return DSP[addr];
+			return DSP_PEEK_BYTE(addr);
 		}
 		else
 		{
@@ -1022,5 +904,14 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 #endif
 		}
 	}
-	return DSP[addr];
+	if (addr==0x600)
+	{
+		return DSP_STATUS&0XFF;
+	}
+	if (addr==0x601)
+	{
+		return DSP_STATUS>>8;
+	}
+
+	return DSP_PEEK_BYTE(addr);
 }

@@ -1618,7 +1618,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x00000)//(0x80ECF))
+		if (SEGTOPHYS(CS,IP)==0x80438)//(0x80ECF))
 		{
 			doDebug=1;
 			debugWatchWrites=1;

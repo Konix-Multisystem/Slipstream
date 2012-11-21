@@ -14,73 +14,128 @@ C_FUNC_EXTERN		DMASetWord		[32],[16];
 C_FUNC_EXTERN	[8]	DMAGetByte		[32];
 C_FUNC_EXTERN		DMASetByte		[32],[8];
 
-C_FUNC_EXTERN	[16]	GetProgWord		[16];
-# unsigned char GetWord(unsigned short);
-#  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
-C_FUNC_EXTERN	[16]	GetDataWord		[16];
-# unsigned char GetWord(unsigned short);
-#  Called when the cpu wants to read from memory (note works in word sizes so 1 is address 2&3 in a byte system)
-C_FUNC_EXTERN		SetDataWord		[16],[16];
-# void SetWord(unsigned short,unsigned short);
-#  Called when the cpu wants to write to memory
 C_FUNC_EXTERN		SetDAC		[8],[16];
 # void SetDAC(unsigned char,unsigned short);
 #  Called when the DSP writes to the audio DAC (first parameter is DAC mask (bit 0 left, bit 1 right)), second parameter is DAC value
 
+#### MEMORY NB: This is a massive over allocation - Revisit and shrink later
+
+DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original hardware only used a portion, later revisions seemed to have added more ram but not a lot
+					#
+					# Host writes can currently affect internal registers, but may not have the desired affect (host write to DMA0 for instance!)
+
+					# Note the memory map is as follows -- NB 1 bit of the mode register can swap the data addresses slightly! :
+					#	000	0FF			Sine Table - ROM (for speed reasons its not protected!)
+					#	100	13F			Constants table - ROM (for speed reasons its not protected!)
+					#	140	14F			Internal registers - Expanded as  :
+					#
+					#					140	Intrude Data Register		(Not implemented)
+					#					141	Index Register			(IX)
+					#					142	DMA Address 0			(DMA0)		write to this starts transfer
+					#					143	DMA Address 1			(DMA1)		some control bits for dma too
+					#					144	DMA Data			(DMD)
+					#					145	Multiplier Result 0		(MZ0)
+					#					146	Multiplier Result 1		(MZ1)
+					#					147	Multiplier Result 2		(MZ2)
+					#					148	PWM DAC 0			(DAC0)
+					#					149	PWM DAC 1			(DAC1)
+					#					14A	Program Counter			(PC)
+					#					14B	ALU Mode Register		(MODE)
+					#					14C	ALU X Register			(X)
+					#					14D	ALU Z Register			(AZ)
+					#					14E	Intrude Address Register	(Not implemented)
+					#					14F	DSP IO Pin			(IO)
+					#
+					#	150	17F			Returns 0 (for speed reasons its not protected!)
+					#
+					#	Below applies to original chipset only
+					#
+					#	180	1FF			128 words of RAM
+					#	200	2FF			256 words of Program RAM
+					#	300	300			RUN/Status register
+					#
+					#	Below applies to MSU revision
+					#
+					#	180	7FF			Possible data ram locations (9 bit addressing would limit the range to 180 - 37F)
+					#	400	800			Possible program ram locations (9 bit addressing would limit the range to 400 - 5FF)
+					#	FF0	FF0			RUN/Status register
+					#
+					#	For Emulation purposes :
+					#
+					#	Program RAM is always considered to be at 400+	(host side writes will remap the addresses to be in the correct ranges)
+
 ############
 
-DECLARE	PC[16];
-DECLARE	IX[16]		ALIAS	IXdc[7]:IX_ACTUAL[9];
-DECLARE	MZ0[16];
-DECLARE	MZ1[16];
-DECLARE	MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
-DECLARE	MODE[16]	ALIAS	MODEdc[9]:TCX[1]:TCYN[1]:M[1]:S[4];
-DECLARE	X[16];
-DECLARE	AZ[16];
-DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
-DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
-DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 
 ############
 
 DECLARE			DEBUG_PC[16];
 DECLARE			CPU_HOLD[8];
+
 ############
 
 DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
 DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
-DECLARE INTERNAL	MirrorPC[16]	ALIAS	$014A;
-DECLARE INTERNAL	MirrorIX[16]	ALIAS	$0141;
-DECLARE INTERNAL	MirrorDMA0[16]	ALIAS	$0142;
-DECLARE INTERNAL	MirrorDMA1[16]	ALIAS	$0143;
-DECLARE INTERNAL	MirrorDMD[16]	ALIAS	$0144;
-DECLARE INTERNAL	MirrorMZ0[16]	ALIAS	$0145;
-DECLARE INTERNAL	MirrorMZ1[16]	ALIAS	$0146;
-DECLARE INTERNAL	MirrorMZ2[16]	ALIAS	$0147;
-DECLARE INTERNAL	MirrorMODE[16]	ALIAS	$014B;
-DECLARE INTERNAL	MirrorX[16]	ALIAS	$014C;
-DECLARE INTERNAL	MirrorAZ[16]	ALIAS	$014D;
+DECLARE INTERNAL	DataAddress[16];
 
+DECLARE INTERNAL	AddrPC[16]	ALIAS	$014A;		#	ALIAS	%0000010:PC_ACTUAL[9];
+DECLARE INTERNAL	AddrIX[16]	ALIAS	$0141;		#	ALIAS	IXdc[7]:IX_ACTUAL[9];
+DECLARE INTERNAL	AddrDMA0[16]	ALIAS	$0142;		#	ALIAS	DMA_ADD_LO[16]
+DECLARE INTERNAL	AddrDMA1[16]	ALIAS	$0143;		#	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+DECLARE INTERNAL	AddrDMD[16]	ALIAS	$0144;		#	ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
+DECLARE INTERNAL	AddrMZ0[16]	ALIAS	$0145;
+DECLARE INTERNAL	AddrMZ1[16]	ALIAS	$0146;
+DECLARE INTERNAL	AddrMZ2[16]	ALIAS	$0147;		#	ALIAS	%00000000000:C[1]:ZMSB[4];
+DECLARE INTERNAL	AddrMODE[16]	ALIAS	$014B;		#	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
+DECLARE INTERNAL	AddrX[16]	ALIAS	$014C;
+DECLARE INTERNAL	AddrAZ[16]	ALIAS	$014D;
 
 ############
 
 FUNCTION STEP
 {
+	DECLARE PC[16]		ALIAS	%0000010:PC_ACTUAL[9];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+
+	PC<-RAM[[AddrPC]];
+
+	DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
+
 	currentInstruction<-nextInstruction;
-	DEBUG_PC<-PC;
-	nextInstruction<-CALL GetProgWord(PC);
+	nextInstruction<-RAM[[PC]];
 	PC<-PC+1;
 	IR<-currentInstruction;
-	CALL SetDataWord(MirrorPC,PC);
+	RAM[[AddrPC]]<-PC_ACTUAL;
 
 	IF Index
 	{
-		Address<-Address + IX_ACTUAL;
+		Address<-Address + (RAM[[AddrIX]][0..8]);		# Assuming wrap around in 9 bit space
+	}
+	
+	DataAddress<-Address;
+
+	MODE<-RAM[[AddrMODE]];
+	IF MSUAlternateDataPage
+	{
+		DECLARE INeedElseInstruction[1];
+		INeedElseInstruction<-0;
+		IF DataAddress<$100
+		{
+			DataAddress<-DataAddress+$180;
+			INeedElseInstruction<-1;
+		}
+		IF (DataAddress>=$180) & (DataAddress<$300) & (~INeedElseInstruction)
+		{
+			DataAddress<-DataAddress-$180;
+		}
 	}
 
+	MZ2<-RAM[[AddrMZ2]];
 	IF (~Conditional) | C
 	{
+						##TODO Address Memory Mapping adjustment
 		EXECUTE	Instruction;
 	}
 }
@@ -89,17 +144,23 @@ FUNCTION RESET
 {
 	CPU_HOLD<-0;
 	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
-	PC<-0;
-	CALL SetDataWord(MirrorPC,PC);
+	RAM[[AddrPC]]<-$0000;
 }
 
 FUNCTION DoDMA
 {
+	# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+
+	DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
+	DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+	DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 	DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
 
-	DEBUG_TRACE DMA1,DMA0;		# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+	DMA0<-RAM[[AddrDMA0]];
+	DMA1<-RAM[[AddrDMA1]];
+	DMD<-RAM[[AddrDMD]];
 
-	UPPER<-DMA1[0..3];
+	UPPER<-DMA_ADD_HI;
 	LOWER16<-DMA0;
 
 	IF DMA_BW
@@ -138,287 +199,331 @@ FUNCTION DoDMA
 			CALL DMASetWord(ADDR,DMD);
 		}
 	}
+	
+	DMA0->RAM[[AddrDMA0]];
+	DMA1->RAM[[AddrDMA1]];
+	DMD->RAM[[AddrDMD]];
 }
+
+FUNCTION POKE	ramAddress[16],value[16]
+{
+	RAM[[ramAddress]]<-value;
+}
+
+FUNCTION value[16]	PEEK	ramAddress[16]
+{
+	value<-RAM[[ramAddress]];
+}
+
+FUNCTION POKE_BYTE	ramAddress[16],value[8]
+{
+	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+
+	byteAddress<-ramAddress;
+	access<-RAM[[wordAddress]];
+	IF upper
+	{
+		msb<-value;
+	}
+	IF ~upper
+	{
+		lsb<-value;
+	}
+	RAM[[wordAddress]]<-access;
+}
+
+FUNCTION value[16]	PEEK_BYTE	ramAddress[16]
+{
+	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+
+	byteAddress<-ramAddress;
+	access<-RAM[[wordAddress]];
+	IF upper
+	{
+		value<-msb;
+	}
+	IF ~upper
+	{
+		value<-lsb;
+	}
+}
+
 
 ############
 
 INSTRUCTION	"MOV. %$1,MZ0"		%00000
 {
-	CALL SetDataWord(Address,MZ0);
+	RAM[[DataAddress]]<-RAM[[AddrMZ0]];
 }
 
 INSTRUCTION	"MOV. %$1,MZ1"		%00001
 {
-	CALL SetDataWord(Address,MZ1);
+	RAM[[DataAddress]]<-RAM[[AddrMZ1]];
 }
 
 INSTRUCTION	"MOV. MZ0,%$1"		%00010
 {
-	MZ0<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorMZ0,MZ0);
+	RAM[[AddrMZ0]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. MZ1,%$1"		%00011
 {
-	MZ1<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorMZ1,MZ1);
+	RAM[[AddrMZ1]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"CCF."			%00100
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	MZ2<-RAM[[AddrMZ2]];
 	C<-~C;
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"MOV. DMA0,%$1"		%00101
 {
-	DMA0<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorDMA0,DMA0);
+	RAM[[AddrDMA0]]<-RAM[[DataAddress]];
 	CALL DoDMA();
 }
 
 INSTRUCTION	"MOV. DMA1,%$1"		%00110
 {
-	DMA1<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorDMA1,DMA1);
+	DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+	DMA1<-RAM[[DataAddress]];
 	CPU_HOLD<-DMA_HLD;				# HLD status set/cleared on writes to this
+	RAM[[AddrDMA1]]<-DMA1;
 }
 
 INSTRUCTION	"MOV. DMD,%$1"		%00111
 {
-	DMD<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorDMD,DMD);
+	RAM[[AddrDMD]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,DMD"		%01000
 {
-	CALL SetDataWord(Address,DMD);
+	RAM[[DataAddress]]<-RAM[[AddrDMD]];
 }
 
 INSTRUCTION	"MAC. %$1"		%01001
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
 	DECLARE xExt[40];
 	DECLARE tExt[40];
 	DECLARE result[40];
 	DECLARE mac[40];
 
+	MODE<-RAM[[AddrMODE]];
+
 	IF TCX
 	{
-		xExt<-$0000000000++X;
+		xExt<-$0000000000++RAM[[AddrX]];
 	}
 	IF ~TCX
 	{
-		xExt<-X;
+		xExt<-RAM[[AddrX]];
 	}
 	IF TCYN
 	{
-		tExt<-CALL GetDataWord(Address);
+		tExt<-RAM[[DataAddress]];
 	}
 	IF ~TCYN
 	{
-		tExt<-$0000000000++CALL GetDataWord(Address);
+		tExt<-$0000000000++RAM[[DataAddress]];
 	}
 
-	#DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
-
 	result<-xExt * tExt;
-	MZ0->mac[0..15];
-	MZ1->mac[16..31];
-	MZ2[0..3]->mac[32..35];
 
-	#DEBUG_TRACE "Operands for add",BASE 16,result,mac;
+	RAM[[AddrMZ2]]->MZ2;
+
+	RAM[[AddrMZ0]]->mac[0..15];
+	RAM[[AddrMZ1]]->mac[16..31];
+	ZMSB->mac[32..35];
 
 	mac + result->result;
 
-	#DEBUG_TRACE BASE 16,result;
-
-	result[0..15]->MZ0;
-	result[16..31]->MZ1;
-	result[32..35]->MZ2[0..3];
+	result[0..15]->RAM[[AddrMZ0]];
+	result[16..31]->RAM[[AddrMZ1]];
+	result[32..35]->ZMSB;
 	C<-result[36];
-	CALL SetDataWord(MirrorMZ0,MZ0);
-	CALL SetDataWord(MirrorMZ1,MZ1);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"MOV. MODE,%$1"		%01010
 {
-	MODE<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorMODE,MODE);
+	RAM[[AddrMODE]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. IX,%$1"		%01011
 {
-	IX<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorIX,IX);
+	RAM[[AddrIX]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,PC"		%01100
 {
-	CALL SetDataWord(Address,PC);
+	RAM[[DataAddress]]<-RAM[[AddrPC]];
 }
 
 INSTRUCTION	"MOV. X,%$1"		%01101
 {
-	X<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorX,X);
+	RAM[[AddrX]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,X"		%01110
 {
-	CALL SetDataWord(Address,X);
+	RAM[[DataAddress]]<-RAM[[AddrX]];
 }
 
 INSTRUCTION	"MULT. %$1"		%01111
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
 	DECLARE xExt[40];
 	DECLARE tExt[40];
 	DECLARE result[40];
 
+	MODE<-RAM[[AddrMODE]];
 	IF TCX
 	{
-		xExt<-$0000000000++X;
+		xExt<-$0000000000++RAM[[AddrX]];
 	}
 	IF ~TCX
 	{
-		xExt<-X;
+		xExt<-RAM[[AddrX]];
 	}
 	IF TCYN
 	{
-		tExt<-CALL GetDataWord(Address);
+		tExt<-RAM[[DataAddress]];
 	}
 	IF ~TCYN
 	{
-		tExt<-$0000000000++CALL GetDataWord(Address);
+		tExt<-$0000000000++RAM[[DataAddress]];
 	}
-
-	#DEBUG_TRACE "Operands for multiply",BASE 16,xExt,tExt;
 
 	result<-xExt * tExt;
 
-	#DEBUG_TRACE BASE 16,result;
+	RAM[[AddrMZ2]]->MZ2;
 
-	result[0..15]->MZ0;
-	result[16..31]->MZ1;
-	result[32..35]->MZ2[0..3];
+	result[0..15]->RAM[[AddrMZ0]];
+	result[16..31]->RAM[[AddrMZ1]];
+	result[32..35]->ZMSB;
 	C<-result[36];
-	CALL SetDataWord(MirrorMZ0,MZ0);
-	CALL SetDataWord(MirrorMZ1,MZ1);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"ADD. %$1"		%10000
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 	DECLARE tmp[16];
-	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS CARRY(15) { tmp + X } -> AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	MZ2<-RAM[[AddrMZ2]];
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS CARRY(15) { tmp + RAM[[AddrX]] } -> RAM[[AddrAZ]];
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"SUB. %$1"		%10001
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 	DECLARE tmp[16];
-	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS NOCARRY(15) { X - tmp } -> AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	MZ2<-RAM[[AddrMZ2]];
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS NOCARRY(15) { RAM[[AddrX]] - tmp } -> RAM[[AddrAZ]];
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"AND. %$1"		%10010
 {
-	CALL GetDataWord(Address) & X->AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
+	RAM[[DataAddress]] & RAM[[AddrX]] ->RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"OR. %$1"		%10011
 {
-	CALL GetDataWord(Address) | X->AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
+	RAM[[DataAddress]] | RAM[[AddrX]]->RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"ADC. %$1"		%10100
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 	DECLARE tmp[16];
-	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS CARRY(15) { tmp + X + C } -> AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	MZ2<-RAM[[AddrMZ2]];
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS CARRY(15) { tmp + RAM[[AddrX]] + C } -> RAM[[AddrAZ]];
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"SBC. %$1"		%10101
 {
+	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 	DECLARE tmp[16];
-	CALL GetDataWord(Address)->tmp;
 
-	AFFECT C AS NOCARRY(15) { (X - tmp)-(~C) } -> AZ;
-	CALL SetDataWord(MirrorAZ,AZ);
-	CALL SetDataWord(MirrorMZ2,MZ2);
+	MZ2<-RAM[[AddrMZ2]];
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS NOCARRY(15) { (RAM[[AddrX]] - tmp)-(~C) } -> RAM[[AddrAZ]];
+	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"MOV. %$1,AZ"		%10110
 {
-	CALL SetDataWord(Address,AZ);
+	RAM[[DataAddress]]<-RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"MOV. AZ,%$1"		%10111
 {
-	AZ<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorAZ,AZ);
+	RAM[[AddrAZ]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. DAC1,%$1"		%11001
 {
-	CALL SetDAC(1,CALL GetDataWord(Address));
+	CALL SetDAC(1,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"MOV. DAC2,%$1"		%11010
 {
-	CALL SetDAC(2,CALL GetDataWord(Address));
+	CALL SetDAC(2,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"MOV. DAC12,%$1"	%11011
 {
-	CALL SetDAC(3,CALL GetDataWord(Address));
+	CALL SetDAC(3,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"GAI. %$1"		%11100
 {
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 	DECLARE A[16];
 	DECLARE B[16];
 
-	A<-X;
-	B<-CALL GetDataWord(Address);
+	MODE<-RAM[[AddrMODE]];
+	A<-RAM[[AddrX]];
+	B<-RAM[[DataAddress]];
 
 	IF M
 	{
 		IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
 		{
-			A ^ B -> AZ;
-			CALL SetDataWord(MirrorAZ,AZ);
+			A ^ B -> RAM[[AddrAZ]];
 		}
 		IF S!=%0110
 		{
-			PC<-$56;				# Temporary waiting to see if it gets hit!
 			DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
 		}
 	}
 	IF ~M
 	{	
-		PC<-$56;				# Temporary waiting to see if it gets hit!
 		DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
 	}
 }
 
 INSTRUCTION	"MOV. PC,%$1"		%11101
 {
-	PC<-CALL GetDataWord(Address);
-	CALL SetDataWord(MirrorPC,PC);
+	RAM[[AddrPC]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"NOP."			%11110
