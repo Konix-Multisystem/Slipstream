@@ -309,7 +309,6 @@ INSTRUCTION	"MAC. %$1"		%01001
 {
 	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
 	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
-	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
 	DECLARE xExt[40];
 	DECLARE tExt[40];
 	DECLARE result[40];
@@ -342,12 +341,12 @@ INSTRUCTION	"MAC. %$1"		%01001
 	RAM[[AddrMZ1]]->mac[16..31];
 	ZMSB->mac[32..35];
 
-	mac + result->result;
+	mac + result->mac;
 
-	result[0..15]->RAM[[AddrMZ0]];
-	result[16..31]->RAM[[AddrMZ1]];
-	result[32..35]->ZMSB;
-	C<-result[36];
+	mac[0..15]->RAM[[AddrMZ0]];
+	mac[16..31]->RAM[[AddrMZ1]];
+	mac[32..35]->ZMSB;
+	C<-mac[36..36];
 	RAM[[AddrMZ2]]<-MZ2;
 }
 
@@ -410,7 +409,7 @@ INSTRUCTION	"MULT. %$1"		%01111
 	result[0..15]->RAM[[AddrMZ0]];
 	result[16..31]->RAM[[AddrMZ1]];
 	result[32..35]->ZMSB;
-	C<-result[36];
+	C<-result[36..36];
 
 	RAM[[AddrMZ2]]<-MZ2;
 }
@@ -454,7 +453,7 @@ INSTRUCTION	"ADC. %$1"		%10100
 
 	MZ2<-RAM[[AddrMZ2]];
 	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { tmp + RAM[[AddrX]] + C } -> RAM[[AddrAZ]];
+	AFFECT C AS CARRY(15) { (tmp + RAM[[AddrX]]) + C } -> RAM[[AddrAZ]];
 	RAM[[AddrMZ2]]<-MZ2;
 }
 

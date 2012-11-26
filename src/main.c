@@ -68,107 +68,21 @@ void PALETTE_INIT()
 
 int masterClock=0;
 
-extern uint8_t *DIS_[256];			// FROM EDL
-extern uint8_t *DIS_XX00000000[256];			// FROM EDL
-extern uint8_t *DIS_XX00000001[256];			// FROM EDL
-extern uint8_t *DIS_XX00000010[256];			// FROM EDL
-extern uint8_t *DIS_XX00000011[256];			// FROM EDL
-extern uint8_t *DIS_XX00001000[256];			// FROM EDL
-extern uint8_t *DIS_XX00001001[256];			// FROM EDL
-extern uint8_t *DIS_XX00001010[256];			// FROM EDL
-extern uint8_t *DIS_XX00001011[256];			// FROM EDL
-extern uint8_t *DIS_XX00010001[256];			// FROM EDL
-extern uint8_t *DIS_XX00010011[256];			// FROM EDL
-extern uint8_t *DIS_XX00100000[256];			// FROM EDL
-extern uint8_t *DIS_XX00100001[256];			// FROM EDL
-extern uint8_t *DIS_XX00100010[256];			// FROM EDL
-extern uint8_t *DIS_XX00100011[256];			// FROM EDL
-extern uint8_t *DIS_XX00101000[256];			// FROM EDL
-extern uint8_t *DIS_XX00101001[256];			// FROM EDL
-extern uint8_t *DIS_XX00101010[256];			// FROM EDL
-extern uint8_t *DIS_XX00101011[256];			// FROM EDL
-extern uint8_t *DIS_XX00110000[256];			// FROM EDL
-extern uint8_t *DIS_XX00110001[256];			// FROM EDL
-extern uint8_t *DIS_XX00110010[256];			// FROM EDL
-extern uint8_t *DIS_XX00110011[256];			// FROM EDL
-extern uint8_t *DIS_XX00111000[256];			// FROM EDL
-extern uint8_t *DIS_XX00111001[256];			// FROM EDL
-extern uint8_t *DIS_XX00111010[256];			// FROM EDL
-extern uint8_t *DIS_XX00111011[256];			// FROM EDL
-extern uint8_t *DIS_XX10000000[256];			// FROM EDL
-extern uint8_t *DIS_XX10000001[256];			// FROM EDL
-extern uint8_t *DIS_XX10000011[256];			// FROM EDL
-extern uint8_t *DIS_XX10000110[256];			// FROM EDL
-extern uint8_t *DIS_XX10000111[256];			// FROM EDL
-extern uint8_t *DIS_XX10001000[256];			// FROM EDL
-extern uint8_t *DIS_XX10001001[256];			// FROM EDL
-extern uint8_t *DIS_XX10001010[256];			// FROM EDL
-extern uint8_t *DIS_XX10001011[256];			// FROM EDL
-extern uint8_t *DIS_XX10001100[256];			// FROM EDL
-extern uint8_t *DIS_XX10001101[256];			// FROM EDL
-extern uint8_t *DIS_XX10001110[256];			// FROM EDL
-extern uint8_t *DIS_XX10001111[256];			// FROM EDL
-extern uint8_t *DIS_XX11000110[256];			// FROM EDL
-extern uint8_t *DIS_XX11000111[256];			// FROM EDL
-extern uint8_t *DIS_XX11010000[256];			// FROM EDL
-extern uint8_t *DIS_XX11010001[256];			// FROM EDL
-extern uint8_t *DIS_XX11010010[256];			// FROM EDL
-extern uint8_t *DIS_XX11010011[256];			// FROM EDL
-extern uint8_t *DIS_XX11110110[256];			// FROM EDL
-extern uint8_t *DIS_XX11110111[256];			// FROM EDL
-extern uint8_t *DIS_XX11111110[256];			// FROM EDL
-extern uint8_t *DIS_XX11111111[256];			// FROM EDL
+extern uint8_t *DIS_[256];				// FROM EDL
+extern uint32_t DIS_max_;				// FROM EDL
+extern uint8_t *DIS_TABLE_DECINC_MOD[256];		// FROM EDL
+extern uint32_t DIS_max_TABLE_DECINC_MOD;		// FROM EDL
+extern uint8_t *DIS_TABLE_OP_MOD_IMM[256];		// FROM EDL
+extern uint32_t DIS_max_TABLE_OP_MOD_IMM;		// FROM EDL
+extern uint8_t *DIS_TABLE_SH1_MOD[256];			// FROM EDL
+extern uint32_t DIS_max_TABLE_SH1_MOD;			// FROM EDL
+extern uint8_t *DIS_TABLE_SHV_MOD[256];			// FROM EDL
+extern uint32_t DIS_max_TABLE_SHV_MOD;			// FROM EDL
+extern uint8_t *DIS_TABLE_SOP_MOD[256];			// FROM EDL
+extern uint32_t DIS_max_TABLE_SOP_MOD;			// FROM EDL
+extern uint8_t *DIS_TABLE_OP_MOD[256];			// FROM EDL
+extern uint32_t DIS_max_TABLE_OP_MOD;			// FROM EDL
 
-extern uint32_t DIS_max_;			// FROM EDL
-extern uint32_t DIS_max_XX00000000;			// FROM EDL
-extern uint32_t DIS_max_XX00000001;			// FROM EDL
-extern uint32_t DIS_max_XX00000010;			// FROM EDL
-extern uint32_t DIS_max_XX00000011;			// FROM EDL
-extern uint32_t DIS_max_XX00001000;			// FROM EDL
-extern uint32_t DIS_max_XX00001001;			// FROM EDL
-extern uint32_t DIS_max_XX00001010;			// FROM EDL
-extern uint32_t DIS_max_XX00001011;			// FROM EDL
-extern uint32_t DIS_max_XX00010001;			// FROM EDL
-extern uint32_t DIS_max_XX00010011;			// FROM EDL
-extern uint32_t DIS_max_XX00100000;			// FROM EDL
-extern uint32_t DIS_max_XX00100001;			// FROM EDL
-extern uint32_t DIS_max_XX00100010;			// FROM EDL
-extern uint32_t DIS_max_XX00100011;			// FROM EDL
-extern uint32_t DIS_max_XX00101000;			// FROM EDL
-extern uint32_t DIS_max_XX00101001;			// FROM EDL
-extern uint32_t DIS_max_XX00101010;			// FROM EDL
-extern uint32_t DIS_max_XX00101011;			// FROM EDL
-extern uint32_t DIS_max_XX00110000;			// FROM EDL
-extern uint32_t DIS_max_XX00110001;			// FROM EDL
-extern uint32_t DIS_max_XX00110010;			// FROM EDL
-extern uint32_t DIS_max_XX00110011;			// FROM EDL
-extern uint32_t DIS_max_XX00111000;			// FROM EDL
-extern uint32_t DIS_max_XX00111001;			// FROM EDL
-extern uint32_t DIS_max_XX00111010;			// FROM EDL
-extern uint32_t DIS_max_XX00111011;			// FROM EDL
-extern uint32_t DIS_max_XX10000000;			// FROM EDL
-extern uint32_t DIS_max_XX10000001;			// FROM EDL
-extern uint32_t DIS_max_XX10000011;			// FROM EDL
-extern uint32_t DIS_max_XX10000110;			// FROM EDL
-extern uint32_t DIS_max_XX10000111;			// FROM EDL
-extern uint32_t DIS_max_XX10001000;			// FROM EDL
-extern uint32_t DIS_max_XX10001001;			// FROM EDL
-extern uint32_t DIS_max_XX10001010;			// FROM EDL
-extern uint32_t DIS_max_XX10001011;			// FROM EDL
-extern uint32_t DIS_max_XX10001100;			// FROM EDL
-extern uint32_t DIS_max_XX10001101;			// FROM EDL
-extern uint32_t DIS_max_XX10001110;			// FROM EDL
-extern uint32_t DIS_max_XX10001111;			// FROM EDL
-extern uint32_t DIS_max_XX11000110;			// FROM EDL
-extern uint32_t DIS_max_XX11000111;			// FROM EDL
-extern uint32_t DIS_max_XX11010000;			// FROM EDL
-extern uint32_t DIS_max_XX11010001;			// FROM EDL
-extern uint32_t DIS_max_XX11010010;			// FROM EDL
-extern uint32_t DIS_max_XX11010011;			// FROM EDL
-extern uint32_t DIS_max_XX11110110;			// FROM EDL
-extern uint32_t DIS_max_XX11110111;			// FROM EDL
-extern uint32_t DIS_max_XX11111110;			// FROM EDL
-extern uint32_t DIS_max_XX11111111;			// FROM EDL
 
 extern uint16_t	AX;
 extern uint16_t	BX;
@@ -184,12 +98,6 @@ extern uint16_t	ES;
 extern uint16_t	SS;
 extern uint16_t	IP;
 extern uint16_t FLAGS;
-
-uint32_t missing(uint32_t opcode)
-{
-	printf("IP : %04X:%04X\n",CS,IP);
-	exit(-1);
-}
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -1034,6 +942,7 @@ void DUMP_REGISTERS()
 			FLAGS&0x004 ? "1" : "0",
 			FLAGS&0x002 ? "1" : "0",
 			FLAGS&0x001 ? "1" : "0");
+
 	printf("AX= %04X\n",AX);
 	printf("BX= %04X\n",BX);
 	printf("CX= %04X\n",CX);
@@ -1049,14 +958,188 @@ void DUMP_REGISTERS()
 	printf("--------\n");
 }
 
+const char* GetSReg(int reg)
+{
+	char* regs[4]={"ES", "CS", "SS", "DS"};
+
+	return regs[reg&3];
+}
+	
+const char* GetReg(int word,int reg)
+{
+	char* regw[8]={"AX", "CX", "DX", "BX", "SP", "BP", "SI", "DI"};
+	char* regb[8]={"AL", "CL", "DL", "BL", "AH", "CH", "DH", "BH"};
+
+	if (word)
+	{
+		return regw[reg&7];
+	}
+		
+	return regb[reg&7];
+}
+	
+const char* GetModRM(int word,uint8_t modrm,uint32_t address,int *cnt)
+{
+	const char* modregs[8]={"BX+SI", "BX+DI", "BP+SI", "BP+DI", "SI", "DI", "BP", "BX"};
+	static char tmpBuffer[256];
+
+	*cnt=0;
+	switch (modrm&0xC0)
+	{
+		case 0xC0:
+			sprintf(tmpBuffer,"%s",GetReg(word,modrm&0x7));
+			break;
+		case 0x00:
+			if ((modrm&7)==6)
+			{
+				*cnt=2;
+				sprintf(tmpBuffer,"[%02X%02X]",PeekByte(address+1),PeekByte(address));
+			}
+			else
+			{
+				sprintf(tmpBuffer,"[%s]",modregs[modrm&7]);
+			}
+			break;
+		case 0x40:
+			{
+				uint16_t tmp=PeekByte(address);
+				if (tmp&0x80)
+				{
+					tmp|=0xFF00;
+				}
+				*cnt=1;
+				sprintf(tmpBuffer,"%04X[%s]",tmp,modregs[modrm&7]);
+			}
+			break;
+		case 0x80:
+//			*cnt=2;
+//			sprintf(tmpBuffer,"%02X%02X[%s]",PeekByte(address+1),PeekByte(address),modregs[modrm&7]);
+			sprintf(tmpBuffer,"TODO");
+			break;
+	}
+
+	return tmpBuffer;
+}
+
+int DoRegWB(uint8_t op,char** tPtr)
+{
+	const char* reg;
+	
+	reg=GetReg(op&8,op&7);
+
+	while (*reg)
+	{
+		*(*tPtr)++=*reg++;
+	}
+	return 0;
+}
+
+int DoModSRegRM(uint8_t op,uint32_t address,char** tPtr)
+{
+	char tmpBuffer[256];
+	// Extract register,EA
+	int nextByte=PeekByte(address);
+	int word=1;
+	int direc=op&2;
+	char* reg=tmpBuffer;
+	int cnt;
+
+	if (direc)
+	{
+		sprintf(tmpBuffer,"%s,%s",GetSReg((nextByte&0x18)>>3),GetModRM(word,nextByte,address+1,&cnt));
+	}
+	else
+	{
+		sprintf(tmpBuffer,"%s,%s",GetModRM(word,nextByte,address+1,&cnt),GetSReg((nextByte&0x18)>>3));
+	}
+	while (*reg)
+	{
+		*(*tPtr)++=*reg++;
+	}
+	return cnt;
+}
+
+int DoModRegRM(uint8_t op,uint32_t address,char** tPtr)
+{
+	char tmpBuffer[256];
+	// Extract register,EA
+	int nextByte=PeekByte(address);
+	int word=op&1;
+	int direc=op&2;
+	char* reg=tmpBuffer;
+	int cnt;
+
+	if (direc)
+	{
+		sprintf(tmpBuffer,"%s,%s",GetReg(word,(nextByte&0x38)>>3),GetModRM(word,nextByte,address+1,&cnt));
+	}
+	else
+	{
+		sprintf(tmpBuffer,"%s,%s",GetModRM(word,nextByte,address+1,&cnt),GetReg(word,(nextByte&0x38)>>3));
+	}
+	while (*reg)
+	{
+		*(*tPtr)++=*reg++;
+	}
+	return cnt;
+}
+
+int DoModnnnRM(uint8_t op,uint32_t address,char** tPtr)
+{
+	char tmpBuffer[256];
+	// Extract register,EA
+	int nextByte=PeekByte(address);
+	int word=op&1;
+	char* reg=tmpBuffer;
+	int cnt;
+
+	sprintf(tmpBuffer,"%s",GetModRM(word,nextByte,address+1,&cnt));
+	while (*reg)
+	{
+		*(*tPtr)++=*reg++;
+	}
+	return cnt;
+}
+
+
+int DoDisp(int cnt,uint32_t address,char** tPtr)
+{
+	char tmpBuffer[256];
+	char* reg=tmpBuffer;
+	uint16_t disp;
+	
+	if (cnt==8)
+	{
+		disp=PeekByte(address);
+		if (disp&0x80)
+		{
+			disp|=0xFF00;
+		}
+		sprintf(tmpBuffer,"%04X (%02X)",(address+disp)&0xFFFF,disp&0xFF);
+	}
+	if (cnt==16)
+	{
+		disp=PeekByte(address);
+		disp|=PeekByte(address+1)<<8;
+		sprintf(tmpBuffer,"%04X (%04X)",(address+2+disp)&0xFFFF,disp&0xFFFF);
+	}
+	while (*reg)
+	{
+		*(*tPtr)++=*reg++;
+	}
+	return cnt/8;
+}
+
 const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int realLength)
 {
 	static char segOveride[2048];
 	static char temporaryBuffer[2048];
 	char sprintBuffer[256];
+	char tmpCommand[256];
+	char* tPtr;
 
 	uint8_t byte = PeekByte(address);
-	if (byte>realLength)
+	if (byte>=realLength)
 	{
 		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
 		return temporaryBuffer;
@@ -1075,392 +1158,307 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 			return temporaryBuffer;
 		}
 	
+		if (strncmp(mnemonic,"REP",3)==0)
+		{
+			int tmpcount=0;
+			sPtr=decodeDisasm(DIS_,address+1,&tmpcount,DIS_max_);
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			*count=tmpcount+1;
+			strcpy(segOveride,mnemonic);
+			strcat(segOveride," ");
+			strcat(segOveride,sPtr);
+			return segOveride;
+		}
 		if (strncmp(mnemonic,"XX001__110",10)==0)				// Segment override
 		{
-			
-			int tmpCount=0;
-			decodeDisasm(DIS_,address+1,&tmpCount,DIS_max_);
-			*count=tmpCount+1;
+			int tmpcount=0;
+			sPtr=decodeDisasm(DIS_,address+1,&tmpcount,DIS_max_);
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			*count=tmpcount+1;
 			strcpy(segOveride,mnemonic+10);
 			strcat(segOveride,temporaryBuffer);
 			return segOveride;
 		}
-		if (strcmp(mnemonic,"XX00000000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00000000,address+1,&tmpCount,DIS_max_XX00000000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00000001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00000001,address+1,&tmpCount,DIS_max_XX00000001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00000010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00000010,address+1,&tmpCount,DIS_max_XX00000010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00000011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00000011,address+1,&tmpCount,DIS_max_XX00000011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00001000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00001000,address+1,&tmpCount,DIS_max_XX00001000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00001001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00001001,address+1,&tmpCount,DIS_max_XX00001001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00001010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00001010,address+1,&tmpCount,DIS_max_XX00001010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00001011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00001011,address+1,&tmpCount,DIS_max_XX00001011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00010001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00010001,address+1,&tmpCount,DIS_max_XX00010001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00010011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00010011,address+1,&tmpCount,DIS_max_XX00010011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00100000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00100000,address+1,&tmpCount,DIS_max_XX00100000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00100001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00100001,address+1,&tmpCount,DIS_max_XX00100001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00100010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00100010,address+1,&tmpCount,DIS_max_XX00100010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00100011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00100011,address+1,&tmpCount,DIS_max_XX00100011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00101000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00101000,address+1,&tmpCount,DIS_max_XX00101000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00101001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00101001,address+1,&tmpCount,DIS_max_XX00101001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00101010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00101010,address+1,&tmpCount,DIS_max_XX00101010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00101011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00101011,address+1,&tmpCount,DIS_max_XX00101011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00110000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00110000,address+1,&tmpCount,DIS_max_XX00110000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00110001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00110001,address+1,&tmpCount,DIS_max_XX00110001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00110010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00110010,address+1,&tmpCount,DIS_max_XX00110010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00110011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00110011,address+1,&tmpCount,DIS_max_XX00110011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00111000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00111000,address+1,&tmpCount,DIS_max_XX00111000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00111001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00111001,address+1,&tmpCount,DIS_max_XX00111001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00111010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00111010,address+1,&tmpCount,DIS_max_XX00111010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX00111011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX00111011,address+1,&tmpCount,DIS_max_XX00111011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10000000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10000000,address+1,&tmpCount,DIS_max_XX10000000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10000001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10000001,address+1,&tmpCount,DIS_max_XX10000001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10000011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10000011,address+1,&tmpCount,DIS_max_XX10000011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10000110")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10000110,address+1,&tmpCount,DIS_max_XX10000110);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10000111")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10000111,address+1,&tmpCount,DIS_max_XX10000111);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001000,address+1,&tmpCount,DIS_max_XX10001000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001001,address+1,&tmpCount,DIS_max_XX10001001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001010,address+1,&tmpCount,DIS_max_XX10001010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001011,address+1,&tmpCount,DIS_max_XX10001011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001100")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001100,address+1,&tmpCount,DIS_max_XX10001100);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001101")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001101,address+1,&tmpCount,DIS_max_XX10001101);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001110")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001110,address+1,&tmpCount,DIS_max_XX10001110);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX10001111")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX10001111,address+1,&tmpCount,DIS_max_XX10001111);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11000110")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11000110,address+1,&tmpCount,DIS_max_XX11000110);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11000111")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11000111,address+1,&tmpCount,DIS_max_XX11000111);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11010000")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11010000,address+1,&tmpCount,DIS_max_XX11010000);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11010001")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11010001,address+1,&tmpCount,DIS_max_XX11010001);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11010010")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11010010,address+1,&tmpCount,DIS_max_XX11010010);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11010011")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11010011,address+1,&tmpCount,DIS_max_XX11010011);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11110110")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11110110,address+1,&tmpCount,DIS_max_XX11110110);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11110111")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11110111,address+1,&tmpCount,DIS_max_XX11110111);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11111110")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11111110,address+1,&tmpCount,DIS_max_XX11111110);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
-		if (strcmp(mnemonic,"XX11111111")==0)
-		{
-			int tmpCount=0;
-			decodeDisasm(DIS_XX11111111,address+1,&tmpCount,DIS_max_XX11111111);
-			*count=tmpCount+1;
-			return temporaryBuffer;
-		}
 
+		tmpCommand[0]=0;
+// New version. disassembler does more work it needs to scan for # tags, grab the contents, perform an action and write the data to the destination string
+		if (strcmp(mnemonic,"#TABLE2#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_DECINC_MOD)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_DECINC_MOD[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		if (strcmp(mnemonic,"#TABLE4#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_OP_MOD_IMM)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_OP_MOD_IMM[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		if (strcmp(mnemonic,"#TABLE5#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_SH1_MOD)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_SH1_MOD[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		if (strcmp(mnemonic,"#TABLE6#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_SHV_MOD)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_SHV_MOD[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		if (strcmp(mnemonic,"#TABLE7#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_SOP_MOD)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_SOP_MOD[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		if (strcmp(mnemonic,"#TABLE8#")==0)				// alternate table
+		{
+			// assumed to represent entire mnemonic, so just reparse using the new table information
+			byte=PeekByte(address+1);
+			if (byte>=DIS_max_TABLE_OP_MOD)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+			sPtr=(char*)DIS_TABLE_OP_MOD[byte];
+			if (sPtr==NULL)
+			{
+				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+				return temporaryBuffer;
+			}
+		}
+		
+		// First, scan until we hit #, then write to tmpcommand until we hit # again, then do action, then resume scan
+
+		tPtr=tmpCommand;
 		while (*sPtr)
 		{
-			if (!doingDecode)
+			switch (doingDecode)
 			{
-				if (*sPtr=='%')
-				{
-					doingDecode=1;
-				}
-				else
-				{
-					*dPtr++=*sPtr;
-				}
-			}
-			else
-			{
-				char *tPtr=sprintBuffer;
-				int negOffs=1;
-				if (*sPtr=='-')
-				{
+				case 0:
+					if (*sPtr=='#')
+					{
+						doingDecode=1;
+					}
+					else
+					{
+						*dPtr++=*sPtr;
+					}
 					sPtr++;
-					negOffs=-1;
-				}
-				int offset=(*sPtr-'0')*negOffs;
-				sprintf(sprintBuffer,"%02X",PeekByte(address+offset));
-				while (*tPtr)
-				{
-					*dPtr++=*tPtr++;
-				}
-				doingDecode=0;
-				counting++;
+					break;
+				case 1:
+					if (*sPtr=='#')
+					{
+						*tPtr=0;
+						doingDecode=2;
+					}
+					else
+					{
+						*tPtr++=*sPtr++;
+					}
+					break;
+				case 2:
+					// We have a command.. do the action, reset command buffer
+
+					{
+						uint8_t op;
+						op=PeekByte(address);
+
+						if (strcmp(tmpCommand,"REGWB")==0)
+						{
+							counting+=DoRegWB(op,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"MODnnnRM")==0)
+						{
+							counting+=1+DoModnnnRM(op,address+counting+1,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"MODSREGRM")==0)
+						{
+							counting+=1+DoModSRegRM(op,address+counting+1,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"MODregRM")==0)
+						{
+							counting+=1+DoModRegRM(op,address+counting+1,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"8DISP")==0)
+						{
+							counting+=DoDisp(8,address+counting+1,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"16DISP")==0)
+						{
+							counting+=DoDisp(16,address+counting+1,&dPtr);
+						}
+						else
+						if (strcmp(tmpCommand,"PORT")==0)
+						{
+							if (op&0x01)
+							{
+								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+							}
+							else
+							{
+								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+							}
+							counting+=1;
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"IMMSW")==0)
+						{
+							if (op&0x01)
+							{
+								if (op&0x02)
+								{
+									uint16_t t=PeekByte(address+counting+1);
+									if (t&0x80)
+										t|=0xFF00;
+									sprintf(sprintBuffer,"#%04X",t);
+									counting+=1;
+								}
+								else
+								{
+									sprintf(sprintBuffer,"#%02X%02X",PeekByte(address+counting+2),PeekByte(address+counting+1));
+									counting+=2;
+								}
+							}
+							else
+							{
+								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+								counting+=1;
+							}
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"ADDR")==0)
+						{
+							sprintf(sprintBuffer,"[%02X%02X]",PeekByte(address+counting+2),PeekByte(address+counting+1));
+							counting+=2;
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"IMM3")==0)
+						{
+							if (op&0x08)
+							{
+								sprintf(sprintBuffer,"#%02X%02X",PeekByte(address+counting+2),PeekByte(address+counting+1));
+								counting+=2;
+							}
+							else
+							{
+								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+								counting+=1;
+							}
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"IMM0")==0)
+						{
+							if (op&0x01)
+							{
+								sprintf(sprintBuffer,"#%02X%02X",PeekByte(address+counting+2),PeekByte(address+counting+1));
+								counting+=2;
+							}
+							else
+							{
+								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+								counting+=1;
+							}
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+							printf("Unknown Command : %s\n",tmpCommand);
+
+					}
+
+					sPtr++;
+					tPtr=tmpCommand;
+					doingDecode=0;
+					break;
 			}
-			sPtr++;
 		}
 		*dPtr=0;
 		*count=counting;
@@ -1480,6 +1478,11 @@ int Disassemble(unsigned int address,int registers)
 		for (a=0;a<numBytes+1;a++)
 		{
 			printf("%02X ",PeekByte(address+a));
+		}
+		printf("\nNext 7 Bytes : ");
+		for (a=0;a<7;a++)
+		{
+			printf("%02X ",PeekByte(address+numBytes+1+a));
 		}
 		printf("\n");
 		DUMP_REGISTERS();
@@ -1618,7 +1621,7 @@ int main(int argc,char**argv)
 	while (1==1)
 	{
 #if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0x80438)//(0x80ECF))
+		if (SEGTOPHYS(CS,IP)==0)//0x80120)//(0x80ECF))
 		{
 			doDebug=1;
 			debugWatchWrites=1;
@@ -1670,3 +1673,28 @@ int main(int argc,char**argv)
 
 	return 0;
 }
+
+uint32_t missing(uint32_t opcode)
+{
+	int a;
+	printf("IP : %04X:%04X\n",CS,IP);
+	printf("Next 7 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a));
+	}
+	printf("\nNext 7-1 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-1));
+	}
+	printf("\nNext 7-2 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-2));
+	}
+	printf("\n");
+	exit(-1);
+}
+
+

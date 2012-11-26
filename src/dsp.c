@@ -166,15 +166,15 @@ void DSP_DUMP_REGISTERS()
 {
 	printf("--------\n");
 	printf("FLAGS = C\n");
-	printf("        %s\n",	DSP_PEEK(0x147*2)&0x10?"1":"0");
-	printf("IX = %04X\n",DSP_PEEK(0x141*2));
-	printf("MZ0= %04X\n",DSP_PEEK(0x145*2));
-	printf("MZ1= %04X\n",DSP_PEEK(0x146*2));
-	printf("MZ2= %04X\n",DSP_PEEK(0x147*2)&0xF);
-	printf("MDE= %04X\n",DSP_PEEK(0x14B*2));
-	printf("X  = %04X\n",DSP_PEEK(0x14C*2));
-	printf("AZ = %04X\n",DSP_PEEK(0x14D*2));
-	printf("DMD= %04X\n",DSP_PEEK(0x144*2));
+	printf("        %s\n",	DSP_PEEK(0x147)&0x10?"1":"0");
+	printf("IX = %04X\n",DSP_PEEK(0x141));
+	printf("MZ0= %04X\n",DSP_PEEK(0x145));
+	printf("MZ1= %04X\n",DSP_PEEK(0x146));
+	printf("MZ2= %04X\n",DSP_PEEK(0x147)&0xF);
+	printf("MDE= %04X\n",DSP_PEEK(0x14B));
+	printf("X  = %04X\n",DSP_PEEK(0x14C));
+	printf("AZ = %04X\n",DSP_PEEK(0x14D));
+	printf("DMD= %04X\n",DSP_PEEK(0x144));
 	printf("--------\n");
 }
 
