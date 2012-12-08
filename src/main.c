@@ -1526,6 +1526,8 @@ extern uint8_t CYCLES;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
+int use6MhzP88Cpu=1;
+
 void CPU_RESET()
 {
 	RESET();
@@ -1548,16 +1550,29 @@ int CPU_STEP(int doDebug)
 		return 1;		// CPU HELD, MASTER CLOCKS continue
 	}
 
-	return CYCLES;
+	switch (curSystem)
+	{
+		case ESS_MSU:
+			return CYCLES;			// Assuming clock speed same as hardware chips
+		case ESS_P88:
+			if (use6MhzP88Cpu)
+				return CYCLES*2;		// 6Mhz
+			else
+				return CYCLES;
+	}
+
+	return 0;
 }
 	
 
 void Usage()
 {
-	printf("slipstream [opts] program.msu\n");
-	printf("-b address file.bin\n");
+	printf("slipstream [opts] program.msu/program.p88\n");
+	printf("-f [disable P88 frequency divider]\n");
+	printf("-b address file.bin [Load binary to ram]\n");
 	printf("\nFor example to load the proplay.MSU :\n");
 	printf("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
+
 }
 
 void ParseCommandLine(int argc,char** argv)
@@ -1567,6 +1582,11 @@ void ParseCommandLine(int argc,char** argv)
 	{
 		if (argv[a][0]=='-')
 		{
+			if (strcmp(argv[a],"-f")==0)
+			{
+				use6MhzP88Cpu=0;
+				continue;
+			}
 			if (strcmp(argv[a],"-b")==0)
 			{
 				if ((a+2)<argc)
