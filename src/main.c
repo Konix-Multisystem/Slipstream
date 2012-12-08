@@ -1529,6 +1529,7 @@ extern uint8_t CYCLES;
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
 int use6MhzP88Cpu=1;
+int emulateDSP=1;
 
 void CPU_RESET()
 {
@@ -1572,6 +1573,7 @@ void Usage()
 	printf("slipstream [opts] program.msu/program.p88\n");
 	printf("-f [disable P88 frequency divider]\n");
 	printf("-b address file.bin [Load binary to ram]\n");
+	printf("-n [disable DSP emulation]\n");
 	printf("\nFor example to load the proplay.MSU :\n");
 	printf("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 
@@ -1587,6 +1589,11 @@ void ParseCommandLine(int argc,char** argv)
 			if (strcmp(argv[a],"-f")==0)
 			{
 				use6MhzP88Cpu=0;
+				continue;
+			}
+			if (strcmp(argv[a],"-n")==0)
+			{
+				emulateDSP=0;
 				continue;
 			}
 			if (strcmp(argv[a],"-b")==0)

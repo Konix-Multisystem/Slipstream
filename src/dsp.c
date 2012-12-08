@@ -313,12 +313,13 @@ int DSP_Disassemble(unsigned int address,int registers)
 #define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
 
 uint16_t DSP_STATUS=0;
+extern int emulateDSP;
 
 void TickDSP()
 {
 #if !DISABLE_DSP
 	static int iamslow=RATE_ADJUST;
-	int running=DSP_STATUS&0x10;
+	int running=(DSP_STATUS&0x10) && emulateDSP;
 
 	if (running)
 	{
