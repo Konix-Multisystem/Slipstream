@@ -8,6 +8,8 @@
  * Assuming PAL (was european after all)
  */
 
+#define SLIPSTREAM_VERSION	"0.1 RC1"
+
 #include <GL/glfw3.h>
 
 #include <stdlib.h>
@@ -1626,14 +1628,12 @@ int main(int argc,char**argv)
 
 	ParseCommandLine(argc,argv);
 
-	VideoInitialise(WIDTH,HEIGHT,"Slipstream - V0.001");
+	VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
 	KeysIntialise();
 	AudioInitialise(WIDTH*HEIGHT);
 
 	//////////////////
 	
-//	DisassembleRange(0x0000,0x4000);
-
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
 //	doDebug=1;
