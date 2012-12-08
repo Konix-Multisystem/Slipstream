@@ -186,6 +186,10 @@ FUNCTION STEP
 
 			EXECUTE	IR;
 		}
+		IF HALT
+		{
+			2+CYCLES->CYCLES;
+		}
 	}
 
 	IF interruptPending
