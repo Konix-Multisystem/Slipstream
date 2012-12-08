@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "logfile.h"
 #include "dsp.h"
 #include "audio.h"
 #include "system.h"
@@ -35,7 +36,7 @@ uint16_t DSP_DMAGetWord(uint32_t addr)
 #if ENABLE_DEBUG
 	if (doShowDMA)
 	{
-		printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
+		CONSOLE_OUTPUT("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
 	}
 #endif
 	return GetByte(addr&0xFFFFE)|(GetByte((addr&0xFFFFE) +1)<<8);
@@ -46,7 +47,7 @@ void DSP_DMASetWord(uint32_t addr,uint16_t word)
 #if ENABLE_DEBUG
 	if (doShowDMA)
 	{
-		printf("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
+		CONSOLE_OUTPUT("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
 	}
 #endif
 	SetByte(addr&0xFFFFE,word&0xFF);
@@ -58,7 +59,7 @@ uint8_t DSP_DMAGetByte(uint32_t addr)
 #if ENABLE_DEBUG
 	if (doShowDMA)
 	{
-		printf("DSP DMA HOST->DSP %05X\n",addr&0xFFFFF);
+		CONSOLE_OUTPUT("DSP DMA HOST->DSP %05X\n",addr&0xFFFFF);
 	}
 #endif
 	return GetByte(addr&0xFFFFF);
@@ -69,7 +70,7 @@ void DSP_DMASetByte(uint32_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 	if (doShowDMA)
 	{
-		printf("DSP DMA DSP->HOST %05X (%02X)\n",addr&0xFFFFF,byte);
+		CONSOLE_OUTPUT("DSP DMA DSP->HOST %05X (%02X)\n",addr&0xFFFFF,byte);
 	}
 #endif
 	SetByte(addr&0xFFFFF,byte);
@@ -164,18 +165,18 @@ extern uint16_t	DSP_DEBUG_PC;
 
 void DSP_DUMP_REGISTERS()
 {
-	printf("--------\n");
-	printf("FLAGS = C\n");
-	printf("        %s\n",	DSP_PEEK(0x147)&0x10?"1":"0");
-	printf("IX = %04X\n",DSP_PEEK(0x141));
-	printf("MZ0= %04X\n",DSP_PEEK(0x145));
-	printf("MZ1= %04X\n",DSP_PEEK(0x146));
-	printf("MZ2= %04X\n",DSP_PEEK(0x147)&0xF);
-	printf("MDE= %04X\n",DSP_PEEK(0x14B));
-	printf("X  = %04X\n",DSP_PEEK(0x14C));
-	printf("AZ = %04X\n",DSP_PEEK(0x14D));
-	printf("DMD= %04X\n",DSP_PEEK(0x144));
-	printf("--------\n");
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT("FLAGS = C\n");
+	CONSOLE_OUTPUT("        %s\n",	DSP_PEEK(0x147)&0x10?"1":"0");
+	CONSOLE_OUTPUT("IX = %04X\n",DSP_PEEK(0x141));
+	CONSOLE_OUTPUT("MZ0= %04X\n",DSP_PEEK(0x145));
+	CONSOLE_OUTPUT("MZ1= %04X\n",DSP_PEEK(0x146));
+	CONSOLE_OUTPUT("MZ2= %04X\n",DSP_PEEK(0x147)&0xF);
+	CONSOLE_OUTPUT("MDE= %04X\n",DSP_PEEK(0x14B));
+	CONSOLE_OUTPUT("X  = %04X\n",DSP_PEEK(0x14C));
+	CONSOLE_OUTPUT("AZ = %04X\n",DSP_PEEK(0x14D));
+	CONSOLE_OUTPUT("DMD= %04X\n",DSP_PEEK(0x144));
+	CONSOLE_OUTPUT("--------\n");
 }
 
 const char* DSP_LookupAddress(uint16_t address)
@@ -288,9 +289,9 @@ int DSP_Disassemble(unsigned int address,int registers)
 
 	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
 	{
-		printf("UNKNOWN AT : %04X\n",address);
-		printf("%04X ",DSP_PEEK(0x400+address));
-		printf("\n");
+		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
+		CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
+		CONSOLE_OUTPUT("\n");
 		DSP_DUMP_REGISTERS();
 		exit(-1);
 	}
@@ -299,11 +300,11 @@ int DSP_Disassemble(unsigned int address,int registers)
 	{
 		DSP_DUMP_REGISTERS();
 	}
-	printf("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+	CONSOLE_OUTPUT("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
-	printf("%04X ",DSP_PEEK(0x400+address));
-	printf("   ");
-	printf("%s\n",retVal);
+	CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
+	CONSOLE_OUTPUT("   ");
+	CONSOLE_OUTPUT("%s\n",retVal);
 
 	return 1;
 }
@@ -362,107 +363,107 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				uint8_t isConditional=(pWord&0x0400)>>10;
 				uint8_t isIndexed=(pWord&0x0200)>>9;
 
-				printf("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
+				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
 
 				// Quick test
 
 				switch (pOpcode)
 				{
 					case 0:
-						printf("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 1:
-						printf("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 2:
-						printf("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 3:
-						printf("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 4:
-						printf("%s CCF\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s CCF\n",isConditional?"IF C THEN":"");
 						break;
 					case 5:
-						printf("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 6:
-						printf("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 7:
-						printf("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 8:
-						printf("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 9:
-						printf("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 10:
-						printf("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 11:
-						printf("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 12:
-						printf("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 13:
-						printf("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 14:
-						printf("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 15:
-						printf("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 16:
-						printf("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 17:
-						printf("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 18:
-						printf("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 19:
-						printf("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 20:
-						printf("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 21:
-						printf("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 22:
-						printf("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 23:
-						printf("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 24:
-						printf("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 25:
-						printf("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 26:
-						printf("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 27:
-						printf("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 28:
-						printf("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 29:
-						printf("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 30:
-						printf("%s NOP\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s NOP\n",isConditional?"IF C THEN":"");
 						break;
 					case 31:
-						printf("%s INTRUDE\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s INTRUDE\n",isConditional?"IF C THEN":"");
 						break;
 				}
 			}
@@ -480,7 +481,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -494,7 +495,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -510,7 +511,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 					if (doShowHostDSPWrites)
 					{
 						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						printf("Host Write To DSP Data (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP Data (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
@@ -524,7 +525,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 					if (doShowHostDSPWrites)
 					{
 						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						printf("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
@@ -541,7 +542,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 					if (doShowHostDSPWrites)
 					{
 						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						printf("Host Write To DSP ROM (ignored) (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
@@ -555,7 +556,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 					if (doShowHostDSPWrites)
 					{
 						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						printf("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 					}
 				}
 #endif
@@ -570,7 +571,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Data : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Data : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -581,7 +582,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 			if (doShowHostDSPWrites)
 			{
-				printf("Host Write to DSP Data (Unknown (FF0 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (FF0 status!)) : %04X\n",addr);
 			}
 #endif
 			if (addr==0xFF0)
@@ -608,7 +609,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #if ENABLE_DEBUG
 		if (doShowHostDSPReads)
 		{
-			printf("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
+			CONSOLE_OUTPUT("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
 		}
 #endif
 		return DSP_PEEK_BYTE(addr);
@@ -622,7 +623,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #if ENABLE_DEBUG
 				if (doShowHostDSPReads)
 				{
-					printf("Host DSP Data Read (Alternate Map) : %04X\n",addr);
+					CONSOLE_OUTPUT("Host DSP Data Read (Alternate Map) : %04X\n",addr);
 				}
 #endif
 				if (addr<0x200)
@@ -639,7 +640,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #if ENABLE_DEBUG
 				if (doShowHostDSPReads)
 				{
-					printf("Host DSP Data Read (Normal Map) : %04X\n",addr);
+					CONSOLE_OUTPUT("Host DSP Data Read (Normal Map) : %04X\n",addr);
 				}
 #endif
 				return DSP_PEEK_BYTE(addr);
@@ -650,7 +651,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 #if ENABLE_DEBUG
 			if (doShowHostDSPReads)
 			{
-				printf("Host DSP Data Read (Unknown (FF0 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host DSP Data Read (Unknown (FF0 status!)) : %04X\n",addr);
 			}
 #endif
 		}
@@ -681,107 +682,107 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				uint8_t isConditional=(pWord&0x0400)>>10;
 				uint8_t isIndexed=(pWord&0x0200)>>9;
 
-				printf("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
+				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
 
 				// Quick test
 
 				switch (pOpcode)
 				{
 					case 0:
-						printf("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 1:
-						printf("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 2:
-						printf("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 3:
-						printf("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 4:
-						printf("%s CCF\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s CCF\n",isConditional?"IF C THEN":"");
 						break;
 					case 5:
-						printf("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 6:
-						printf("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 7:
-						printf("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 8:
-						printf("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 9:
-						printf("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 10:
-						printf("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 11:
-						printf("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 12:
-						printf("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 13:
-						printf("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 14:
-						printf("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 15:
-						printf("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 16:
-						printf("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 17:
-						printf("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 18:
-						printf("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 19:
-						printf("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 20:
-						printf("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 21:
-						printf("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 22:
-						printf("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 23:
-						printf("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 24:
-						printf("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 25:
-						printf("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 26:
-						printf("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 27:
-						printf("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 28:
-						printf("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 29:
-						printf("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+						CONSOLE_OUTPUT("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
 						break;
 					case 30:
-						printf("%s NOP\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s NOP\n",isConditional?"IF C THEN":"");
 						break;
 					case 31:
-						printf("%s INTRUDE\n",isConditional?"IF C THEN":"");
+						CONSOLE_OUTPUT("%s INTRUDE\n",isConditional?"IF C THEN":"");
 						break;
 				}
 			}
@@ -799,7 +800,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -813,7 +814,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -827,7 +828,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -840,7 +841,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 				if (doShowHostDSPWrites)
 				{
 					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					printf("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
 				}
 			}
 #endif
@@ -851,7 +852,7 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 			if (doShowHostDSPWrites)
 			{
-				printf("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
 			}
 #endif
 			if (addr==0x600)
@@ -878,7 +879,7 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 #if ENABLE_DEBUG
 		if (doShowHostDSPReads)
 		{
-			printf("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
+			CONSOLE_OUTPUT("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
 		}
 #endif
 		return DSP_PEEK_BYTE(addr+0x400);
@@ -890,7 +891,7 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 #if ENABLE_DEBUG
 			if (doShowHostDSPReads)
 			{
-				printf("Host DSP Data Read (Normal Map) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host DSP Data Read (Normal Map) : %04X\n",addr);
 			}
 #endif
 			return DSP_PEEK_BYTE(addr);
@@ -900,7 +901,7 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 #if ENABLE_DEBUG
 			if (doShowHostDSPReads)
 			{
-				printf("Host DSP Data Read (Unknown (600 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host DSP Data Read (Unknown (600 status!)) : %04X\n",addr);
 			}
 #endif
 		}

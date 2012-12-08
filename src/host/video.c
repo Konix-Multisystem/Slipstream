@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "logfile.h"
 #include "audio.h"
 #include "video.h"
 

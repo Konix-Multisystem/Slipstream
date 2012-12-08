@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "logfile.h"
 #include "video.h"
 #include "audio.h"
 #include "asic.h"
@@ -23,7 +24,7 @@
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
 #if ENABLE_DEBUG
-#define BLTDDBG(...)		if (doShowBlits) { printf(__VA_ARGS__); }
+#define BLTDDBG(...)		if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #else
 #define BLTDDBG(...)		//
 #endif
@@ -79,7 +80,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 #if ENABLE_DEBUG
 	if (doShowBlits)
 	{
-		printf("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 			ASIC_BLTCMD&0x02?1:0,
 			ASIC_BLTCMD&0x04?1:0,
 			ASIC_BLTCMD&0x08?1:0,
@@ -99,7 +100,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
-			printf("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 				BLT_OUTER_CMD&0x02?1:0,
 				BLT_OUTER_CMD&0x04?1:0,
 				BLT_OUTER_CMD&0x08?1:0,
@@ -111,14 +112,14 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 
 		if (BLT_OUTER_CMD&0x4E)
 		{
-			printf("Unsupported BLT CMD type\n");
+			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
 			exit(1);
 		}
 
 
 		if (doShowBlits)
 		{
-			printf("Fetching Program Sequence :\n");
+			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
 		}
 #endif
 		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
@@ -165,14 +166,14 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
-			printf("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
-			printf("Outer Cnt : %02X\n",BLT_OUTER_CNT);
-			printf("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			printf("Comp Logic : %02X\n",BLT_OUTER_CPLG);
-			printf("Inner Count : %02X\n",BLT_INNER_CNT);
-			printf("Mode Control : %02X\n",BLT_OUTER_MODE);
-			printf("Pattern : %02X\n",BLT_INNER_PAT);
-			printf("Step : %02X\n",BLT_INNER_STEP);
+			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Comp Logic : %02X\n",BLT_OUTER_CPLG);
+			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
+			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
 		}
 #endif
 		DoBlit();
@@ -194,7 +195,7 @@ void TickBlitterP88()
 #if ENABLE_DEBUG
 	if (doShowBlits)
 	{
-		printf("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 			ASIC_BLTCMD&0x02?1:0,
 			ASIC_BLTCMD&0x04?1:0,
 			ASIC_BLTCMD&0x08?1:0,
@@ -214,7 +215,7 @@ void TickBlitterP88()
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
-			printf("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 				BLT_OUTER_CMD&0x02?1:0,
 				BLT_OUTER_CMD&0x04?1:0,
 				BLT_OUTER_CMD&0x08?1:0,
@@ -226,14 +227,14 @@ void TickBlitterP88()
 
 		if (BLT_OUTER_CMD&0x42)
 		{
-			printf("Unsupported BLT CMD type\n");
+			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
 			exit(1);
 		}
 
 
 		if (doShowBlits)
 		{
-			printf("Fetching Program Sequence :\n");
+			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
 		}
 #endif
 		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
@@ -280,7 +281,7 @@ void TickBlitterP88()
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
-			printf("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 				BLT_OUTER_CMD&0x02?1:0,
 				BLT_OUTER_CMD&0x04?1:0,
 				BLT_OUTER_CMD&0x08?1:0,
@@ -288,19 +289,19 @@ void TickBlitterP88()
 				BLT_OUTER_CMD&0x20?1:0,
 				BLT_OUTER_CMD&0x40?1:0,
 				BLT_OUTER_CMD&0x80?1:0);
-			printf("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
-			printf("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
 				BLT_OUTER_SRC_FLAGS&0x10?1:0,
 				BLT_OUTER_SRC_FLAGS&0x20?1:0,
 				BLT_OUTER_SRC_FLAGS&0x40?1:0,
 				BLT_OUTER_SRC_FLAGS&0x80?1:0);
-			printf("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			printf("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
 				BLT_OUTER_DST_FLAGS&0x10?1:0,
 				BLT_OUTER_DST_FLAGS&0x20?1:0,
 				BLT_OUTER_DST_FLAGS&0x40?1:0,
 				BLT_OUTER_DST_FLAGS&0x80?1:0);
-			printf("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
+			CONSOLE_OUTPUT("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
 				BLT_OUTER_MODE&0x01?1:0,
 				BLT_OUTER_MODE&0x02?1:0,
 				BLT_OUTER_MODE&0x04?1:0,
@@ -309,7 +310,7 @@ void TickBlitterP88()
 				BLT_OUTER_MODE&0x20?1:0,
 				BLT_OUTER_MODE&0x40?1:0,
 				BLT_OUTER_MODE&0x80?1:0);
-			printf("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
+			CONSOLE_OUTPUT("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
 				BLT_OUTER_CPLG&0x01?1:0,
 				BLT_OUTER_CPLG&0x02?1:0,
 				BLT_OUTER_CPLG&0x04?1:0,
@@ -318,10 +319,10 @@ void TickBlitterP88()
 				BLT_OUTER_CPLG&0x20?1:0,
 				BLT_OUTER_CPLG&0x40?1:0,
 				BLT_OUTER_CPLG&0x80?1:0);
-			printf("Outer Cnt : %02X\n",BLT_OUTER_CNT);
-			printf("Inner Count : %02X\n",BLT_INNER_CNT);
-			printf("Step : %02X\n",BLT_INNER_STEP);
-			printf("Pattern : %02X\n",BLT_INNER_PAT);
+			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
 
 			//getch();
 		}
@@ -333,7 +334,7 @@ void TickBlitterP88()
 #if ENABLE_DEBUG
 		if (doShowBlits)
 		{
-			printf("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			CONSOLE_OUTPUT("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 				BLT_OUTER_CMD&0x02?1:0,
 				BLT_OUTER_CMD&0x04?1:0,
 				BLT_OUTER_CMD&0x08?1:0,
@@ -841,9 +842,9 @@ void DoBlitOuter()
 #if ENABLE_DEBUG
 			if (doShowBlits)
 			{
-				printf("Inner Count : %02X\n",BLT_INNER_CNT);
-				printf("Step : %02X\n",BLT_INNER_STEP);
-				printf("Pattern : %02X\n",BLT_INNER_PAT);
+				CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+				CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+				CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
 			}
 #endif
 
@@ -986,7 +987,7 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 #if ENABLE_DEBUG
 			if (warnIgnore)
 			{
-				printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+				CONSOLE_OUTPUT("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
 			}
 #endif
 			break;
@@ -1030,11 +1031,11 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x000C:
 			ASIC_MODE=byte;
 			if (byte&0x01)
-				printf("256 Colour Screen Mode\n");
+				CONSOLE_OUTPUT("256 Colour Screen Mode\n");
 			else
-				printf("16 Colour Screen Mode\n");
+				CONSOLE_OUTPUT("16 Colour Screen Mode\n");
 			if (byte&0xFE)
-				printf("Warning unhandled MODE bits set - likely to be an emulation mismatch\n");
+				CONSOLE_OUTPUT("Warning unhandled MODE bits set - likely to be an emulation mismatch\n");
 			break;
 		case 0x000D:
 			ASIC_BORD&=0xFF00;
@@ -1047,12 +1048,12 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x000F:
 			ASIC_PMASK=byte;
 			if (byte!=0)
-				printf("Warning PMASK!=0 - likely to be an emulation mismatch\n");
+				CONSOLE_OUTPUT("Warning PMASK!=0 - likely to be an emulation mismatch\n");
 			break;
 		case 0x0010:
 			ASIC_INDEX=byte;
 			if (byte!=0)
-				printf("Warning INDEX!=0 - likely to be an emulation mismatch\n");
+				CONSOLE_OUTPUT("Warning INDEX!=0 - likely to be an emulation mismatch\n");
 			break;
 		case 0x0011:
 			ASIC_ENDL=byte;
@@ -1063,17 +1064,17 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0013:
 			ASIC_MEM=byte;
 			if (byte!=0)
-				printf("Warning MEM!=0 - (mem banking not implemented)\n");
+				CONSOLE_OUTPUT("Warning MEM!=0 - (mem banking not implemented)\n");
 			break;
 		case 0x0015:
 			ASIC_DIAG=byte;
 			if (byte!=0)
-				printf("Warning DIAG!=0 - (Diagnostics not implemented)\n");
+				CONSOLE_OUTPUT("Warning DIAG!=0 - (Diagnostics not implemented)\n");
 			break;
 		case 0x0016:
 			ASIC_DIS=byte;
 			if (byte&0xFE)
-				printf("Warning unhandled DIS bits set (%02X)- (Other intterupts not implemented)\n",byte);
+				CONSOLE_OUTPUT("Warning unhandled DIS bits set (%02X)- (Other intterupts not implemented)\n",byte);
 			break;
 		case 0x0030:
 			ASIC_BLTPC&=0xFFF00;
@@ -1094,13 +1095,13 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0034:
 			ASIC_BLTCON=byte;
 			if (byte!=0)
-				printf("Warning BLTCON!=0 - (Blitter control not implemented)\n");
+				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)\n");
 			break;
 		default:
 #if ENABLE_DEBUG
 			if (warnIgnore)
 			{
-				printf("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+				CONSOLE_OUTPUT("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
 			}
 #endif
 			break;
@@ -1123,7 +1124,7 @@ uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 #if ENABLE_DEBUG
 			if (warnIgnore)
 			{
-				printf("ASIC READ IGNORE %04X - TODO?\n",port);
+				CONSOLE_OUTPUT("ASIC READ IGNORE %04X - TODO?\n",port);
 			}
 #endif
 			break;

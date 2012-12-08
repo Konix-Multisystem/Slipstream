@@ -54,30 +54,34 @@ out/slipDSP.lls: src/chips/slipDSP.edl
 out/slipDSP.lls.s: out/slipDSP.lls
 	llc -O3 out/slipDSP.lls
 
-out/audio.o: src/host/audio.h src/host/audio.c
+out/logfile.o: src/host/logfile.h src/host/logfile.c
+	mkdir -p out
+	$(COMPILER) $(COMPILE) src/host/logfile.c -o out/logfile.o
+
+out/audio.o: src/host/audio.h src/host/audio.c src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/host/audio.c -o out/audio.o
 
-out/video.o: src/host/video.h src/host/video.c
+out/video.o: src/host/video.h src/host/video.c src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/host/video.c -o out/video.o
 
-out/keys.o: src/host/keys.h src/host/keys.c
+out/keys.o: src/host/keys.h src/host/keys.c src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/host/keys.c -o out/keys.o
 
-out/asic.o: src/asic.h src/asic.c src/dsp.h
+out/asic.o: src/asic.h src/asic.c src/dsp.h src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/asic.c -o out/asic.o
 
-out/dsp.o: src/dsp.h src/dsp.c src/system.h
+out/dsp.o: src/dsp.h src/dsp.c src/system.h src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/dsp.c -o out/dsp.o
 
-out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h
+out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 

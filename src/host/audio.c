@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "logfile.h"
+
 #define NUMBUFFERS            (3)				/* living dangerously*/
 
 ALuint		  uiBuffers[NUMBUFFERS];
@@ -30,7 +32,7 @@ ALboolean ALFWInitOpenAL()
 		pContext = alcCreateContext(pDevice, NULL);
 		if (pContext)
 		{
-			printf("\nOpened %s Device\n", alcGetString(pDevice, ALC_DEVICE_SPECIFIER));
+			CONSOLE_OUTPUT("\nOpened %s Device\n", alcGetString(pDevice, ALC_DEVICE_SPECIFIER));
 			alcMakeContextCurrent(pContext);
 			bReturn = AL_TRUE;
 		}

@@ -1,11 +1,7 @@
 /*
  * Slipstream emulator
  *
- * expects MSU files
- *
- * Currently 8086 cpu
- *
- * Assuming PAL (was european after all)
+ * Assumes PAL (was european after all) at present
  */
 
 #define SLIPSTREAM_VERSION	"0.1 RC1"
@@ -18,6 +14,7 @@
 #include <stdint.h>
 
 #include "system.h"
+#include "logfile.h"
 #include "video.h"
 #include "audio.h"
 #include "keys.h"
@@ -27,7 +24,7 @@
 #define SEGTOPHYS(seg,off)	( ((seg)<<4) + (off) )				// Convert Segment,offset pair to physical address
 
 #define RAM_SIZE	(768*1024)			// Right lets get a bit more serious with available ram. (Ill make the assumption for now it extends from segment 0x0000 -> 0xC000
-                                                        // which is 768k - hardware chips reside above this point (with the bios assumed to reside are E000)
+                                                        // which is 768k - hardware chips reside above this point (with the bios assumed to reside are E000) - NB: Memory map differs for earlier models!
 unsigned char RAM[RAM_SIZE];							
 unsigned char PALETTE[256*2];			
 
@@ -110,28 +107,28 @@ int HandleLoadSection(FILE* inFile)
 
 	if (2!=fread(&segment,1,2,inFile))
 	{
-		printf("Failed to read segment for LoadSection\n");
+		CONSOLE_OUTPUT("Failed to read segment for LoadSection\n");
 		exit(1);
 	}
 	if (2!=fread(&offset,1,2,inFile))
 	{
-		printf("Failed to read offset for LoadSection\n");
+		CONSOLE_OUTPUT("Failed to read offset for LoadSection\n");
 		exit(1);
 	}
 	fseek(inFile,2,SEEK_CUR);		// skip unknown
 	if (2!=fread(&size,1,2,inFile))
 	{
-		printf("Failed to read size for LoadSection\n");
+		CONSOLE_OUTPUT("Failed to read size for LoadSection\n");
 		exit(1);
 	}
 
-	printf("Found Section Load Memory : %04X:%04X   (%08X bytes)\n",segment,offset,size);
+	CONSOLE_OUTPUT("Found Section Load Memory : %04X:%04X   (%08X bytes)\n",segment,offset,size);
 
 	for (a=0;a<size;a++)
 	{
 		if (1!=fread(&byte,1,1,inFile))
 		{
-			printf("Failed to read data from LoadSection\n");
+			CONSOLE_OUTPUT("Failed to read data from LoadSection\n");
 			exit(1);
 		}
 		SetByte(a+SEGTOPHYS(segment,offset),byte);
@@ -146,19 +143,19 @@ int HandleExecuteSection(FILE* inFile)
 	
 	if (2!=fread(&segment,1,2,inFile))
 	{
-		printf("Failed to read segment for ExecuteSection\n");
+		CONSOLE_OUTPUT("Failed to read segment for ExecuteSection\n");
 		exit(1);
 	}
 	if (2!=fread(&offset,1,2,inFile))
 	{
-		printf("Failed to read offset for ExecuteSection\n");
+		CONSOLE_OUTPUT("Failed to read offset for ExecuteSection\n");
 		exit(1);
 	}
 
 	CS=segment;
 	IP=offset;
 
-	printf("Found Section Execute : %04X:%04X\n",segment,offset);
+	CONSOLE_OUTPUT("Found Section Execute : %04X:%04X\n",segment,offset);
 
 	return 4;
 }
@@ -178,7 +175,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 		// Read a byte
 		if (1!=fread(&sectionType,1,1,inFile))
 		{
-			printf("Failed to read section header\n");
+			CONSOLE_OUTPUT("Failed to read section header\n");
 			return 1;
 		}
 		expectedSize--;
@@ -186,7 +183,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 		switch (sectionType)
 		{
 			case 0xFF:							// Not original specification - added to indicate system type is P88
-				printf("Found Section Konix 8088\n");
+				CONSOLE_OUTPUT("Found Section Konix 8088\n");
 				curSystem=ESS_P88;
 				break;
 			case 0xC8:
@@ -196,7 +193,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 				expectedSize-=HandleExecuteSection(inFile);
 				break;
 			default:
-				printf("Unknown section type @%ld : %02X\n",ftell(inFile)-1,sectionType);
+				CONSOLE_OUTPUT("Unknown section type @%ld : %02X\n",ftell(inFile)-1,sectionType);
 				return 1;
 		}
 	}
@@ -221,7 +218,7 @@ int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which
 		// Read a byte
 		if (1!=fread(&data,1,1,inFile))
 		{
-			printf("Failed to read from %s\n",fname);
+			CONSOLE_OUTPUT("Failed to read from %s\n",fname);
 			return 1;
 		}
 		SetByte(address,data);
@@ -251,7 +248,7 @@ uint8_t GetByteMSU(uint32_t addr)
 		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
 	}
 #if ENABLE_DEBUG
-	printf("GetByte : %05X - TODO\n",addr);
+	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
 #endif
 	return 0xAA;
 }
@@ -272,7 +269,7 @@ uint8_t GetByteP88(uint32_t addr)
 		return ASIC_HostDSPMemReadP88(addr-0x41000);
 	}
 #if ENABLE_DEBUG
-	printf("GetByte : %05X - TODO\n",addr);
+	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
 #endif
 	return 0xAA;
 }
@@ -289,7 +286,7 @@ uint8_t GetByte(uint32_t addr)
 #if ENABLE_DEBUG
 			if (debugWatchReads)
 			{
-				printf("Reading from address : %05X->%02X\n",addr,retVal);
+				CONSOLE_OUTPUT("Reading from address : %05X->%02X\n",addr,retVal);
 			}
 #endif
 			return retVal;
@@ -318,13 +315,13 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 	if (addr==doDebugTrapWriteAt)
 	{
-		printf("STOMP STOMP STOMP\n");
+		CONSOLE_OUTPUT("STOMP STOMP STOMP\n");
 	}
 	if (debugWatchWrites)
 	{
 		if (addr<0xC1000 || addr>0xC1FFF)		// DSP handled seperately
 		{
-			printf("Writing to address : %05X<-%02X\n",addr,byte);
+			CONSOLE_OUTPUT("Writing to address : %05X<-%02X\n",addr,byte);
 		}
 	}
 #endif
@@ -344,7 +341,7 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
 		return;
 	}
 #if ENABLE_DEBUG
-	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
+	CONSOLE_OUTPUT("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
 #endif
 }
 
@@ -354,13 +351,13 @@ void SetByteP88(uint32_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 	if (addr==doDebugTrapWriteAt)
 	{
-		printf("STOMP STOMP STOMP\n");
+		CONSOLE_OUTPUT("STOMP STOMP STOMP\n");
 	}
 	if (debugWatchWrites)
 	{
 		if (addr<0x41000 || addr>0x41FFF)		// DSP handled seperately
 		{
-			printf("Writing to address : %05X<-%02X\n",addr,byte);
+			CONSOLE_OUTPUT("Writing to address : %05X<-%02X\n",addr,byte);
 		}
 	}
 #endif
@@ -385,7 +382,7 @@ void SetByteP88(uint32_t addr,uint8_t byte)
 		return;
 	}
 #if ENABLE_DEBUG
-	printf("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
+	CONSOLE_OUTPUT("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
 #endif
 }
 
@@ -412,89 +409,89 @@ void DebugWPort(uint16_t port)
 			switch (port)
 			{
 				case 0x0000:
-					printf("INTL: Vertical line interrupt location\n");
+					CONSOLE_OUTPUT("INTL: Vertical line interrupt location\n");
 					break;
 				case 0x0001:
-					printf("INTH: Vertical line interrupt location\n");
+					CONSOLE_OUTPUT("INTH: Vertical line interrupt location\n");
 					break;
 				case 0x0002:
-					printf("STARTL - screen line start\n");
+					CONSOLE_OUTPUT("STARTL - screen line start\n");
 					break;
 				case 0x0003:
-					printf("STARTH - screen line start\n");
+					CONSOLE_OUTPUT("STARTH - screen line start\n");
 					break;
 				case 0x0008:
-					printf("SCROLL1 - TL pixel address LSB\n");
+					CONSOLE_OUTPUT("SCROLL1 - TL pixel address LSB\n");
 					break;
 				case 0x0009:
-					printf("SCROLL2 - TL pixel address middle byte\n");
+					CONSOLE_OUTPUT("SCROLL2 - TL pixel address middle byte\n");
 					break;
 				case 0x000A:
-					printf("SCROLL3 - TL pixel address MSB\n");
+					CONSOLE_OUTPUT("SCROLL3 - TL pixel address MSB\n");
 					break;
 				case 0x000B:
-					printf("ACK - interrupt acknowledge\n");
+					CONSOLE_OUTPUT("ACK - interrupt acknowledge\n");
 					break;
 				case 0x000C:
-					printf("MODE - screen mode\n");
+					CONSOLE_OUTPUT("MODE - screen mode\n");
 					break;
 				case 0x000D:
-					printf("BORDL - border colour\n");
+					CONSOLE_OUTPUT("BORDL - border colour\n");
 					break;
 				case 0x000E:
-					printf("BORDH - border colour\n");
+					CONSOLE_OUTPUT("BORDH - border colour\n");
 					break;
 				case 0x000F:
-					printf("PMASK - palette mask\n");
+					CONSOLE_OUTPUT("PMASK - palette mask\n");
 					break;
 				case 0x0010:
-					printf("INDEX - palette index\n");
+					CONSOLE_OUTPUT("INDEX - palette index\n");
 					break;
 				case 0x0011:
-					printf("ENDL - screen line end\n");
+					CONSOLE_OUTPUT("ENDL - screen line end\n");
 					break;
 				case 0x0012:
-					printf("ENDH - screen line end\n");
+					CONSOLE_OUTPUT("ENDH - screen line end\n");
 					break;
 				case 0x0013:
-					printf("MEM - memory configuration\n");
+					CONSOLE_OUTPUT("MEM - memory configuration\n");
 					break;
 				case 0x0015:
-					printf("DIAG - diagnostics\n");
+					CONSOLE_OUTPUT("DIAG - diagnostics\n");
 					break;
 				case 0x0016:
-					printf("DIS - disable interupts\n");
+					CONSOLE_OUTPUT("DIS - disable interupts\n");
 					break;
 				case 0x0030:
-					printf("BLPROG0\n");
+					CONSOLE_OUTPUT("BLPROG0\n");
 					break;
 				case 0x0031:
-					printf("BLPROG1\n");
+					CONSOLE_OUTPUT("BLPROG1\n");
 					break;
 				case 0x0032:
-					printf("BLPROG2\n");
+					CONSOLE_OUTPUT("BLPROG2\n");
 					break;
 				case 0x0033:
-					printf("BLTCMD\n");
+					CONSOLE_OUTPUT("BLTCMD\n");
 					break;
 				case 0x0034:
-					printf("BLTCON - blitter control\n");
+					CONSOLE_OUTPUT("BLTCON - blitter control\n");
 					break;
 					// The below 4 ports are from the development kit <-> PC interface  | Chip Z8536 - Zilog CIO counter/timer parallel IO Unit
 				case 0x0060:
-					printf("DRC - Data Register C\n");
+					CONSOLE_OUTPUT("DRC - Data Register C\n");
 					break;
 				case 0x0061:
-					printf("DRB - Data Register B\n");
+					CONSOLE_OUTPUT("DRB - Data Register B\n");
 					break;
 				case 0x0062:
-					printf("DRA - Data Register A\n");
+					CONSOLE_OUTPUT("DRA - Data Register A\n");
 					break;
 				case 0x0063:
-					printf("CTRL - Control Register (not sure which one yet though)\n");
+					CONSOLE_OUTPUT("CTRL - Control Register (not sure which one yet though)\n");
 					break;
 				default:
-					printf("PORT WRITE UNKNOWN - TODO\n");
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
 					exit(-1);
 					break;
 			}
@@ -504,64 +501,64 @@ void DebugWPort(uint16_t port)
 			switch (port)
 			{
 				case 0x0000:
-					printf("KINT ??? Vertical line interrupt location (Word address)\n");
+					CONSOLE_OUTPUT("KINT ??? Vertical line interrupt location (Word address)\n");
 					break;
 				case 0x0004:
-					printf("STARTL - screen line start (Byte address)\n");
+					CONSOLE_OUTPUT("STARTL - screen line start (Byte address)\n");
 					break;
 				case 0x0010:
-					printf("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
+					CONSOLE_OUTPUT("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
 					break;
 				case 0x0012:
-					printf("SCROLL2 - TL pixel address middle byte (Word address) - byte width\n");
+					CONSOLE_OUTPUT("SCROLL2 - TL pixel address middle byte (Word address) - byte width\n");
 					break;
 				case 0x0014:
-					printf("SCROLL3 - TL pixel address MSB (Word address) - byte width\n");
+					CONSOLE_OUTPUT("SCROLL3 - TL pixel address MSB (Word address) - byte width\n");
 					break;
 				case 0x0016:
-					printf("ACK - interrupt acknowledge (Byte address)\n");
+					CONSOLE_OUTPUT("ACK - interrupt acknowledge (Byte address)\n");
 					break;
 				case 0x0018:
-					printf("MODE - screen mode (Byte address)\n");
+					CONSOLE_OUTPUT("MODE - screen mode (Byte address)\n");
 					break;
 				case 0x001A:
-					printf("BORD - border colour (Word address)  - Little Endian if matching V1\n");
+					CONSOLE_OUTPUT("BORD - border colour (Word address)  - Little Endian if matching V1\n");
 					break;
 				case 0x001E:
-					printf("PMASK - palette mask? (Word address) - only a byte documented\n");
+					CONSOLE_OUTPUT("PMASK - palette mask? (Word address) - only a byte documented\n");
 					break;
 				case 0x0020:
-					printf("INDEX - palette index (Word address) - only a byte documented\n");
+					CONSOLE_OUTPUT("INDEX - palette index (Word address) - only a byte documented\n");
 					break;
 				case 0x0022:
-					printf("ENDL - screen line end (Byte address)\n");
+					CONSOLE_OUTPUT("ENDL - screen line end (Byte address)\n");
 					break;
 				case 0x0026:
-					printf("MEM - memory configuration (Byte address)\n");
+					CONSOLE_OUTPUT("MEM - memory configuration (Byte address)\n");
 					break;
 				case 0x002A:
-					printf("DIAG - diagnostics (Byte address)\n");
+					CONSOLE_OUTPUT("DIAG - diagnostics (Byte address)\n");
 					break;
 				case 0x002C:
-					printf("DIS - disable interupts (Byte address)\n");
+					CONSOLE_OUTPUT("DIS - disable interupts (Byte address)\n");
 					break;
 				case 0x0040:
-					printf("BLTPC (low 16 bits) (Word address)\n");
+					CONSOLE_OUTPUT("BLTPC (low 16 bits) (Word address)\n");
 					break;
 				case 0x0042:
-					printf("BLTCMD (Word address)\n");
+					CONSOLE_OUTPUT("BLTCMD (Word address)\n");
 					break;
 				case 0x0044:
-					printf("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
+					CONSOLE_OUTPUT("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
 					break;
 				case 0x00C0:
-					printf("ADP - (Word address) - Anologue/digital port reset?\n");
+					CONSOLE_OUTPUT("ADP - (Word address) - Anologue/digital port reset?\n");
 					break;
 				case 0x00E0:
-					printf("???? - (Byte address) - number pad reset?\n");
+					CONSOLE_OUTPUT("???? - (Byte address) - number pad reset?\n");
 					break;
 				default:
-					printf("PORT WRITE UNKNOWN - TODO\n");
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
 					exit(-1);
 					break;
 			}
@@ -580,37 +577,37 @@ void DebugRPort(uint16_t port)
 			switch (port)
 			{
 				case 0x0000:
-					printf("HLPL - Horizontal scanline position low byte\n");
+					CONSOLE_OUTPUT("HLPL - Horizontal scanline position low byte\n");
 					break;
 				case 0x0001:
-					printf("HLPH - Horizontal scanline position hi byte\n");
+					CONSOLE_OUTPUT("HLPH - Horizontal scanline position hi byte\n");
 					break;
 				case 0x0002:
-					printf("VLPL - Vertical scanline position low byte\n");
+					CONSOLE_OUTPUT("VLPL - Vertical scanline position low byte\n");
 					break;
 				case 0x0003:
-					printf("VLPH - Vertical scanline position hi byte\n");
+					CONSOLE_OUTPUT("VLPH - Vertical scanline position hi byte\n");
 					break;
 				case 0x0040:
-					printf("PORT1 - Joystick 1\n");
+					CONSOLE_OUTPUT("PORT1 - Joystick 1\n");
 					break;
 				case 0x0050:
-					printf("PORT2 - Joystick 2\n");
+					CONSOLE_OUTPUT("PORT2 - Joystick 2\n");
 					break;
 				case 0x0060:
-					printf("DRC - Data Register C\n");
+					CONSOLE_OUTPUT("DRC - Data Register C\n");
 					break;
 				case 0x0061:
-					printf("DRB - Data Register B\n");
+					CONSOLE_OUTPUT("DRB - Data Register B\n");
 					break;
 				case 0x0062:
-					printf("DRA - Data Register A\n");
+					CONSOLE_OUTPUT("DRA - Data Register A\n");
 					break;
 				case 0x0063:
-					printf("CTRL - Control Register (not sure which one yet though)\n");
+					CONSOLE_OUTPUT("CTRL - Control Register (not sure which one yet though)\n");
 					break;
 				default:
-					printf("PORT READ UNKNOWN - TODO\n");
+					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
 					exit(-1);
 					break;
 			}
@@ -621,19 +618,19 @@ void DebugRPort(uint16_t port)
 			switch (port)
 			{
 				case 0x0C:
-					printf("???? - (Byte Address) - controller buttons...\n");
+					CONSOLE_OUTPUT("???? - (Byte Address) - controller buttons...\n");
 					break;
 				case 0x80:
-					printf("???? - (Word Address) - Possibly controller digital button status\n");
+					CONSOLE_OUTPUT("???? - (Word Address) - Possibly controller digital button status\n");
 					break;
 				case 0xC0:
-					printf("ADP - (Word Address) - Analogue/digital port status ? \n");
+					CONSOLE_OUTPUT("ADP - (Word Address) - Analogue/digital port status ? \n");
 					break;
 				case 0xE0:
-					printf("???? - (Byte Address) - Numberic pad read ? \n");
+					CONSOLE_OUTPUT("???? - (Byte Address) - Numberic pad read ? \n");
 					break;
 				default:
-					printf("PORT READ UNKNOWN - TODO\n");
+					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
 					exit(-1);
 					break;
 			}
@@ -678,7 +675,7 @@ uint8_t GetPortB(uint16_t port)
 						return ((numPadState&0xF000)>>12);
 					default:
 #if ENABLE_DEBUG
-						printf("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
+						CONSOLE_OUTPUT("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
 #endif
 						return 0xFF;
 				}
@@ -703,7 +700,7 @@ uint8_t GetPortB(uint16_t port)
 #if ENABLE_DEBUG
 	if (doShowPortStuff)
 	{
-		printf("GetPortB : %04X - TODO\n",port);
+		CONSOLE_OUTPUT("GetPortB : %04X - TODO\n",port);
 		DebugRPort(port);
 	}
 #endif
@@ -746,7 +743,7 @@ uint16_t GetPortW(uint16_t port)
 #if ENABLE_DEBUG
 	if (doShowPortStuff)
 	{
-		printf("GetPortW : %04X - TODO\n",port);
+		CONSOLE_OUTPUT("GetPortW : %04X - TODO\n",port);
 		DebugRPort(port);
 	}
 #endif
@@ -929,9 +926,9 @@ void TickKeyboard()
 #if ENABLE_DEBUG
 void DUMP_REGISTERS()
 {
-	printf("--------\n");
-	printf("FLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n");
-	printf("        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\n",
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT("FLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n");
+	CONSOLE_OUTPUT("        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\n",
 			FLAGS&0x800 ? "1" : "0",
 			FLAGS&0x400 ? "1" : "0",
 			FLAGS&0x200 ? "1" : "0",
@@ -945,19 +942,19 @@ void DUMP_REGISTERS()
 			FLAGS&0x002 ? "1" : "0",
 			FLAGS&0x001 ? "1" : "0");
 
-	printf("AX= %04X\n",AX);
-	printf("BX= %04X\n",BX);
-	printf("CX= %04X\n",CX);
-	printf("DX= %04X\n",DX);
-	printf("SP= %04X\n",SP);
-	printf("BP= %04X\n",BP);
-	printf("SI= %04X\n",SI);
-	printf("DI= %04X\n",DI);
-	printf("CS= %04X\n",CS);
-	printf("DS= %04X\n",DS);
-	printf("ES= %04X\n",ES);
-	printf("SS= %04X\n",SS);
-	printf("--------\n");
+	CONSOLE_OUTPUT("AX= %04X\n",AX);
+	CONSOLE_OUTPUT("BX= %04X\n",BX);
+	CONSOLE_OUTPUT("CX= %04X\n",CX);
+	CONSOLE_OUTPUT("DX= %04X\n",DX);
+	CONSOLE_OUTPUT("SP= %04X\n",SP);
+	CONSOLE_OUTPUT("BP= %04X\n",BP);
+	CONSOLE_OUTPUT("SI= %04X\n",SI);
+	CONSOLE_OUTPUT("DI= %04X\n",DI);
+	CONSOLE_OUTPUT("CS= %04X\n",CS);
+	CONSOLE_OUTPUT("DS= %04X\n",DS);
+	CONSOLE_OUTPUT("ES= %04X\n",ES);
+	CONSOLE_OUTPUT("SS= %04X\n",SS);
+	CONSOLE_OUTPUT("--------\n");
 }
 
 const char* GetSReg(int reg)
@@ -1452,7 +1449,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 							}
 						}
 						else
-							printf("Unknown Command : %s\n",tmpCommand);
+							CONSOLE_OUTPUT("Unknown Command : %s\n",tmpCommand);
 
 					}
 
@@ -1476,17 +1473,17 @@ int Disassemble(unsigned int address,int registers)
 
 	if (strcmp(retVal+(strlen(retVal)-14),"UNKNOWN OPCODE")==0)
 	{
-		printf("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
+		CONSOLE_OUTPUT("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
 		for (a=0;a<numBytes+1;a++)
 		{
-			printf("%02X ",PeekByte(address+a));
+			CONSOLE_OUTPUT("%02X ",PeekByte(address+a));
 		}
-		printf("\nNext 7 Bytes : ");
+		CONSOLE_OUTPUT("\nNext 7 Bytes : ");
 		for (a=0;a<7;a++)
 		{
-			printf("%02X ",PeekByte(address+numBytes+1+a));
+			CONSOLE_OUTPUT("%02X ",PeekByte(address+numBytes+1+a));
 		}
-		printf("\n");
+		CONSOLE_OUTPUT("\n");
 		DUMP_REGISTERS();
 		exit(-1);
 	}
@@ -1495,17 +1492,17 @@ int Disassemble(unsigned int address,int registers)
 	{
 		DUMP_REGISTERS();
 	}
-	printf("%05X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+	CONSOLE_OUTPUT("%05X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
 	for (a=0;a<numBytes+1;a++)
 	{
-		printf("%02X ",PeekByte(address+a));
+		CONSOLE_OUTPUT("%02X ",PeekByte(address+a));
 	}
 	for (a=0;a<8-(numBytes+1);a++)
 	{
-		printf("   ");
+		CONSOLE_OUTPUT("   ");
 	}
-	printf("%s\n",retVal);
+	CONSOLE_OUTPUT("%s\n",retVal);
 
 	return numBytes+1;
 }
@@ -1570,18 +1567,24 @@ int CPU_STEP(int doDebug)
 
 void Usage()
 {
-	printf("slipstream [opts] program.msu/program.p88\n");
-	printf("-f [disable P88 frequency divider]\n");
-	printf("-b address file.bin [Load binary to ram]\n");
-	printf("-n [disable DSP emulation]\n");
-	printf("\nFor example to load the proplay.MSU :\n");
-	printf("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
-
+	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88\n");
+	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
+	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
+	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
+	CONSOLE_OUTPUT("\nFor example to load the proplay.MSU :\n");
+	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
+	exit(1);
 }
 
 void ParseCommandLine(int argc,char** argv)
 {
 	int a;
+
+	if (argc<2)
+	{
+		return Usage();
+	}
+
 	for (a=1;a<argc;a++)
 	{
 		if (argv[a][0]=='-')
@@ -1603,7 +1606,7 @@ void ParseCommandLine(int argc,char** argv)
 					// Grab address (hex)
 					uint32_t address;
 					sscanf(argv[a+1],"%x",&address);
-					printf("Loading Binary %s @ %05X\n",argv[a+2],address);
+					CONSOLE_OUTPUT("Loading Binary %s @ %05X\n",argv[a+2],address);
 					LoadBinary(argv[a+2],address);
 				}
 				else
@@ -1704,23 +1707,23 @@ int main(int argc,char**argv)
 uint32_t missing(uint32_t opcode)
 {
 	int a;
-	printf("IP : %04X:%04X\n",CS,IP);
-	printf("Next 7 Bytes : ");
+	CONSOLE_OUTPUT("IP : %04X:%04X\n",CS,IP);
+	CONSOLE_OUTPUT("Next 7 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a));
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a));
 	}
-	printf("\nNext 7-1 Bytes : ");
+	CONSOLE_OUTPUT("\nNext 7-1 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-1));
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-1));
 	}
-	printf("\nNext 7-2 Bytes : ");
+	CONSOLE_OUTPUT("\nNext 7-2 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		printf("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-2));
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-2));
 	}
-	printf("\n");
+	CONSOLE_OUTPUT("\n");
 	exit(-1);
 }
 

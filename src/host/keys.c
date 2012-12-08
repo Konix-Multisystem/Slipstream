@@ -8,6 +8,8 @@
 
 #include <GL/glfw3.h>
 
+#include "logfile.h"
+
 unsigned char keyArray[512*3];
 int joystickDetected=0;
 float joystickAxis[8];
@@ -42,11 +44,11 @@ void KeysIntialise()
 	joystickDetected=glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_PRESENT);
 	if (!joystickDetected)
 	{
-		printf("Unable to locate Joystick, using keyboard controls\n - Note Analogue functionality will not work!\n");
+		CONSOLE_OUTPUT("Unable to locate Joystick, using keyboard controls\n - Note Analogue functionality will not work!\n");
 	}
 	else
 	{
-		printf("Joystick has %d axis and %d buttons\n - Currently button/axis mappings are based on 360 controller -\nApologies if your joystick does not work correctly!\n",
+		CONSOLE_OUTPUT("Joystick has %d axis and %d buttons\n - Currently button/axis mappings are based on 360 controller -\nApologies if your joystick does not work correctly!\n",
 			glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_AXES),glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_BUTTONS));
 	}
 }
