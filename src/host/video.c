@@ -20,7 +20,7 @@ GLFWwindow windows[MAX_WINDOWS];
 GLint videoTexture[MAX_WINDOWS];
 int windowWidth[MAX_WINDOWS];
 int windowHeight[MAX_WINDOWS];
-
+const char* fpsWindowName;
 double	atStart,now,remain;
 
 void ShowScreen(int windowNum,int w,int h)
@@ -81,6 +81,17 @@ void setupGL(int windowNum,int w, int h)
 	glDisable(GL_DEPTH_TEST);
 }
 
+void VideoSizeHandler(GLFWwindow window,int xs,int ys)
+{
+	glfwMakeContextCurrent(window);
+	glViewport(0, 0, xs, ys);
+}
+
+int VideoCloseHandler(GLFWwindow window)
+{
+	exit(0);
+}
+
 void VideoInitialise(int width,int height,const char* name)
 {
 	/// Initialize GLFW 
@@ -90,6 +101,7 @@ void VideoInitialise(int width,int height,const char* name)
 	windowHeight[MAIN_WINDOW]=height;
 
 	// Open invaders OpenGL window 
+	fpsWindowName=name;
 	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height*2, GLFW_WINDOWED,name,NULL)) ) 
 	{ 
 		glfwTerminate(); 
@@ -105,6 +117,8 @@ void VideoInitialise(int width,int height,const char* name)
 
 	atStart=glfwGetTime();
 
+	glfwSetWindowSizeCallback(VideoSizeHandler);
+	glfwSetWindowCloseCallback(VideoCloseHandler);
 	glViewport(0, 0, width, height*2);
 
 }
@@ -127,6 +141,8 @@ int totalCnt=0;
 
 void VideoWait()
 {
+	static char fpsBuffer[128];
+
 	now=glfwGetTime();
 
 	remain = now-atStart;
@@ -136,7 +152,8 @@ void VideoWait()
 
 	if (totalCnt==50)
 	{
-		printf("Average FPS %f\n",1.f/(remain));
+		sprintf(fpsBuffer,"%s - Average FPS %f\n",fpsWindowName,1.f/(remain));
+		glfwSetWindowTitle(windows[MAIN_WINDOW],fpsBuffer);
 		totalTime=0.f;
 		totalCnt=0;
 	}
