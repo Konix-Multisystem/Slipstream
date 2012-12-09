@@ -1782,12 +1782,20 @@ MAPPING signwordModOp[3]
 #	%111	"CMP"			#Handle seperately due to timing/operation difference
 }
 
-INSTRUCTION	"#TABLE4#"	%100000:sign[1]:word[1]
+MAPPING signword[2]
+{
+	%00	""	%00;
+	%01	""	%01;
+# 10 illegal
+	%11	""	%11;
+}
+
+INSTRUCTION	"#TABLE4#"	%100000:signword
 {
 	DECLARE IR[10]	ALIAS	signOp[1]:wordOp[1]:opcode[8];
 
-	signOp<-sign;
-	wordOp<-word;
+	signOp<-signword[1..1];
+	wordOp<-signword[0..0];
 	CALL GetImmediateByte()->opcode;
 
 	EXECUTE TABLE_OP_MOD_IMM IR;

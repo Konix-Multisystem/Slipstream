@@ -225,7 +225,7 @@ void TickBlitterP88()
 				BLT_OUTER_CMD&0x80?1:0);
 		}
 
-		if (BLT_OUTER_CMD&0x42)
+		if (BLT_OUTER_CMD&0x02)
 		{
 			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
 			exit(1);

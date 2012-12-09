@@ -37,7 +37,7 @@ void SetPortB(uint16_t port,uint8_t byte);
 uint16_t GetPortW(uint16_t port);
 void SetPortW(uint16_t port,uint16_t word);
 
-int doDebug=0;
+int doDebug=1;
 int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
@@ -1571,7 +1571,7 @@ void Usage()
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
-	CONSOLE_OUTPUT("\nFor example to load the proplay.MSU :\n");
+	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
 }
@@ -1679,7 +1679,10 @@ int main(int argc,char**argv)
 			masterClock-=WIDTH*HEIGHT;
 
 			TickKeyboard();
-			JoystickPoll();
+			if (JoystickPresent())
+			{
+				JoystickPoll();
+			}
 			VideoUpdate();
 
 			if (CheckKey(GLFW_KEY_ESC))
