@@ -23,6 +23,7 @@ int windowWidth[MAX_WINDOWS];
 int windowHeight[MAX_WINDOWS];
 const char* fpsWindowName;
 double	atStart,now,remain;
+float initialRatio;
 
 void ShowScreen(int windowNum,int w,int h)
 {
@@ -84,8 +85,22 @@ void setupGL(int windowNum,int w, int h)
 
 void VideoSizeHandler(GLFWwindow window,int xs,int ys)
 {
+	int offsx=0,offsy=0;
 	glfwMakeContextCurrent(window);
-	glViewport(0, 0, xs, ys);
+	CONSOLE_OUTPUT("%f : %f\n",(float)xs/(float)ys,initialRatio);
+	if (xs>ys)
+	{
+		offsx=xs;
+		xs=ys*initialRatio;
+		offsx=(offsx-xs)/2;
+	}
+	else
+	{
+		offsy=ys;
+		ys=xs*initialRatio;
+		offsy=(offsy-ys)/2;
+	}
+	glViewport(offsx, offsy, xs, ys);
 }
 
 int VideoCloseHandler(GLFWwindow window)
@@ -122,6 +137,7 @@ void VideoInitialise(int width,int height,const char* name)
 	glfwSetWindowCloseCallback(VideoCloseHandler);
 	glViewport(0, 0, width, height*2);
 
+	initialRatio=width/(height*2.0f);
 }
 
 void VideoKill()
