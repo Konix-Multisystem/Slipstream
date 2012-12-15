@@ -120,6 +120,8 @@ void VideoInitialise(int width,int height,const char* name)
 	fpsWindowName=name;
 	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height*2, GLFW_WINDOWED,name,NULL)) ) 
 	{ 
+		int glError = glfwGetError();
+		CONSOLE_OUTPUT("GLFW Create Window - %s - %d",glfwErrorString(glError),glError);
 		glfwTerminate(); 
 		exit(1);
 	} 
