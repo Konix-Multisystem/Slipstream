@@ -401,9 +401,6 @@ INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix
 # LES     11000100
 # LAHF    10011111
 # SAHF    10011110
-# SBB     000110dw
-# SBB     100000sw
-# SBB     0001110w
 # AAA     00110111
 # DAA     00100111
 # AAS     00111111
@@ -601,15 +598,15 @@ FUNCTION INTERNAL	res[8]		AddByte			dst[8],src[8],carry[1]
 	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(dst,src,7), C AS CARRY(7), P AS PARITYEVEN { (dst + src)+carry }->res;
 }
 
-FUNCTION INTERNAL	res[16]		SubWord			dst[16],src[16]
+FUNCTION INTERNAL	res[16]		SubWord			dst[16],src[16],carry[1]
 {
-	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(dst,src,15), C AS CARRY(15) { dst - src }->res;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(dst,src,15), C AS CARRY(15) { (dst - src)-carry }->res;
 	AFFECT P AS PARITYEVEN { res[0..7] };
 }
 
-FUNCTION INTERNAL	res[8]		SubByte			dst[8],src[8]
+FUNCTION INTERNAL	res[8]		SubByte			dst[8],src[8],carry[1]
 {
-	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(dst,src,7), C AS CARRY(7), P AS PARITYEVEN { dst - src }->res;
+	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(dst,src,7), C AS CARRY(7), P AS PARITYEVEN { (dst - src)-carry }->res;
 }
 
 FUNCTION INTERNAL	res[16]		AndWord			dst[16],src[16]
@@ -647,12 +644,12 @@ FUNCTION INTERNAL	res[8]		XorByte			dst[8],src[8]
 
 FUNCTION INTERNAL	res[16]		NegWord			val[16]
 {
-	res<-CALL SubWord($0000,val);
+	res<-CALL SubWord($0000,val,0);
 }
 
 FUNCTION INTERNAL	res[8]		NegByte			val[8]
 {
-	res<-CALL SubByte($00,val);
+	res<-CALL SubByte($00,val,0);
 }
 
 FUNCTION INTERNAL			IMulWord		src[16]					# No return, assigns value as intended by instruction implicitly
@@ -1069,11 +1066,24 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 {
 	IF accword
 	{
-		CALL SubWord(AX,CALL GetImmediateWord())->AX;
+		CALL SubWord(AX,CALL GetImmediateWord(),0)->AX;
 	}
 	IF ~accword
 	{
-		CALL SubByte(AL,CALL GetImmediateByte())->AL;
+		CALL SubByte(AL,CALL GetImmediateByte(),0)->AL;
+	}
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
+{
+	IF accword
+	{
+		CALL SubWord(AX,CALL GetImmediateWord(),C)->AX;
+	}
+	IF ~accword
+	{
+		CALL SubByte(AL,CALL GetImmediateByte(),C)->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -1088,11 +1098,11 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 {
 	IF accword
 	{
-		CALL SubWord(AX,CALL GetImmediateWord());
+		CALL SubWord(AX,CALL GetImmediateWord(),0);
 	}
 	IF ~accword
 	{
-		CALL SubByte(AL,CALL GetImmediateByte());
+		CALL SubByte(AL,CALL GetImmediateByte(),0);
 	}
 	4+CYCLES->CYCLES;
 }
@@ -1577,6 +1587,7 @@ MAPPING operationMapping[6]
 %001000	"AND"	$3;
 %000010	"OR"	$4;
 %001100 "XOR"	$5;
+%000110	"SBB"	$6;
 }
 
 FUNCTION INTERNAL	res[8]	DoOperationByte	operation[3],dst[8],src[8]
@@ -1591,7 +1602,7 @@ FUNCTION INTERNAL	res[8]	DoOperationByte	operation[3],dst[8],src[8]
 	}
 	IF operation==$2
 	{
-		CALL SubByte(dst,src)->res;
+		CALL SubByte(dst,src,0)->res;
 	}
 	IF operation==$3
 	{
@@ -1604,6 +1615,10 @@ FUNCTION INTERNAL	res[8]	DoOperationByte	operation[3],dst[8],src[8]
 	IF operation==$5
 	{
 		CALL XorByte(dst,src)->res;
+	}
+	IF operation==$6
+	{
+		CALL SubByte(dst,src,C)->res;
 	}
 }
 
@@ -1619,7 +1634,7 @@ FUNCTION INTERNAL	res[16]	DoOperationWord	operation[3],dst[16],src[16]
 	}
 	IF operation==$2
 	{
-		CALL SubWord(dst,src)->res;
+		CALL SubWord(dst,src,0)->res;
 	}
 	IF operation==$3
 	{
@@ -1632,6 +1647,10 @@ FUNCTION INTERNAL	res[16]	DoOperationWord	operation[3],dst[16],src[16]
 	IF operation==$5
 	{
 		CALL XorWord(dst,src)->res;
+	}
+	IF operation==$6
+	{
+		CALL SubWord(dst,src,C)->res;
 	}
 }
 
@@ -1811,7 +1830,7 @@ MAPPING signwordModOp[3]
 	%000	"ADD"	$0;
 	%001	"OR"	$4;
 	%010	"ADC"	$1;
-#	%011	"SBB"			#Unimplemented
+	%011	"SBB"	$6;
 	%100	"AND"	$3;
 	%101	"SUB"	$2;
 	%110	"XOR"	$5;
