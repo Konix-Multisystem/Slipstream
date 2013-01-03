@@ -34,6 +34,7 @@ C_FUNC_EXTERN		SetPortB		[16],[8];
 #  Called when the cpu wants to write a byte to an output port
 
 DECLARE CYCLES[8];
+DECLARE HALT[1];
 
 ############ Programmer registers
 DECLARE AX[16]	ALIAS	AH[8]:AL[8];
@@ -58,7 +59,6 @@ DECLARE	FLAGS[16]	ALIAS	%1111:O[1]:D[1]:I[1]:T[1]:S[1]:Z[1]:%0:A[1]:%0:P[1]:%1:C
 ############ Internal CPU state registers - doesn't match hardware
 
 DECLARE INTERNAL REPEAT[1];
-DECLARE INTERNAL HALT[1];
 DECLARE INTERNAL SegOveride[1];
 DECLARE INTERNAL SegOverideValue[16];
 
@@ -355,6 +355,13 @@ MAPPING DecIncW[1]
 	%1	"DEC"	CALL DecrementWord(T);
 }
 
+MAPPING loopcond[2]
+{
+	%00	"NZ"	(~Z);
+	%01	"Z"	Z;
+	%10	""	1;
+}
+
 ############ Table executors
 
 #### Prefix operations
@@ -406,11 +413,6 @@ INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix
 # CWD     10011001
 # CMPS    1010011w
 # SCAS    1010111w
-# RETn    11000010
-# RETFARn 11001010
-# LOOPZ   11100001
-# LOOPNZ  11100000
-# JCXZ    11100011
 # INT3    11001100
 # INTO    11001110
 # WAIT    10011011
@@ -1312,11 +1314,30 @@ INSTRUCTION	"RET"			%11000011
 	8+CYCLES->CYCLES;
 }
 
-INSTRUCTION	"RET"			%11001011			# FAR VERSION
+INSTRUCTION	"RET #IMM16#"		%11000010
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->TMP;
+	IP<-CALL PopWord();
+	SP<-SP+TMP;
+	12+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"RETF"			%11001011
 {
 	IP<-CALL PopWord();
 	CS<-CALL PopWord();
 	18+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"RETF #IMM16#"		%11001010
+{
+	DECLARE TMP[16];
+	CALL GetImmediateWord()->TMP;
+	IP<-CALL PopWord();
+	CS<-CALL PopWord();
+	SP<-SP+TMP;
+	22+CYCLES->CYCLES;
 }
 
 INSTRUCTION	"J%M0 #8DISP#"		%0111:cond
@@ -1334,17 +1355,32 @@ INSTRUCTION	"J%M0 #8DISP#"		%0111:cond
 	}
 }
 
-INSTRUCTION	"LOOP #8DISP#"		%11100010
+INSTRUCTION	"JCXZ #8DISP#"		%11100011
+{
+	DECLARE disp[8];
+	disp<-CALL GetImmediateByte();
+	IF CX==0
+	{
+		IP<-IP++disp;
+		18+CYCLES->CYCLES;
+	}
+	IF CX!=0
+	{
+		6+CYCLES->CYCLES;
+	}
+}
+
+INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 {
 	DECLARE disp[8];
 	disp<-CALL GetImmediateByte();
 	CX<-CX-1;
-	IF CX!=0
+	IF (CX!=0) & (loopcond)
 	{
 		IP<-IP++disp;
 		17+CYCLES->CYCLES;
 	}
-	IF CX==0
+	IF (CX==0) & (~loopcond)
 	{
 		5+CYCLES->CYCLES;
 	}
@@ -2322,8 +2358,8 @@ INSTRUCTION	TABLE_SOP_MOD	"IDIV #MODnnnRM#"		wordOp[1]:mod[2]:%111:rm[3]
 INSTRUCTION	"#TABLE8#"	%11111111
 {
 	# Register/Memory (word)
-	#     CALLFAR/JMPFAR
-	# MOD 011    /101     R/M
+	#     JMPFAR
+	# MOD 101     R/M
 	DECLARE IR[8];
 
 	CALL GetImmediateByte()->IR;
@@ -2350,6 +2386,19 @@ INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
 
 	CALL PushWord(IP);
 	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
+}
+
+INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
+{
+	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
+	37+CYCLES->CYCLES;
+
+	CALL PushWord(CS);
+	CALL PushWord(IP);
+	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
+	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF+2)->CS;
 }
 
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
