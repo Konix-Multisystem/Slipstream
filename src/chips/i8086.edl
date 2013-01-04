@@ -10,7 +10,7 @@
 #
 # Known issues	- Not every instruction is implemented
 #		- Trap is not implemented
-#		- Exceptions are not implemented
+#		- Most exceptions are not implemented
 #		- External interface to memory is byte operations (although internally instructions use WORDS as appropriate)
 #		- Mutliple interrupts are not guarded by priority - Konix system currently only implements video interrupt anyway
 
@@ -59,6 +59,7 @@ DECLARE	FLAGS[16]	ALIAS	%1111:O[1]:D[1]:I[1]:T[1]:S[1]:Z[1]:%0:A[1]:%0:P[1]:%1:C
 ############ Internal CPU state registers - doesn't match hardware
 
 DECLARE INTERNAL REPEAT[1];
+DECLARE INTERNAL REPEATZ[1];
 DECLARE INTERNAL SegOveride[1];
 DECLARE INTERNAL SegOverideValue[16];
 
@@ -392,28 +393,47 @@ INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs:%110
 	2+CYCLES->CYCLES;
 }
 
-INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix code
+MAPPING repne[1]
+{
+	%0	"NE"	%0;
+	%1	"E"	%1;
+}
+
+FUNCTION INTERNAL	proceed[1]	DoRepeat
+{
+	IF REPEAT
+	{
+		IF (CX==0)
+		{
+			9+CYCLES->CYCLES;
+			proceed<-0;
+		}
+		IF (CX!=0)
+		{
+			CX<-CX - 1;
+			2+CYCLES->CYCLES;
+			proceed<-1;
+		}
+	}
+	IF ~REPEAT
+	{
+		proceed<-1;
+	}
+}
+
+INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this prefix code
 {
 	DECLARE IR[8];
 	IR<-CALL GetImmediateByte();
+		
+	REPEAT<-1;
+	REPEATZ<-repne;
 
-	IF CX==0
-	{
-		9+CYCLES->CYCLES;
-	}
-	IF CX!=0
-	{
-		REPEAT<-1;
-		CX<-CX - 1;
-		EXECUTE IR;
-		2+CYCLES->CYCLES;
-	}
+	EXECUTE IR;
 }
 
 #### Unimplemented
 
-# CMPS    1010011w
-# SCAS    1010111w
 # INT3    11001100
 # WAIT    10011011
 # ESC     11011xxx modxxxrm
@@ -1371,105 +1391,187 @@ INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
 
 INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte
 {
-	DECLARE adjust[16];
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
 
-	IF wrdbyte
-	{
-		DECLARE TMP[16];
-		CALL FetchWord(DS,SI)->TMP;
-		CALL StoreWord(ES,DI,TMP);
-		adjust<-2;
-	}
-	IF ~wrdbyte
-	{
-		DECLARE TMP[8];
-		CALL FetchByte(DS,SI)->TMP;
-		CALL StoreByte(ES,DI,TMP);
-		adjust<-1;
-	}
+		IF wrdbyte
+		{
+			DECLARE TMP[16];
+			CALL FetchWord(DS,SI)->TMP;
+			CALL StoreWord(ES,DI,TMP);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			DECLARE TMP[8];
+			CALL FetchByte(DS,SI)->TMP;
+			CALL StoreByte(ES,DI,TMP);
+			adjust<-1;
+		}
 
-	IF D
-	{
-		adjust<-0-adjust;
-	}
+		IF D
+		{
+			adjust<-0-adjust;
+		}
 
-	SI<-SI+adjust;
-	DI<-DI+adjust;
-	IF REPEAT
-	{
-		REPEAT<-0;
-		IP<-IP - 2;
-		17+CYCLES->CYCLES;
-	}
-	IF ~REPEAT
-	{
-		18+CYCLES->CYCLES;
+		SI<-SI+adjust;
+		DI<-DI+adjust;
+		IF REPEAT
+		{
+			REPEAT<-0;
+			IP<-IP - 2;
+			17+CYCLES->CYCLES;
+		}
+		IF ~REPEAT
+		{
+			18+CYCLES->CYCLES;
+		}
 	}
 }
 
 INSTRUCTION	"LODS%M0"		%1010110:wrdbyte
 {
-	DECLARE adjust[16];
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
 
-	IF wrdbyte
-	{
-		CALL FetchWord(DS,SI)->AX;
-		adjust<-2;
-	}
-	IF ~wrdbyte
-	{
-		CALL FetchByte(DS,SI)->AL;
-		adjust<-1;
-	}
+		IF wrdbyte
+		{
+			CALL FetchWord(DS,SI)->AX;
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			CALL FetchByte(DS,SI)->AL;
+			adjust<-1;
+		}
 
-	IF D
-	{
-		adjust<-0-adjust;
-	}
+		IF D
+		{
+			adjust<-0-adjust;
+		}
 
-	SI<-SI+adjust;
-	IF REPEAT
-	{
-		REPEAT<-0;
-		IP<-IP - 2;
-		13+CYCLES->CYCLES;
-	}
-	IF ~REPEAT
-	{
-		12->CYCLES;
+		SI<-SI+adjust;
+		IF REPEAT
+		{
+			REPEAT<-0;
+			IP<-IP - 2;
+			13+CYCLES->CYCLES;
+		}
+		IF ~REPEAT
+		{
+			12->CYCLES;
+		}
 	}
 }
 
 INSTRUCTION	"STOS%M0"		%1010101:wrdbyte
 {
-	DECLARE adjust[16];
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
 
-	IF wrdbyte
-	{
-		CALL StoreWord(ES,DI,AX);
-		adjust<-2;
-	}
-	IF ~wrdbyte
-	{
-		CALL StoreByte(ES,DI,AL);
-		adjust<-1;
-	}
+		IF wrdbyte
+		{
+			CALL StoreWord(ES,DI,AX);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			CALL StoreByte(ES,DI,AL);
+			adjust<-1;
+		}
 
-	IF D
-	{
-		adjust<-0-adjust;
-	}
+		IF D
+		{
+			adjust<-0-adjust;
+		}
 
-	DI<-DI+adjust;
-	IF REPEAT
-	{
-		REPEAT<-0;
-		IP<-IP - 2;
-		10+CYCLES->CYCLES;
+		DI<-DI+adjust;
+		IF REPEAT
+		{
+			REPEAT<-0;
+			IP<-IP - 2;
+			10+CYCLES->CYCLES;
+		}
+		IF ~REPEAT
+		{
+			11+CYCLES->CYCLES;
+		}
 	}
-	IF ~REPEAT
+}
+
+INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
+{
+	IF CALL DoRepeat()
 	{
-		11+CYCLES->CYCLES;
+		DECLARE adjust[16];
+
+		IF wrdbyte
+		{
+			CALL SubWord(CALL FetchWord(DS,SI),CALL FetchWord(ES,DI),0);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			CALL SubByte(CALL FetchByte(DS,SI),CALL FetchByte(ES,DI),0);
+			adjust<-1;
+		}
+
+		IF D
+		{
+			adjust<-0-adjust;
+		}
+
+		SI<-SI+adjust;
+		DI<-DI+adjust;
+		IF REPEAT & (Z==REPEATZ)
+		{
+			REPEAT<-0;
+			IP<-IP - 2;
+			22+CYCLES->CYCLES;
+		}
+		IF (~REPEAT) | (Z!=REPEATZ)
+		{
+			22+CYCLES->CYCLES;
+		}
+	}
+}
+
+INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
+{
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
+
+		IF wrdbyte
+		{
+			CALL SubWord(AX,CALL FetchWord(ES,DI),0);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			CALL SubByte(AL,CALL FetchByte(ES,DI),0);
+			adjust<-1;
+		}
+
+		IF D
+		{
+			adjust<-0-adjust;
+		}
+
+		DI<-DI+adjust;
+		IF REPEAT & (Z==REPEATZ)
+		{
+			REPEAT<-0;
+			IP<-IP - 2;
+			15+CYCLES->CYCLES;
+		}
+		IF (~REPEAT) | (Z!=REPEATZ)
+		{
+			15+CYCLES->CYCLES;
+		}
 	}
 }
 
