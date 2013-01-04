@@ -67,6 +67,8 @@ DECLARE INTERNAL interruptVector[8];
 
 DECLARE INTERNAL IRQBlock[1];
 
+DECLARE INTERNAL EXIP[16];		# Exceptions store this value rather than IP
+
 ############ Helper functions
 
 FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
@@ -167,6 +169,19 @@ FUNCTION INTERNAL	wrd[16]		GetImmediateWord
 	CALL GetImmediateByte() -> wrd[8..15];
 }
 
+FUNCTION INTERNAL 		Exception			vector[16]
+{
+	DECLARE TMP[16];
+	CALL PushWord(FLAGS);
+	I<-0;
+	CALL PushWord(CS);
+	CALL PushWord(EXIP);
+	TMP<-vector*$0004;
+	CALL FetchWord($0000,TMP)->IP;
+	CALL FetchWord($0000,TMP+2)->CS;
+
+	51+CYCLES->CYCLES;
+}
 ############ CPU Step/Reset/Interrupt 
 
 FUNCTION STEP
@@ -182,6 +197,7 @@ FUNCTION STEP
 		IF ~HALT
 		{
 			IR<-CALL GetByteFromPhysicalAddress(CS,IP);
+			EXIP<-IP;					# CACHE IP FOR EXCEPTION HANDLING
 			IP<-IP+1;
 
 			EXECUTE	IR;
@@ -405,8 +421,6 @@ INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix
 # DAA     00100111
 # AAS     00111111
 # DAS     00101111
-# AAM     11010100  00001010
-# AAD     11010101  00001010
 # CWD     10011001
 # CMPS    1010011w
 # SCAS    1010111w
@@ -715,8 +729,27 @@ FUNCTION INTERNAL			DivWord			src[16]					# No return, assigns value as intended
 	DX->lhs[16..31];
 	AX->lhs[0..15];
 	rhs<-src;
-	AX<-lhs / rhs;
-	DX<-lhs % rhs;
+	IF rhs!=0
+	{
+		DECLARE quo[32];
+		DECLARE rem[32];
+		quo<-lhs / rhs;
+		rem<-lhs % rhs;
+
+		IF quo<=$0000FFFF
+		{
+			AX<-quo;
+			DX<-rem;
+		}
+		IF quo>$0000FFFF
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
 }
 
 FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended by instruction implicitly
@@ -725,8 +758,26 @@ FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended 
 	DECLARE rhs[16];
 	lhs<-AX;
 	rhs<-src;
-	AL<-lhs / rhs;
-	AH<-lhs % rhs;
+	IF rhs!=0
+	{
+		DECLARE quo[16];
+		DECLARE rem[16];
+		quo<-lhs / rhs;
+		rem<-lhs % rhs;
+		IF quo<=$00FF
+		{
+			AL<-quo;
+			AH<-rem;
+		}
+		IF quo>$00FF
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
 }
 
 FUNCTION INTERNAL			IDivWord		src[16]					# No return, assigns value as intended by instruction implicitly
@@ -736,8 +787,26 @@ FUNCTION INTERNAL			IDivWord		src[16]					# No return, assigns value as intended
 	DX->lhs[16..31];
 	AX->lhs[0..15];
 	rhs<-$00000000++src;
-	AX<-lhs // rhs;
-	DX<-lhs %% rhs;
+	IF rhs!=0
+	{
+		DECLARE quo[32];
+		DECLARE rem[32];
+		quo<-lhs // rhs;
+		rem<-lhs %% rhs;
+		IF (quo>=$FFFF8000) | (quo<=$00007FFF)
+		{
+			AX<-quo;
+			DX<-rem;
+		}
+		IF (quo<$FFFF8000) & (quo>$00007FFF)
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
 }
 
 FUNCTION INTERNAL			IDivByte		src[8]					# No return, assigns value as intended by instruction implicitly
@@ -746,8 +815,26 @@ FUNCTION INTERNAL			IDivByte		src[8]					# No return, assigns value as intended 
 	DECLARE rhs[16];
 	lhs<-AX;
 	rhs<-$0000++src;
-	AL<-lhs // rhs;
-	AH<-lhs %% rhs;
+	IF rhs!=0
+	{
+		DECLARE quo[16];
+		DECLARE rem[16];
+		quo<-lhs // rhs;
+		rem<-lhs %% rhs;
+		IF (quo>=$FF80) | (quo<=$007F)
+		{
+			AL<-quo;
+			AH<-rem;
+		}
+		IF (quo<$FF80) & (quo>$007F)
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
 }
 
 FUNCTION INTERNAL	EAS[32]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Returns EAS which is EFFECTIVE_SEGMENT[16]:EFFECTIVE_ADDRESS[16] - Only for use with MOD=00,01,10 (11 is ignored)
@@ -1107,6 +1194,31 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 	4+CYCLES->CYCLES;
 }
 
+INSTRUCTION	"AAD #IMM8#"		%11010101
+{
+	DECLARE TMP[8];
+	CALL GetImmediateByte()->TMP;
+	CALL AddByte(AH*TMP,AL,0)->AL;
+	$00->AH;
+	60+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"AAM #IMM8#"		%11010100
+{
+	DECLARE TMP[8];
+	CALL GetImmediateByte()->TMP;
+	IF TMP!=0
+	{
+		AL / TMP ->AH;
+		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,O AS FORCERESET,C AS FORCERESET,A AS FORCERESET {AL % TMP }->AL;
+		83+CYCLES->CYCLES;
+	}
+	IF TMP==0
+	{
+		CALL Exception(0);
+	}
+}
+
 INSTRUCTION	"CBW"			%10011000
 {
 	AX<-$0000++AL;
@@ -1401,15 +1513,8 @@ INSTRUCTION	"INT #VECTOR#"		%11001101
 	DECLARE TMP[16];
 
 	TMP<-CALL GetImmediateByte();
-	CALL PushWord(FLAGS);
-	I<-0;
-	CALL PushWord(CS);
-	CALL PushWord(IP);
-	TMP<-TMP*$0004;
-	CALL FetchWord($0000,TMP)->IP;
-	CALL FetchWord($0000,TMP+2)->CS;
-
-	51+CYCLES->CYCLES;
+	EXIP<-IP;
+	CALL Exception(TMP);
 }
 
 INSTRUCTION	"IRET"			%11001111
@@ -1569,15 +1674,6 @@ INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
 	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
 	EFF->regw;
 }
-
-#
-#
-#INSTRUCTION	"TEST"			%1000010:word[1]
-#{
-#	#Reg/Mem to/from Register
-#	# MOD reg R/M
-#}
-#
 
 MAPPING operationMapping[6]
 {
@@ -1781,6 +1877,34 @@ INSTRUCTION	TABLE_MOV_MOD_REG	""	direcOp[1]:wordOp[1]:mod[2]:reg[3]:rm[3]
 		{
 			CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL GetByteRegister(reg));
 		}
+	}
+}
+
+INSTRUCTION	"TEST #MODregRM#"	%1000010:word[1]
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_TEST_MOD_REG IR;
+}
+
+INSTRUCTION	TABLE_TEST_MOD_REG	""	wordOp[1]:mod[2]:reg[3]:rm[3]
+{
+	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	3+CYCLES->CYCLES;
+
+	IF wordOp
+	{
+		CALL AndWord(CALL GetWordRegister(reg),CALL GetEffectiveAddressWord(mod,rm,SEG,EFF));
+	}
+	IF ~wordOp
+	{
+		CALL AndByte(CALL GetByteRegister(reg),CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
 	}
 }
 
