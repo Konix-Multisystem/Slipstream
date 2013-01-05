@@ -1521,7 +1521,7 @@ void STEP(void);
 void RESET(void);
 
 extern uint16_t	PC;
-extern uint8_t CYCLES;
+extern uint16_t CYCLES;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 

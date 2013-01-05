@@ -33,7 +33,7 @@ C_FUNC_EXTERN		SetPortB		[16],[8];
 # void SetPortB(unsigned short,unsiged short);
 #  Called when the cpu wants to write a byte to an output port
 
-DECLARE CYCLES[8];
+DECLARE CYCLES[16];
 DECLARE HALT[1];
 
 ############ Programmer registers
@@ -2280,7 +2280,7 @@ MAPPING shift1ModOp[3]
 {
 	%000	"ROL"	$0;
 	%001	"ROR"	$1;
-#	%010	"RCL"	$2;		TODO
+	%010	"RCL"	$2;
 	%011	"RCR"	$3;
 	%100	"SHL"	$4;
 	%101	"SHR"	$5;
@@ -2302,7 +2302,8 @@ FUNCTION INTERNAL	res[8]	Do1ShiftOperationByte	operation[4],dst[8]
 	}
 	IF operation==$2			# RCL
 	{
-		# TODO
+		res<-ROL(dst,C,C,1);
+		O<-C^(res[7..7]);
 	}
 	IF operation==$3			# RCR
 	{
@@ -2339,7 +2340,8 @@ FUNCTION INTERNAL	res[16]	Do1ShiftOperationWord	operation[4],dst[16]
 	}
 	IF operation==$2			# RCL
 	{
-		# TODO
+		res<-ROL(dst,C,C,1);
+		O<-C^(res[15..15]);
 	}
 	IF operation==$3			# RCR
 	{
@@ -2367,10 +2369,10 @@ FUNCTION INTERNAL	res[16]	Do1ShiftOperationWord	operation[4],dst[16]
 
 MAPPING shiftVarModOp[3]
 {
-#	%000	"ROL"	$0;		TODO
-#	%001	"ROR"	$1;		TODO
-#	%010	"RCL"	$2;		TODO
-#	%011	"RCR"	$3;		TODO
+	%000	"ROL"	$0;
+	%001	"ROR"	$1;
+	%010	"RCL"	$2;
+	%011	"RCR"	$3;
 	%100	"SHL"	$4;
 	%101	"SHR"	$5;
 ## %110 Not part of set
@@ -2385,24 +2387,57 @@ FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
 	DECLARE shCnt[8];			# Original 8086 did not mask shift count?
 
 	shCnt<-CL;
-	CYCLES+((shCnt)*$04)->CYCLES;
+	CYCLES+((shCnt)*$0004)->CYCLES;
 	TMP<-dst;
 
 	IF operation==$0			# ROL
 	{
-		# TODO
+		IF shCnt>0
+		{
+			DECLARE bug[8];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
+			shCnt<-shCnt % 8;
+			bug<-ROR(TMP,dummy,0,8-shCnt);
+			TMP<-ROL(TMP,dummy,bug,shCnt);
+			C<-TMP[0..0];
+		}
+		res<-TMP;
 	}
 	IF operation==$1			# ROR
 	{
-		# TODO
+		IF shCnt>0
+		{
+			shCnt<-shCnt % 8;
+			TMP<-ROR(TMP,dummy,TMP,shCnt);
+			C<-TMP[7..7];
+		}
+		res<-TMP;
 	}
 	IF operation==$2			# RCL
 	{
-		# TODO
+		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
+		DECLARE bug[9];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
+
+		val<-TMP;
+		carry<-C;
+		shCnt<-shCnt % 9;
+		bug<-ROR(tRot,dummy,0,9-shCnt);
+		tRot<-ROL(tRot,dummy,bug,shCnt);
+
+		res<-val;
+		C<-carry;
 	}
 	IF operation==$3			# RCR
 	{
-		# TODO
+		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
+
+		val<-TMP;
+		carry<-C;
+		shCnt<-shCnt % 9;
+
+		tRot<-ROR(tRot,dummy,tRot,shCnt);
+
+		res<-val;
+		C<-carry;
 	}
 	IF operation==$4			# SHL/SAL
 	{
@@ -2471,24 +2506,57 @@ FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
 	DECLARE shCnt[8];
 
 	shCnt<-CL;
-	CYCLES+(shCnt*$04)->CYCLES;
+	CYCLES+(shCnt*$0004)->CYCLES;
 	TMP<-dst;
 
 	IF operation==$0			# ROL
 	{
-		# TODO
+		IF shCnt>0
+		{
+			DECLARE bug[16];
+			shCnt<-shCnt % 16;
+			bug<-ROR(TMP,dummy,0,16-shCnt);
+			TMP<-ROL(TMP,dummy,bug,shCnt);
+			C<-TMP[0..0];
+		}
+		res<-TMP;
 	}
 	IF operation==$1			# ROR
 	{
-		# TODO
+		IF shCnt>0
+		{
+			shCnt<-shCnt % 16;
+			TMP<-ROR(TMP,dummy,TMP,shCnt);
+			C<-TMP[15..15];
+		}
+		res<-TMP;
 	}
 	IF operation==$2			# RCL
 	{
-		# TODO
+		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
+		DECLARE bug[17];
+
+		val<-TMP;
+		carry<-C;
+		shCnt<-shCnt % 17;
+		bug<-ROR(tRot,dummy,0,17-shCnt);
+		tRot<-ROL(tRot,dummy,bug,shCnt);
+
+		res<-val;
+		C<-carry;
 	}
 	IF operation==$3			# RCR
 	{
-		# TODO
+		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
+
+		val<-TMP;
+		carry<-C;
+		shCnt<-shCnt % 17;
+
+		tRot<-ROR(tRot,dummy,tRot,shCnt);
+
+		res<-val;
+		C<-carry;
 	}
 	IF operation==$4			# SHL/SAL
 	{
