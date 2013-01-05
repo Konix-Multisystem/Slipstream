@@ -1011,9 +1011,8 @@ const char* GetModRM(int word,uint8_t modrm,uint32_t address,int *cnt)
 			}
 			break;
 		case 0x80:
-//			*cnt=2;
-//			sprintf(tmpBuffer,"%02X%02X[%s]",PeekByte(address+1),PeekByte(address),modregs[modrm&7]);
-			sprintf(tmpBuffer,"TODO");
+			*cnt=2;
+			sprintf(tmpBuffer,"%02X%02X[%s]",PeekByte(address+1),PeekByte(address),modregs[modrm&7]);
 			break;
 	}
 
@@ -1058,13 +1057,11 @@ int DoModSRegRM(uint8_t op,uint32_t address,char** tPtr)
 	return cnt;
 }
 
-int DoModRegRM(uint8_t op,uint32_t address,char** tPtr)
+int DoModRegRMDW(int direc,int word,uint32_t address,char** tPtr)
 {
 	char tmpBuffer[256];
 	// Extract register,EA
 	int nextByte=PeekByte(address);
-	int word=op&1;
-	int direc=op&2;
 	char* reg=tmpBuffer;
 	int cnt;
 
@@ -1081,6 +1078,14 @@ int DoModRegRM(uint8_t op,uint32_t address,char** tPtr)
 		*(*tPtr)++=*reg++;
 	}
 	return cnt;
+}
+
+int DoModRegRM(uint8_t op,uint32_t address,char** tPtr)
+{
+	int word=op&1;
+	int direc=op&2;
+
+	return DoModRegRMDW(direc,word,address,tPtr);
 }
 
 int DoModnnnRM(uint8_t op,uint32_t address,char** tPtr)
@@ -1132,6 +1137,7 @@ int DoDisp(int cnt,uint32_t address,char** tPtr)
 const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int realLength)
 {
 	static char segOveride[2048];
+	static char segOveride2[2048];
 	static char temporaryBuffer[2048];
 	char sprintBuffer[256];
 	char tmpCommand[256];
@@ -1167,10 +1173,10 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 				return temporaryBuffer;
 			}
 			*count=tmpcount+1;
-			strcpy(segOveride,mnemonic);
-			strcat(segOveride," ");
-			strcat(segOveride,sPtr);
-			return segOveride;
+			strcpy(segOveride2,mnemonic);
+			strcat(segOveride2," ");
+			strcat(segOveride2,sPtr);
+			return segOveride2;
 		}
 		if (strncmp(mnemonic,"XX001__110",10)==0)				// Segment override
 		{
@@ -1337,6 +1343,11 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 							counting+=1+DoModSRegRM(op,address+counting+1,&dPtr);
 						}
 						else
+						if (strcmp(tmpCommand,"MODleaRM")==0)
+						{
+							counting+=1+DoModRegRMDW(1,1,address+counting+1,&dPtr);
+						}
+						else
 						if (strcmp(tmpCommand,"MODregRM")==0)
 						{
 							counting+=1+DoModRegRM(op,address+counting+1,&dPtr);
@@ -1363,6 +1374,28 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 								sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
 							}
 							counting+=1;
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if ((strcmp(tmpCommand,"IMM8")==0)||(strcmp(tmpCommand,"VECTOR")==0))
+						{
+							sprintf(sprintBuffer,"#%02X",PeekByte(address+counting+1));
+							counting+=1;
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"IMM16")==0)
+						{
+							sprintf(sprintBuffer,"#%02X%02X",PeekByte(address+counting+2),PeekByte(address+counting+1));
+							counting+=2;
 							tPtr=sprintBuffer;
 							while (*tPtr)
 							{
@@ -1404,6 +1437,17 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 						{
 							sprintf(sprintBuffer,"[%02X%02X]",PeekByte(address+counting+2),PeekByte(address+counting+1));
 							counting+=2;
+							tPtr=sprintBuffer;
+							while (*tPtr)
+							{
+								*dPtr++=*tPtr++;
+							}
+						}
+						else
+						if (strcmp(tmpCommand,"FAR")==0)
+						{
+							sprintf(sprintBuffer,"[%02X%02X:%02X%02X]",PeekByte(address+counting+2),PeekByte(address+counting+1),PeekByte(address+counting+4),PeekByte(address+counting+3));
+							counting+=4;
 							tPtr=sprintBuffer;
 							while (*tPtr)
 							{
