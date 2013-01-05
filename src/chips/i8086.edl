@@ -412,16 +412,6 @@ INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix
 
 #### Unimplemented
 
-# XLAT    11010111
-# LDS     11000101
-# LES     11000100
-# LAHF    10011111
-# SAHF    10011110
-# AAA     00110111
-# DAA     00100111
-# AAS     00111111
-# DAS     00101111
-# CWD     10011001
 # CMPS    1010011w
 # SCAS    1010111w
 # INT3    11001100
@@ -1060,6 +1050,27 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 	}
 }
 
+INSTRUCTION	"XLAT"			%11010111
+{
+	CALL FetchByte(DS,BX+AL)->AL;
+	11+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"LAHF"			%10011111
+{
+	FLAGS[0..7]->AH;
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"SAHF"			%10011110
+{
+	DECLARE TMP[16];
+	TMP<-FLAGS;
+	AH->TMP[0..7];			# Work around for EDL bug, FLAGS does not get masked if updating using bitrange
+	TMP->FLAGS;
+	4+CYCLES->CYCLES;
+}
+
 INSTRUCTION	"PUSHF"			%10011100
 {
 	CALL PushWord(FLAGS);
@@ -1194,6 +1205,62 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 	4+CYCLES->CYCLES;
 }
 
+INSTRUCTION	"AAA"			%00110111
+{
+	IF ((AL & $0F) > 9) | A
+	{
+		AL+$06->AL;
+		AH+$01->AH;
+		C<-1;
+		A<-1;
+	}
+	IF ~(((AL & $0F) > 9) | A)
+	{
+		C<-0;
+		A<-0;
+	}
+	AL & $0F->AL;
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"DAA"			%00100111
+{
+	DECLARE Modifier[8];
+
+	IF A | (AL[0..3]>9)
+	{
+		Modifier<-6;
+	}
+	IF C | (AL>$99)
+	{
+		Modifier<-Modifier | $60;
+		C<-1;
+	}
+
+	AFFECT S AS SIGN,Z AS ZERO,A AS CARRY(3),O AS OVERFLOW(AL,Modifier,7),P AS PARITYEVEN { AL + Modifier }->AL;
+
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"DAS"			%00101111
+{
+	DECLARE Modifier[8];
+
+	IF A | (AL[0..3]>9)
+	{
+		Modifier<-6;
+	}
+	IF C | (AL>$99)
+	{
+		Modifier<-Modifier | $60;
+		C<-1;
+	}
+
+	AFFECT S AS SIGN,Z AS ZERO,A AS CARRY(3),O AS OVERFLOW(AL,Modifier,7),P AS PARITYEVEN { AL - Modifier }->AL;
+
+	4+CYCLES->CYCLES;
+}
+
 INSTRUCTION	"AAD #IMM8#"		%11010101
 {
 	DECLARE TMP[8];
@@ -1219,10 +1286,36 @@ INSTRUCTION	"AAM #IMM8#"		%11010100
 	}
 }
 
+INSTRUCTION	"AAS"			%00111111
+{
+	IF ((AL & $0F) > 9) | A
+	{
+		AL-$06->AL;
+		AH-$01->AH;
+		C<-1;
+		A<-1;
+	}
+	IF ~(((AL & $0F) > 9) | A)
+	{
+		C<-0;
+		A<-0;
+	}
+	AL & $0F->AL;
+	4+CYCLES->CYCLES;
+}
+
 INSTRUCTION	"CBW"			%10011000
 {
 	AX<-$0000++AL;
 	2+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"CWD"			%10011001
+{
+	DECLARE TMP[32] ALIAS UPPER[16]:LOWER[16];
+	TMP<-$00000000++AX;
+	DX<-UPPER;
+	5+CYCLES->CYCLES;
 }
 
 INSTRUCTION	"AND %M0,#IMM0#"	%0010010:accword
@@ -1673,6 +1766,38 @@ INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
 
 	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
 	EFF->regw;
+}
+
+MAPPING LDESMap[1]
+{
+	%0	"ES"	%0;
+	%1	"DS"	%1;
+}
+
+MAPPING ldsReg[1]
+{
+	%0	"ES"	ES;
+	%1	"DS"	DS;
+}
+
+INSTRUCTION	"L%M0 #MODleaRM#"		%1100010:LDESMap
+{
+	DECLARE IR[9]	ALIAS	lds[1]:opcode[8];
+
+	CALL GetImmediateByte()->opcode;
+	LDESMap->lds;
+
+	EXECUTE TABLE_LDES IR;
+}
+
+INSTRUCTION	TABLE_LDES	""		ldsReg:leaMod:regw:rm[3]
+{
+	DECLARE	SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(leaMod,rm,16)->SEGEA;
+
+	CALL GetEffectiveAddressWord(leaMod,rm,SEG,EFF)->regw;
+	CALL GetEffectiveAddressWord(leaMod,rm,SEG,EFF+2)->ldsReg;
 }
 
 MAPPING operationMapping[6]
