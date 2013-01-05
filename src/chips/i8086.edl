@@ -415,7 +415,6 @@ INSTRUCTION	"REP(E)"	%11110011,B2[8]			# interrupts must not fire on this prefix
 # CMPS    1010011w
 # SCAS    1010111w
 # INT3    11001100
-# INTO    11001110
 # WAIT    10011011
 # ESC     11011xxx modxxxrm
 # LOCK    11110000
@@ -1608,6 +1607,19 @@ INSTRUCTION	"INT #VECTOR#"		%11001101
 	TMP<-CALL GetImmediateByte();
 	EXIP<-IP;
 	CALL Exception(TMP);
+}
+
+INSTRUCTION	"INTO"			%11001110
+{
+	IF O
+	{
+		EXIP<-IP;
+		CALL Exception(4);
+	}
+	IF ~O
+	{
+		4+CYCLES->CYCLES;
+	}
 }
 
 INSTRUCTION	"IRET"			%11001111
