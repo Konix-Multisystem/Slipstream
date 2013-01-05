@@ -87,7 +87,6 @@ void VideoSizeHandler(GLFWwindow window,int xs,int ys)
 {
 	int offsx=0,offsy=0;
 	glfwMakeContextCurrent(window);
-	CONSOLE_OUTPUT("%f : %f\n",(float)xs/(float)ys,initialRatio);
 	if (xs>ys)
 	{
 		offsx=xs;
