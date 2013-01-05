@@ -94,6 +94,17 @@ FUNCTION INTERNAL	SetByteAtPhysicalAddress	segment[16],offset[16],byte[8]
 	CALL SetByte(physical,byte);
 }
 
+FUNCTION INTERNAL	StoreWordNoOveride	seg[16],off[16],wrd[16]
+{
+	CALL SetByteAtPhysicalAddress(seg,off,wrd[0..7]);
+	CALL SetByteAtPhysicalAddress(seg,off+1,wrd[8..15]);
+}
+
+FUNCTION INTERNAL	StoreByteNoOveride	seg[16],off[16],byt[8]
+{
+	CALL SetByteAtPhysicalAddress(seg,off,byt);
+}
+
 FUNCTION INTERNAL	StoreWord	seg[16],off[16],wrd[16]
 {
 	IF SegOveride
@@ -118,6 +129,12 @@ FUNCTION INTERNAL	StoreByte	seg[16],off[16],byt[8]
 	{
 		CALL SetByteAtPhysicalAddress(seg,off,byt);
 	}
+}
+
+FUNCTION INTERNAL	wrd[16]		FetchWordNoOveride	seg[16],off[16]
+{
+	CALL GetByteFromPhysicalAddress(seg,off)->wrd[0..7];
+	CALL GetByteFromPhysicalAddress(seg,off+1)->wrd[8..15];
 }
 
 FUNCTION INTERNAL	wrd[16]		FetchWord		seg[16],off[16]
@@ -146,15 +163,20 @@ FUNCTION INTERNAL	byt[8]		FetchByte		seg[16],off[16]
 	}
 }
 
+FUNCTION INTERNAL	byt[8]		FetchByteNoOveride	seg[16],off[16]
+{
+	CALL GetByteFromPhysicalAddress(seg,off)->byt;
+}
+
 FUNCTION INTERNAL	PushWord	wrd[16]
 {
 	SP<-SP - 2;
-	CALL StoreWord(SS,SP,wrd);
+	CALL StoreWordNoOveride(SS,SP,wrd);
 }
 
 FUNCTION INTERNAL	wrd[16]		PopWord
 {
-	CALL FetchWord(SS,SP)->wrd;
+	CALL FetchWordNoOveride(SS,SP)->wrd;
 	SP<-SP + 2;
 }
 
@@ -178,12 +200,17 @@ FUNCTION INTERNAL 		Exception			vector[16]
 	CALL PushWord(CS);
 	CALL PushWord(EXIP);
 	TMP<-vector*$0004;
-	CALL FetchWord($0000,TMP)->IP;
-	CALL FetchWord($0000,TMP+2)->CS;
+	CALL FetchWordNoOveride($0000,TMP)->IP;
+	CALL FetchWordNoOveride($0000,TMP+2)->CS;
 
 	51+CYCLES->CYCLES;
 }
 ############ CPU Step/Reset/Interrupt 
+
+FUNCTION INTERNAL	DoExecute	IR[8]				#Workaround for bug in table generation when more than one execute exists in 2 different instructions
+{
+	EXECUTE IR;
+}
 
 FUNCTION STEP
 {
@@ -198,10 +225,10 @@ FUNCTION STEP
 		IF ~HALT
 		{
 			IR<-CALL GetByteFromPhysicalAddress(CS,IP);
-			EXIP<-IP;					# CACHE IP FOR EXCEPTION HANDLING
+			EXIP<-IP;					# CACHE IP FOR EXCEPTION/REPEAT HANDLING
 			IP<-IP+1;
 
-			EXECUTE	IR;
+			CALL DoExecute(IR);
 		}
 		IF HALT
 		{
@@ -222,8 +249,8 @@ FUNCTION STEP
 		DECLARE dummy[2];
 		TMP<-interruptVector;
 		TMP<-ROL(TMP,dummy,%0000,2);
-		CALL FetchWord($0000,TMP)->IP;
-		CALL FetchWord($0000,TMP+2)->CS;
+		CALL FetchWordNoOveride($0000,TMP)->IP;
+		CALL FetchWordNoOveride($0000,TMP+2)->CS;
 
 		61+CYCLES->CYCLES;
 	}
@@ -389,7 +416,7 @@ INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs:%110
 	SegOverideValue<-regs;
 	SegOveride<-1;
 	IR<-CALL GetImmediateByte();
-	EXECUTE IR;
+	CALL DoExecute(IR);
 	2+CYCLES->CYCLES;
 }
 
@@ -430,7 +457,7 @@ INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this p
 	REPEAT<-1;
 	REPEATZ<-repne;
 
-	EXECUTE IR;
+	CALL DoExecute(IR);
 }
 
 #### Unimplemented
@@ -1400,14 +1427,14 @@ INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte
 		{
 			DECLARE TMP[16];
 			CALL FetchWord(DS,SI)->TMP;
-			CALL StoreWord(ES,DI,TMP);
+			CALL StoreWordNoOveride(ES,DI,TMP);
 			adjust<-2;
 		}
 		IF ~wrdbyte
 		{
 			DECLARE TMP[8];
 			CALL FetchByte(DS,SI)->TMP;
-			CALL StoreByte(ES,DI,TMP);
+			CALL StoreByteNoOveride(ES,DI,TMP);
 			adjust<-1;
 		}
 
@@ -1425,7 +1452,7 @@ INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte
 		IF REPEAT
 		{
 			REPEAT<-0;
-			IP<-IP - 2;
+			IP<-EXIP;
 			17+CYCLES->CYCLES;
 		}
 	}
@@ -1461,7 +1488,7 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte
 		IF REPEAT
 		{
 			REPEAT<-0;
-			IP<-IP - 2;
+			IP<-EXIP;
 			13+CYCLES->CYCLES;
 		}
 	}
@@ -1475,12 +1502,12 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte
 
 		IF wrdbyte
 		{
-			CALL StoreWord(ES,DI,AX);
+			CALL StoreWordNoOveride(ES,DI,AX);
 			adjust<-2;
 		}
 		IF ~wrdbyte
 		{
-			CALL StoreByte(ES,DI,AL);
+			CALL StoreByteNoOveride(ES,DI,AL);
 			adjust<-1;
 		}
 
@@ -1497,7 +1524,7 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte
 		IF REPEAT
 		{
 			REPEAT<-0;
-			IP<-IP - 2;
+			IP<-EXIP;
 			10+CYCLES->CYCLES;
 		}
 	}
@@ -1511,12 +1538,12 @@ INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
 
 		IF wrdbyte
 		{
-			CALL SubWord(CALL FetchWord(DS,SI),CALL FetchWord(ES,DI),0);
+			CALL SubWord(CALL FetchWord(DS,SI),CALL FetchWordNoOveride(ES,DI),0);
 			adjust<-2;
 		}
 		IF ~wrdbyte
 		{
-			CALL SubByte(CALL FetchByte(DS,SI),CALL FetchByte(ES,DI),0);
+			CALL SubByte(CALL FetchByte(DS,SI),CALL FetchByteNoOveride(ES,DI),0);
 			adjust<-1;
 		}
 
@@ -1534,7 +1561,7 @@ INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
 		IF REPEAT & (Z==REPEATZ)
 		{
 			REPEAT<-0;
-			IP<-IP - 2;
+			IP<-EXIP;
 			22+CYCLES->CYCLES;
 		}
 	}
@@ -1548,12 +1575,12 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
 
 		IF wrdbyte
 		{
-			CALL SubWord(AX,CALL FetchWord(ES,DI),0);
+			CALL SubWord(AX,CALL FetchWordNoOveride(ES,DI),0);
 			adjust<-2;
 		}
 		IF ~wrdbyte
 		{
-			CALL SubByte(AL,CALL FetchByte(ES,DI),0);
+			CALL SubByte(AL,CALL FetchByteNoOveride(ES,DI),0);
 			adjust<-1;
 		}
 
@@ -1570,7 +1597,7 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
 		IF REPEAT & (Z==REPEATZ)
 		{
 			REPEAT<-0;
-			IP<-IP - 2;
+			IP<-EXIP;
 			15+CYCLES->CYCLES;
 		}
 	}
