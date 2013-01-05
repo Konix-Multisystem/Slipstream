@@ -401,11 +401,16 @@ MAPPING repne[1]
 
 FUNCTION INTERNAL	proceed[1]	DoRepeat
 {
+	IF ~REPEAT
+	{
+		proceed<-1;
+	}
 	IF REPEAT
 	{
 		IF (CX==0)
 		{
 			9+CYCLES->CYCLES;
+			REPEAT<-0;
 			proceed<-0;
 		}
 		IF (CX!=0)
@@ -414,10 +419,6 @@ FUNCTION INTERNAL	proceed[1]	DoRepeat
 			2+CYCLES->CYCLES;
 			proceed<-1;
 		}
-	}
-	IF ~REPEAT
-	{
-		proceed<-1;
 	}
 }
 
@@ -1417,15 +1418,15 @@ INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte
 
 		SI<-SI+adjust;
 		DI<-DI+adjust;
+		IF ~REPEAT
+		{
+			18+CYCLES->CYCLES;
+		}
 		IF REPEAT
 		{
 			REPEAT<-0;
 			IP<-IP - 2;
 			17+CYCLES->CYCLES;
-		}
-		IF ~REPEAT
-		{
-			18+CYCLES->CYCLES;
 		}
 	}
 }
@@ -1453,15 +1454,15 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte
 		}
 
 		SI<-SI+adjust;
+		IF ~REPEAT
+		{
+			12->CYCLES;
+		}
 		IF REPEAT
 		{
 			REPEAT<-0;
 			IP<-IP - 2;
 			13+CYCLES->CYCLES;
-		}
-		IF ~REPEAT
-		{
-			12->CYCLES;
 		}
 	}
 }
@@ -1489,15 +1490,15 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte
 		}
 
 		DI<-DI+adjust;
+		IF ~REPEAT
+		{
+			11+CYCLES->CYCLES;
+		}
 		IF REPEAT
 		{
 			REPEAT<-0;
 			IP<-IP - 2;
 			10+CYCLES->CYCLES;
-		}
-		IF ~REPEAT
-		{
-			11+CYCLES->CYCLES;
 		}
 	}
 }
@@ -1526,14 +1527,14 @@ INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
 
 		SI<-SI+adjust;
 		DI<-DI+adjust;
+		IF (~REPEAT) | (Z!=REPEATZ)
+		{
+			22+CYCLES->CYCLES;
+		}
 		IF REPEAT & (Z==REPEATZ)
 		{
 			REPEAT<-0;
 			IP<-IP - 2;
-			22+CYCLES->CYCLES;
-		}
-		IF (~REPEAT) | (Z!=REPEATZ)
-		{
 			22+CYCLES->CYCLES;
 		}
 	}
@@ -1562,14 +1563,14 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
 		}
 
 		DI<-DI+adjust;
+		IF (~REPEAT) | (Z!=REPEATZ)
+		{
+			15+CYCLES->CYCLES;
+		}
 		IF REPEAT & (Z==REPEATZ)
 		{
 			REPEAT<-0;
 			IP<-IP - 2;
-			15+CYCLES->CYCLES;
-		}
-		IF (~REPEAT) | (Z!=REPEATZ)
-		{
 			15+CYCLES->CYCLES;
 		}
 	}
