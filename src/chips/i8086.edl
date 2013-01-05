@@ -2468,6 +2468,7 @@ FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
 	}
 	IF operation==$4			# SHL/SAL
 	{
+		res<-TMP;
 		IF shCnt>=9
 		{
 			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $00 }->res;
@@ -2485,6 +2486,7 @@ FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
 	}
 	IF operation==$5			# SHR
 	{
+		res<-TMP;
 		IF shCnt>=9
 		{
 			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $00 }->res;
@@ -2501,6 +2503,7 @@ FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
 	}
 	IF operation==$6			# SAR
 	{
+		res<-TMP;
 		IF TMP[7..7]==1
 		{
 			fill<-$FFFF;
@@ -2587,6 +2590,7 @@ FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
 	}
 	IF operation==$4			# SHL/SAL
 	{
+		res<-TMP;
 		IF shCnt>=17
 		{
 			AFFECT S AS SIGN,Z AS ZERO,C AS FORCERESET { $0000 }->res;
@@ -2606,6 +2610,7 @@ FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
 	}
 	IF operation==$5			# SHR
 	{
+		res<-TMP;
 		IF shCnt>=17
 		{
 			AFFECT S AS SIGN,Z AS ZERO,C AS FORCERESET { $0000 }->res;
@@ -2624,6 +2629,7 @@ FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
 	}
 	IF operation==$6			# SAR
 	{
+		res<-TMP;
 		IF TMP[15..15]==1
 		{
 			fill<-$FFFF;
