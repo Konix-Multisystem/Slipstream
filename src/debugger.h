@@ -40,12 +40,49 @@ extern uint16_t FLAGS;					// FROM EDL
 extern uint16_t	PC;					// FROM EDL
 extern uint16_t CYCLES;					// FROM EDL
 
+extern uint8_t *Z80_DIS_[256];				// FROM EDL
+extern uint32_t Z80_DIS_max_;				// FROM EDL
+extern uint8_t *Z80_DIS_CB[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_CB;				// FROM EDL
+extern uint8_t *Z80_DIS_DD[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_DD;				// FROM EDL
+extern uint8_t *Z80_DIS_DDCB[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_DDCB;			// FROM EDL
+extern uint8_t *Z80_DIS_ED[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_ED;				// FROM EDL
+extern uint8_t *Z80_DIS_FD[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_FD;				// FROM EDL
+extern uint8_t *Z80_DIS_FDCB[256];			// FROM EDL
+extern uint32_t Z80_DIS_max_FDCB;			// FROM EDL
+
+extern uint16_t	Z80_AF;					// FROM EDL
+extern uint16_t	Z80_BC;					// FROM EDL
+extern uint16_t	Z80_DE;					// FROM EDL
+extern uint16_t	Z80_HL;					// FROM EDL
+extern uint16_t	Z80__AF;				// FROM EDL
+extern uint16_t	Z80__BC;				// FROM EDL
+extern uint16_t	Z80__DE;				// FROM EDL
+extern uint16_t	Z80__HL;				// FROM EDL
+extern uint16_t	Z80_IX;					// FROM EDL
+extern uint16_t	Z80_IY;					// FROM EDL
+extern uint16_t	Z80_PC;					// FROM EDL
+extern uint16_t	Z80_SP;					// FROM EDL
+extern uint16_t	Z80_IR;					// FROM EDL
+
+extern uint8_t Z80_IM;					// FROM EDL
+extern uint8_t Z80_IFF1;				// FROM EDL
+extern uint8_t Z80_IFF2;				// FROM EDL
+
+extern uint8_t Z80_HALTED;				// FROM EDL
+extern uint8_t Z80_CYCLES;				// FROM EDL
+
 
 uint8_t PeekByte(uint32_t addr);
 void DebugWPort(uint16_t port);
 void DebugRPort(uint16_t port);
 
 int Disassemble8086(unsigned int address,int registers);
+int DisassembleZ80(unsigned int address,int registers);
 
 #endif//_DEBUGGER__H
 

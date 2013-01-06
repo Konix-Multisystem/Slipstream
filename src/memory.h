@@ -21,6 +21,10 @@ void SetPortW(uint16_t port,uint16_t word);
 
 void TickKeyboard();
 void PALETTE_INIT();
+void VECTORS_INIT();			// Because i have no bios, this will setup interrupt vectors - which is a job the bios normally does
+
+extern uint16_t DSP_STATUS;
+
 
 #endif//_MEMORY__H
 

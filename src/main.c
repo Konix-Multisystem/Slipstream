@@ -179,6 +179,16 @@ void CPU_RESET()
 void DoCPU8086()
 {
 #if ENABLE_DEBUG
+		if (SEGTOPHYS(CS,IP)==0)//0x80120)//(0x80ECF))
+		{
+			doDebug=1;
+			debugWatchWrites=1;
+			debugWatchReads=1;
+			doShowBlits=1;
+//			numClocks=1;
+		}
+#endif
+#if ENABLE_DEBUG
 	if (doDebug)
 	{
 		Disassemble8086(SEGTOPHYS(CS,IP),1);
@@ -189,6 +199,22 @@ void DoCPU8086()
 
 void DoCPUZ80()
 {
+#if ENABLE_DEBUG
+	if (Z80_PC==0)//0x400)
+	{
+		doDebug=1;
+		debugWatchWrites=1;
+		debugWatchReads=1;
+		doShowBlits=1;
+		//			numClocks=1;
+	}
+#endif
+#if ENABLE_DEBUG
+	if (doDebug)
+	{
+		DisassembleZ80(Z80_PC,1);
+	}
+#endif
 
 	Z80_STEP();
 }
@@ -210,7 +236,7 @@ int CPU_STEP(int doDebug)
 					return CYCLES;
 			case ESS_FL1:
 				DoCPUZ80();
-				return CYCLES;
+				return Z80_CYCLES;
 		}
 	}
 		
@@ -224,6 +250,7 @@ void Usage()
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
+	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
@@ -269,6 +296,23 @@ void ParseCommandLine(int argc,char** argv)
 				a+=2;
 				continue;
 			}
+			if (strcmp(argv[a],"-z")==0)
+			{
+				if ((a+1)<argc)
+				{
+					LoadBinary(argv[a+1],1024);
+					Z80_PC=1024;
+					curSystem=ESS_FL1;
+
+					return;
+				}
+				else
+				{
+					return Usage();
+				}
+				a+=1;
+				continue;
+			}
 		}
 		else
 		{
@@ -289,6 +333,8 @@ int main(int argc,char**argv)
 
 	ParseCommandLine(argc,argv);
 
+	VECTORS_INIT();
+
 	VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
 	KeysIntialise();
 	AudioInitialise(WIDTH*HEIGHT);
@@ -301,16 +347,6 @@ int main(int argc,char**argv)
 
 	while (1==1)
 	{
-#if ENABLE_DEBUG
-		if (SEGTOPHYS(CS,IP)==0)//0x80120)//(0x80ECF))
-		{
-			doDebug=1;
-			debugWatchWrites=1;
-			debugWatchReads=1;
-			doShowBlits=1;
-//			numClocks=1;
-		}
-#endif
 		numClocks=CPU_STEP(doDebug);
 		switch (curSystem)
 		{
@@ -322,6 +358,7 @@ int main(int argc,char**argv)
 				break;
 			case ESS_FL1:
 				TickAsicFL1(numClocks);
+				break;
 		}
 		masterClock+=numClocks;
 

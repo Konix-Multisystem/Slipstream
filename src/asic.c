@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "system.h"
 #include "logfile.h"
 #include "video.h"
 #include "audio.h"
@@ -30,6 +31,7 @@
 #endif
 
 void INTERRUPT(uint8_t);
+void Z80_INTERRUPT(uint8_t);
 
 int hClock=0;
 int vClock=0;
@@ -40,14 +42,14 @@ int doShowBlits=0;
 // Current ASIC registers
 
 uint16_t	ASIC_KINT=0x00FF;
-uint8_t		ASIC_STARTL=0;
+uint8_t		ASIC_STARTL=33;
 uint8_t		ASIC_STARTH=0;
 uint32_t	ASIC_SCROLL=0;
 uint8_t		ASIC_MODE=0;
 uint16_t	ASIC_BORD=0;
 uint8_t		ASIC_PMASK=0;
 uint8_t		ASIC_INDEX=0;
-uint8_t		ASIC_ENDL=0;
+uint8_t		ASIC_ENDL=233;
 uint8_t		ASIC_ENDH=0;
 uint8_t		ASIC_MEM=0;
 uint8_t		ASIC_DIAG=0;
@@ -1108,6 +1110,68 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0007:			// INTREG
+			ASIC_KINT&=0xFF00;
+			ASIC_KINT|=byte;
+			break;
+		case 0x0008:			// CMD1 - bit 2 (unknown rest), bit 6 (which screen is visible)
+			ASIC_KINT&=0xFEFF;
+			ASIC_KINT|=(byte&0x04)<<6;
+			CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
+
+			ASIC_SCROLL&=0x0000FFFF;
+			if (byte&0x40)
+			{
+				ASIC_SCROLL|=0x00030000;
+			}
+			else
+			{
+				ASIC_SCROLL|=0x00020000;
+			}
+			break;
+		case 0x0009:			// CMD2 - bit 0 (unknown rest)
+			ASIC_MODE&=0xFE;
+			ASIC_MODE|=byte&0x01;
+			break;
+		case 0x000B:			// SCRLH
+			ASIC_SCROLL&=0xFFFFFF00;
+			ASIC_SCROLL|=byte;
+			break;
+		case 0x000C:			// SCRLV
+			ASIC_SCROLL&=0xFFFF00FF;
+			ASIC_SCROLL|=byte<<8;
+			break;
+		case 0x0018:
+			ASIC_BLTPC&=0xFFF00;
+			ASIC_BLTPC|=byte;
+			break;
+		case 0x0019:
+			ASIC_BLTPC&=0xF00FF;
+			ASIC_BLTPC|=byte<<8;
+			break;
+		case 0x001A:
+			ASIC_BLTPC&=0x0FFFF;
+			ASIC_BLTPC|=(byte&0xF)<<16;
+			break;
+		case 0x0020:
+			ASIC_BLTCMD=byte;
+			TickBlitterP88();			// Will try P88 version blitter first, but might not map correctly
+			break;
+		default:
+#if ENABLE_DEBUG
+			if (warnIgnore)
+			{
+				CONSOLE_OUTPUT("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			}
+#endif
+			break;
+	}
+}
+
 uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 {
 	switch (port)
@@ -1127,6 +1191,23 @@ uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 				CONSOLE_OUTPUT("ASIC READ IGNORE %04X - TODO?\n",port);
 			}
 #endif
+			break;
+	}
+	return 0xAA;
+}
+
+uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0007:		// INTACK
+			VideoInterruptLatch=0;
+			return 0;
+		default:
+			if (warnIgnore)
+			{
+				CONSOLE_OUTPUT("ASIC READ IGNORE %04X - TODO?\n",port);
+			}
 			break;
 	}
 	return 0xAA;
@@ -1157,6 +1238,20 @@ uint32_t ConvPaletteP88(uint16_t pal)
 	return RGB444_RGB8(pal);
 }
 
+void DoScreenInterrupt()
+{
+	switch (curSystem)
+	{
+		case ESS_MSU:
+		case ESS_P88:
+			INTERRUPT(0x21);
+			break;
+		case ESS_FL1:
+			Z80_INTERRUPT(0xFF);
+			break;
+	}
+}
+
 void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 {
 	uint8_t palIndex;
@@ -1177,7 +1272,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{
-			INTERRUPT(0x21);
+			DoScreenInterrupt();		
 		}
 
 		// Quick and dirty video display no contention or bus cycles
@@ -1246,5 +1341,6 @@ void TickAsicP88(int cycles)
 
 void TickAsicFL1(int cycles)
 {
-// No idea yet
+	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
+	TickAsic(cycles,ConvPaletteP88);
 }

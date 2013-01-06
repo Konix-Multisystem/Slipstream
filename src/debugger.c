@@ -35,6 +35,21 @@ uint8_t PeekByte(uint32_t addr)
 #endif
 }
 
+uint8_t PeekByteZ80(uint32_t addr)
+{
+#if ENABLE_DEBUG
+	uint8_t ret;
+	int tmp=debugWatchReads;
+	debugWatchReads=0;
+	ret=Z80_GetByte(addr);
+	debugWatchReads=tmp;
+	return ret;
+#else
+	return Z80_GetByte(addr);
+#endif
+}
+
+
 void DebugWPort(uint16_t port)
 {
 #if ENABLE_DEBUG
@@ -200,8 +215,46 @@ void DebugWPort(uint16_t port)
 			}
 			break;
 		case ESS_FL1:
-			CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
-			exit(-1);
+			switch (port)
+			{
+				case 0x0014:
+					CONSOLE_OUTPUT("runst - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
+					break;
+				case 0x0007:
+					CONSOLE_OUTPUT("INTREG - low 8 bits of interrupt line\n");
+					break;
+				case 0x0008:
+					CONSOLE_OUTPUT("CMD1 - (bit 2 is msb of INTL? , bit 6 indicates which of the 2 screen banks is visible) ... rest unknown)\n");
+					break;
+				case 0x0009:
+					CONSOLE_OUTPUT("CMD2 - (bit 0 is lo/hi res select (could be MODE register))\n");
+					break;
+				case 0x000B:
+					CONSOLE_OUTPUT("SCRLH - horizontal scroll register\n");
+					break;
+				case 0x000C:
+					CONSOLE_OUTPUT("SCRLV - vertical scroll register\n");
+					break;
+				case 0x0018:
+					CONSOLE_OUTPUT("BLTPC (byte 0)\n");
+					break;
+				case 0x0019:
+					CONSOLE_OUTPUT("BLTPC (byte 1)\n");
+					break;
+				case 0x001A:
+					CONSOLE_OUTPUT("BLTPC (byte 2)\n");
+					break;
+				case 0x0020:
+					CONSOLE_OUTPUT("BLTCMD\n");
+					break;
+				case 0x0022:
+					CONSOLE_OUTPUT("GPO - General Purpose Output Port - ??? unknown use\n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
+					exit(-1);
+					break;
+			}
 			break;
 			
 	}
@@ -277,15 +330,23 @@ void DebugRPort(uint16_t port)
 			}
 			break;
 		case ESS_FL1:
-			CONSOLE_OUTPUT("PORT READ UNKNOWN (%04X)- TODO\n",port);
-			exit(-1);
+			switch (port)
+			{
+				case 0x0007:
+					CONSOLE_OUTPUT("INTACK - Acknowledge interrupts on read\n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT READ UNKNOWN (%04X)- TODO\n",port);
+					exit(-1);
+					break;
+			}
 			break;
 	}
 #endif
 }
 
 #if ENABLE_DEBUG
-void DUMP_REGISTERS()
+void DUMP_REGISTERS8086()
 {
 	CONSOLE_OUTPUT("--------\n");
 	CONSOLE_OUTPUT("FLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n");
@@ -495,7 +556,7 @@ int DoDisp(int cnt,uint32_t address,char** tPtr)
 	return cnt/8;
 }
 
-const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int realLength)
+const char* decodeDisasm8086(uint8_t *table[256],unsigned int address,int *count,int realLength)
 {
 	static char segOveride[2048];
 	static char segOveride2[2048];
@@ -527,7 +588,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		if (strncmp(mnemonic,"REP",3)==0)
 		{
 			int tmpcount=0;
-			sPtr=decodeDisasm(DIS_,address+1,&tmpcount,DIS_max_);
+			sPtr=decodeDisasm8086(DIS_,address+1,&tmpcount,DIS_max_);
 			if (sPtr==NULL)
 			{
 				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
@@ -542,7 +603,7 @@ const char* decodeDisasm(uint8_t *table[256],unsigned int address,int *count,int
 		if (strncmp(mnemonic,"XX001__110",10)==0)				// Segment override
 		{
 			int tmpcount=0;
-			sPtr=decodeDisasm(DIS_,address+1,&tmpcount,DIS_max_);
+			sPtr=decodeDisasm8086(DIS_,address+1,&tmpcount,DIS_max_);
 			if (sPtr==NULL)
 			{
 				sprintf(temporaryBuffer,"UNKNOWN OPCODE");
@@ -874,7 +935,7 @@ int Disassemble8086(unsigned int address,int registers)
 {
 	int a;
 	int numBytes=0;
-	const char* retVal = decodeDisasm(DIS_,address,&numBytes,DIS_max_);
+	const char* retVal = decodeDisasm8086(DIS_,address,&numBytes,DIS_max_);
 
 	if (strcmp(retVal+(strlen(retVal)-14),"UNKNOWN OPCODE")==0)
 	{
@@ -889,13 +950,13 @@ int Disassemble8086(unsigned int address,int registers)
 			CONSOLE_OUTPUT("%02X ",PeekByte(address+numBytes+1+a));
 		}
 		CONSOLE_OUTPUT("\n");
-		DUMP_REGISTERS();
+		DUMP_REGISTERS8086();
 		exit(-1);
 	}
 
 	if (registers)
 	{
-		DUMP_REGISTERS();
+		DUMP_REGISTERS8086();
 	}
 	CONSOLE_OUTPUT("%05X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
@@ -908,6 +969,184 @@ int Disassemble8086(unsigned int address,int registers)
 		CONSOLE_OUTPUT("   ");
 	}
 	CONSOLE_OUTPUT("%s\n",retVal);
+
+	return numBytes+1;
+}
+
+void DUMP_REGISTERSZ80()
+{
+	printf("--------\n");
+	printf("FLAGS = S  Z  -  H  -  P  N  C\n");
+	printf("        %s  %s  %s  %s  %s  %s  %s  %s\n",
+			Z80_AF&0x80 ? "1" : "0",
+			Z80_AF&0x40 ? "1" : "0",
+			Z80_AF&0x20 ? "1" : "0",
+			Z80_AF&0x10 ? "1" : "0",
+			Z80_AF&0x08 ? "1" : "0",
+			Z80_AF&0x04 ? "1" : "0",
+			Z80_AF&0x02 ? "1" : "0",
+			Z80_AF&0x01 ? "1" : "0");
+	printf("AF= %04X\n",Z80_AF);
+	printf("BC= %04X\n",Z80_BC);
+	printf("DE= %04X\n",Z80_DE);
+	printf("HL= %04X\n",Z80_HL);
+	printf("AF'= %04X\n",Z80__AF);
+	printf("BC'= %04X\n",Z80__BC);
+	printf("DE'= %04X\n",Z80__DE);
+	printf("HL'= %04X\n",Z80__HL);
+	printf("IX= %04X\n",Z80_IX);
+	printf("IY= %04X\n",Z80_IY);
+	printf("IR= %04X\n",Z80_IR);
+	printf("SP= %04X\n",Z80_SP);
+	printf("--------\n");
+}
+
+const char* decodeDisasmZ80(uint8_t *table[256],unsigned int address,int *count,int realLength)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+
+	uint8_t byte = PeekByteZ80(address);
+	if (byte>realLength)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	else
+	{
+       	const char* mnemonic=(char*)table[byte];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+	
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+
+	if (strcmp(mnemonic,"CB")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_CB,address+1,&tmpCount,Z80_DIS_max_CB);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	if (strcmp(mnemonic,"DD")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_DD,address+1,&tmpCount,Z80_DIS_max_DD);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	if (strcmp(mnemonic,"DDCB")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_DDCB,address+2,&tmpCount,Z80_DIS_max_DDCB);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	if (strcmp(mnemonic,"FDCB")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_FDCB,address+2,&tmpCount,Z80_DIS_max_FDCB);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	if (strcmp(mnemonic,"ED")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_ED,address+1,&tmpCount,Z80_DIS_max_ED);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	if (strcmp(mnemonic,"FD")==0)
+	{
+		int tmpCount=0;
+		decodeDisasmZ80(Z80_DIS_FD,address+1,&tmpCount,Z80_DIS_max_FD);
+		*count=tmpCount+1;
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='%')
+			{
+				doingDecode=1;
+			}
+			else
+			{
+				*dPtr++=*sPtr;
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			int negOffs=1;
+			if (*sPtr=='-')
+			{
+				sPtr++;
+				negOffs=-1;
+			}
+			int offset=(*sPtr-'0')*negOffs;
+			sprintf(sprintBuffer,"%02X",PeekByteZ80(address+offset));
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	*count=counting;
+	}
+	return temporaryBuffer;
+}
+
+int DisassembleZ80(unsigned int address,int registers)
+{
+	int a;
+	int numBytes=0;
+	const char* retVal;
+	
+	if (Z80_HALTED&1)
+	{
+		return 0;
+	}
+
+	retVal = decodeDisasmZ80(Z80_DIS_,address,&numBytes,Z80_DIS_max_);
+
+	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
+	{
+		printf("UNKNOWN AT : %04X\n",address);
+		for (a=0;a<numBytes+1;a++)
+		{
+			printf("%02X ",PeekByteZ80(address+a));
+		}
+		printf("\n");
+		exit(-1);
+	}
+
+	if (registers)
+	{
+		DUMP_REGISTERSZ80();
+	}
+	printf("%04X :",address);
+
+	for (a=0;a<numBytes+1;a++)
+	{
+		printf("%02X ",PeekByteZ80(address+a));
+	}
+	for (a=0;a<8-(numBytes+1);a++)
+	{
+		printf("   ");
+	}
+	printf("%s\n",retVal);
 
 	return numBytes+1;
 }
