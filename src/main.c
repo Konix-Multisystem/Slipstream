@@ -30,6 +30,12 @@ unsigned char PALETTE[256*2];
 
 ESlipstreamSystem curSystem=ESS_MSU;
 
+uint8_t Z80_GetByte(uint16_t addr) {return 0;}
+void Z80_SetByte(uint16_t addr,uint8_t byte) {}
+uint8_t Z80_GetPort(uint16_t addr) {return 0;}
+void Z80_SetPort(uint16_t addr,uint8_t byte) {}
+
+
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 uint8_t GetPortB(uint16_t port);
