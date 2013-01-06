@@ -85,10 +85,18 @@ out/dsp.o: src/dsp.h src/dsp.c src/system.h src/host/logfile.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/dsp.c -o out/dsp.o
 
-out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h src/host/logfile.h
+out/memory.o: src/memory.c src/system.h src/host/logfile.h src/memory.h
+	mkdir -p out
+	$(COMPILER) $(COMPILE) src/memory.c -o out/memory.o
+
+out/debugger.o: src/debugger.c src/system.h src/host/logfile.h src/debugger.h
+	mkdir -p out
+	$(COMPILER) $(COMPILE) src/debugger.c -o out/debugger.o
+
+out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asic.h src/dsp.h src/system.h src/host/logfile.h src/memory.h src/debugger.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
 

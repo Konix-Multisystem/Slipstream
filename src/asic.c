@@ -1244,3 +1244,7 @@ void TickAsicP88(int cycles)
 	TickAsic(cycles,ConvPaletteP88);
 }
 
+void TickAsicFL1(int cycles)
+{
+// No idea yet
+}

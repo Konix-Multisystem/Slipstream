@@ -4,7 +4,8 @@
 typedef enum 
 {
 	ESS_MSU,
-	ESS_P88
+	ESS_P88,
+	ESS_FL1
 }ESlipstreamSystem;
 
 extern ESlipstreamSystem curSystem;
