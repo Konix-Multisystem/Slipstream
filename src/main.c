@@ -82,6 +82,11 @@ int HandleExecuteSection(FILE* inFile)
 
 	CS=segment;
 	IP=offset;
+	Z80_PC=offset;
+	ASIC_BANK0=segment<<4;
+	ASIC_BANK1=segment<<4;
+	ASIC_BANK2=segment<<4;
+	ASIC_BANK3=segment<<4;
 
 	CONSOLE_OUTPUT("Found Section Execute : %04X:%04X\n",segment,offset);
 
@@ -113,6 +118,10 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 			case 0xFF:							// Not original specification - added to indicate system type is P88
 				CONSOLE_OUTPUT("Found Section Konix 8088\n");
 				curSystem=ESS_P88;
+				break;
+			case 0xF1:
+				CONSOLE_OUTPUT("Found Section Flare One\n");
+				curSystem=ESS_FL1;
 				break;
 			case 0xC8:
 				expectedSize-=HandleLoadSection(inFile);
@@ -200,12 +209,13 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if (Z80_PC==0)//0x400)
+	if (Z80_PC==0)//0x1205)
 	{
 		doDebug=1;
-		debugWatchWrites=1;
-		debugWatchReads=1;
-		doShowBlits=1;
+		//debugWatchWrites=1;
+		//debugWatchReads=1;
+		doShowPortStuff=1;
+		//doShowBlits=1;
 		//			numClocks=1;
 	}
 #endif
@@ -215,7 +225,17 @@ void DoCPUZ80()
 		DisassembleZ80(Z80_PC,1);
 	}
 #endif
+/*	if (Z80_PC==0x488)
+		{
+		uint8_t c1,c2,c3;
 
+		c1=GetByte(1024+0xA5);
+		c2=GetByte(1024+0xA6);
+		c3=GetByte(1024+0xA7);
+
+		printf("Bytes : %02X(%c) %02X(%c) %02X\n",c1,c1,c2,c2,c3);
+		}
+*/
 	Z80_STEP();
 }
 
@@ -300,7 +320,7 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				if ((a+1)<argc)
 				{
-					LoadBinary(argv[a+1],1024);
+					LoadBinary(argv[a+1],0x40000+1024);
 					Z80_PC=1024;
 					curSystem=ESS_FL1;
 

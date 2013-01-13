@@ -25,9 +25,11 @@
 #define RGB565_RGB8(x)		( ((x&0xF800)<<8) | ((x&0x07E0) <<5) | ((x&0x001F)<<3) )				// Later revisions are 565
 
 #if ENABLE_DEBUG
-#define BLTDDBG(...)		if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
+#define ENABLE_DEBUG_BLITTER	1
+#define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #else
-#define BLTDDBG(...)		//
+#define ENABLE_DEBUG_BLITTER	0
+#define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #endif
 
 void INTERRUPT(uint8_t);
@@ -37,7 +39,7 @@ int hClock=0;
 int vClock=0;
 int VideoInterruptLatch=0;
 
-int doShowBlits=0;
+int doShowBlits=1;
 
 // Current ASIC registers
 
@@ -49,14 +51,20 @@ uint8_t		ASIC_MODE=0;
 uint16_t	ASIC_BORD=0;
 uint8_t		ASIC_PMASK=0;
 uint8_t		ASIC_INDEX=0;
-uint8_t		ASIC_ENDL=233;
-uint8_t		ASIC_ENDH=0;
+uint8_t		ASIC_ENDL=33;
+uint8_t		ASIC_ENDH=1;
 uint8_t		ASIC_MEM=0;
 uint8_t		ASIC_DIAG=0;
 uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
 uint8_t		ASIC_BLTCMD=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
+uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+
+uint32_t	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
+uint32_t	ASIC_BANK1=0;
+uint32_t	ASIC_BANK2=0;
+uint32_t	ASIC_BANK3=0;
 
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
@@ -79,7 +87,7 @@ void DoBlit();
 void TickBlitterMSU()								// TODO - make this more modular!!!
 {
 	// Step one, make the blitter "free"
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 	if (doShowBlits)
 	{
 		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -99,7 +107,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 
 		do
 		{
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -165,7 +173,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 		BLT_INNER_STEP=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
@@ -194,7 +202,7 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 void TickBlitterP88()
 {
 	// Step one, make the blitter "free"
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 	if (doShowBlits)
 	{
 		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -214,7 +222,7 @@ void TickBlitterP88()
 
 		do
 		{
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -280,7 +288,7 @@ void TickBlitterP88()
 		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -333,7 +341,7 @@ void TickBlitterP88()
 
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
@@ -353,6 +361,239 @@ void TickBlitterP88()
 
 	}
 }
+
+void TickBlitterFL1()
+{
+	// Step one, make the blitter "free"
+#if ENABLE_DEBUG_BLITTER
+	if (doShowBlits)
+	{
+		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			ASIC_BLTCMD&0x02?1:0,
+			ASIC_BLTCMD&0x04?1:0,
+			ASIC_BLTCMD&0x08?1:0,
+			ASIC_BLTCMD&0x10?1:0,
+			ASIC_BLTCMD&0x20?1:0,
+			ASIC_BLTCMD&0x40?1:0,
+			ASIC_BLTCMD&0x80?1:0);
+	}
+#endif
+
+	if (ASIC_BLTCMD & 1)
+	{
+		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command	
+
+		do
+		{
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+		}
+
+		if (BLT_OUTER_CMD&0x02)
+		{
+			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
+			exit(1);
+		}
+
+
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
+		}
+#endif
+
+		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC_FLAGS=GetByte(ASIC_BLTPC);			// The flags probably don't exist
+		BLT_OUTER_SRC|=(BLT_OUTER_SRC_FLAGS&0xF)<<16;
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_DST=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_DST|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_DST_FLAGS=GetByte(ASIC_BLTPC);			// The flags probably don't exist
+		BLT_OUTER_DST|=(BLT_OUTER_DST_FLAGS&0xF)<<16;
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_MODE=GetByte(ASIC_BLTPC);				// MODE differs -   ? ? UNPACK  REMAP? YFRAC DSIGN SSIGN
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_CPLG=GetByte(ASIC_BLTPC);				// LOGIC and COMP probably stay the same
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+				BLT_OUTER_SRC_FLAGS&0x10?1:0,
+				BLT_OUTER_SRC_FLAGS&0x20?1:0,
+				BLT_OUTER_SRC_FLAGS&0x40?1:0,
+				BLT_OUTER_SRC_FLAGS&0x80?1:0);
+			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+				BLT_OUTER_DST_FLAGS&0x10?1:0,
+				BLT_OUTER_DST_FLAGS&0x20?1:0,
+				BLT_OUTER_DST_FLAGS&0x40?1:0,
+				BLT_OUTER_DST_FLAGS&0x80?1:0);
+			CONSOLE_OUTPUT("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
+				BLT_OUTER_MODE&0x01?1:0,
+				BLT_OUTER_MODE&0x02?1:0,
+				BLT_OUTER_MODE&0x04?1:0,
+				BLT_OUTER_MODE&0x08?1:0,
+				BLT_OUTER_MODE&0x10?1:0,
+				BLT_OUTER_MODE&0x20?1:0,
+				BLT_OUTER_MODE&0x40?1:0,
+				BLT_OUTER_MODE&0x80?1:0);
+			CONSOLE_OUTPUT("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
+				BLT_OUTER_CPLG&0x01?1:0,
+				BLT_OUTER_CPLG&0x02?1:0,
+				BLT_OUTER_CPLG&0x04?1:0,
+				BLT_OUTER_CPLG&0x08?1:0,
+				BLT_OUTER_CPLG&0x10?1:0,
+				BLT_OUTER_CPLG&0x20?1:0,
+				BLT_OUTER_CPLG&0x40?1:0,
+				BLT_OUTER_CPLG&0x80?1:0);
+			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+
+			//getch();
+		}
+#endif
+
+
+		// TEST
+
+		BLT_OUTER_SRC_FLAGS=BLT_OUTER_MODE;
+
+		BLT_OUTER_MODE=0;				// TEST To see if it should always be a byte copy
+		BLT_OUTER_MODE|=(BLT_OUTER_SRC_FLAGS&0x04)? 0xA5 : 0x00;
+
+		BLT_OUTER_CMD&=(BLT_OUTER_SRC_FLAGS&0x04)? 0x00 : 0xFF;
+		BLT_OUTER_CMD|=(BLT_OUTER_SRC_FLAGS&0x04)? 0x91 : 0x00;
+
+//		BLT_INNER_CNT>>=(BLT_OUTER_SRC_FLAGS&0x04)?1:0;
+
+		BLT_OUTER_SRC_FLAGS=0;//(BLT_OUTER_MODE&0x80) ? 0x40 : 0x00;
+		BLT_OUTER_DST_FLAGS=0;//(BLT_OUTER_MODE&0x40) ? 0x40 : 0x00;
+
+/*
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+				BLT_OUTER_SRC_FLAGS&0x10?1:0,
+				BLT_OUTER_SRC_FLAGS&0x20?1:0,
+				BLT_OUTER_SRC_FLAGS&0x40?1:0,
+				BLT_OUTER_SRC_FLAGS&0x80?1:0);
+			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+				BLT_OUTER_DST_FLAGS&0x10?1:0,
+				BLT_OUTER_DST_FLAGS&0x20?1:0,
+				BLT_OUTER_DST_FLAGS&0x40?1:0,
+				BLT_OUTER_DST_FLAGS&0x80?1:0);
+			CONSOLE_OUTPUT("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
+				BLT_OUTER_MODE&0x01?1:0,
+				BLT_OUTER_MODE&0x02?1:0,
+				BLT_OUTER_MODE&0x04?1:0,
+				BLT_OUTER_MODE&0x08?1:0,
+				BLT_OUTER_MODE&0x10?1:0,
+				BLT_OUTER_MODE&0x20?1:0,
+				BLT_OUTER_MODE&0x40?1:0,
+				BLT_OUTER_MODE&0x80?1:0);
+			CONSOLE_OUTPUT("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
+				BLT_OUTER_CPLG&0x01?1:0,
+				BLT_OUTER_CPLG&0x02?1:0,
+				BLT_OUTER_CPLG&0x04?1:0,
+				BLT_OUTER_CPLG&0x08?1:0,
+				BLT_OUTER_CPLG&0x10?1:0,
+				BLT_OUTER_CPLG&0x20?1:0,
+				BLT_OUTER_CPLG&0x40?1:0,
+				BLT_OUTER_CPLG&0x80?1:0);
+			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+
+			//getch();
+		}
+#endif*/
+		DoBlit();
+
+		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+		}
+#endif
+		}
+		while (BLT_OUTER_CMD&1);
+
+//		exit(1);
+
+	}
+}
+
 
 uint32_t ADDRESSGENERATOR_SRCADDRESS;			// 21 bit  - LSB = nibble
 uint32_t ADDRESSGENERATOR_DSTADDRESS;			// 21 bit  - LSB = nibble
@@ -841,7 +1082,7 @@ void DoBlitOuter()
 			BLT_INNER_PAT=GetByte(ASIC_BLTPC);
 			ASIC_BLTPC++;
 	
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG_BLITTER
 			if (doShowBlits)
 			{
 				CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
@@ -1114,11 +1355,18 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 {
 	switch (port)
 	{
+		case 0x0003:
+			if ((byte%4)!=0)
+			{
+				CONSOLE_OUTPUT("Attempt to page a weird offset : %d\n",byte);
+			}
+			ASIC_BANK3=(byte/4)<<16;
+			break;
 		case 0x0007:			// INTREG
 			ASIC_KINT&=0xFF00;
 			ASIC_KINT|=byte;
 			break;
-		case 0x0008:			// CMD1 - bit 2 (unknown rest), bit 6 (which screen is visible)
+		case 0x0008:			// CMD1 - bit 2 (msb of line interrupt), bit 6 (which screen is visible)
 			ASIC_KINT&=0xFEFF;
 			ASIC_KINT|=(byte&0x04)<<6;
 			CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
@@ -1127,15 +1375,20 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			if (byte&0x40)
 			{
 				ASIC_SCROLL|=0x00030000;
+				CONSOLE_OUTPUT("Visible screen is at Bank 3\n");
 			}
 			else
 			{
 				ASIC_SCROLL|=0x00020000;
+				CONSOLE_OUTPUT("Visible screen is at Bank 2\n");
 			}
 			break;
-		case 0x0009:			// CMD2 - bit 0 (unknown rest)
+		case 0x0009:			// CMD2 - bit 0 (mode 16/256 colour)
 			ASIC_MODE&=0xFE;
-			ASIC_MODE|=byte&0x01;
+			ASIC_MODE|=~(byte&0x01);
+			break;
+		case 0x000A:
+			ASIC_BORD=byte;		// BORD
 			break;
 		case 0x000B:			// SCRLH
 			ASIC_SCROLL&=0xFFFFFF00;
@@ -1144,6 +1397,9 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x000C:			// SCRLV
 			ASIC_SCROLL&=0xFFFF00FF;
 			ASIC_SCROLL|=byte<<8;
+			break;
+		case 0x000D:
+			ASIC_COLHOLD=byte;
 			break;
 		case 0x0018:
 			ASIC_BLTPC&=0xFFF00;
@@ -1159,7 +1415,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0020:
 			ASIC_BLTCMD=byte;
-			TickBlitterP88();			// Will try P88 version blitter first, but might not map correctly
+			TickBlitterFL1();			// Flare 1 has simpler blitter, hopefully i can map register settings across for the most part
 			break;
 		default:
 #if ENABLE_DEBUG

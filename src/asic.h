@@ -33,4 +33,9 @@
 	uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore);
 	uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore);
 
+	extern uint32_t		ASIC_BANK0;
+	extern uint32_t		ASIC_BANK1;
+	extern uint32_t		ASIC_BANK2;
+	extern uint32_t		ASIC_BANK3;
+
 #endif//_ASIC__H

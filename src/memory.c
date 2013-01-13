@@ -39,22 +39,40 @@ uint8_t Z80_GetByte(uint16_t addr)
 {
 	// First up, if addr>=3*16K use BANK3 address, BANK3 defaults to 0x40000-0x4FFFF which is overkill, so its going to be more complex than that!
 
-	if (addr>=16384*3)
+	switch (addr&0xC000)
 	{
-		return GetByte(0x00040000+addr);
-	}
+		case 0x0000:
+			return GetByte(ASIC_BANK0+addr);
 
-	return GetByte(addr);
+		case 0x4000:
+			return GetByte(ASIC_BANK1+addr);
+
+		case 0x8000:
+			return GetByte(ASIC_BANK2+addr);
+		
+		case 0xC000:
+			break;
+	}
+	return GetByte(ASIC_BANK3+addr);
 }
 
 void Z80_SetByte(uint16_t addr,uint8_t byte)
 {
-	if (addr>=16384*3)
+	switch (addr&0xC000)
 	{
-		SetByte(0x00040000+addr,byte);
-		return;
+		case 0x0000:
+			return SetByte(ASIC_BANK0+addr,byte);
+
+		case 0x4000:
+			return SetByte(ASIC_BANK1+addr,byte);
+
+		case 0x8000:
+			return SetByte(ASIC_BANK2+addr,byte);
+		
+		case 0xC000:
+			break;
 	}
-	SetByte(addr,byte);
+	return SetByte(ASIC_BANK3+addr,byte);
 }
 
 uint8_t Z80_GetPort(uint16_t addr)
@@ -115,7 +133,7 @@ uint8_t GetByteFL1(uint32_t addr)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x4FFFF)
+	if (addr<0x8FFFF)
 	{
 		return RAM[addr];
 	}
@@ -229,7 +247,7 @@ void SetByteFL1(uint32_t addr,uint8_t byte)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x4FFFF)
+	if (addr<0x8FFFF)
 	{
 		RAM[addr]=byte;
 		return;
@@ -608,13 +626,13 @@ void VECTORS_INIT()
 		case ESS_FL1:
 			// Bit more comlex. RST38 is used to trigger the video interrupt (no idea on the real system, this is simply how the emulator handles it)
 			//Note this is not done via a redirect table, the code is simply inserted at 0x38 ....
-			SetByte(0x38,0xF3);	// di
-			SetByte(0x39,0xF5);	// push af
-			SetByte(0x3A,0xDB);	// in a,(7)
-			SetByte(0x3B,0x07);
-			SetByte(0x3C,0xF1);	// pop af
-			SetByte(0x3D,0xFB);	// ei
-			SetByte(0x3E,0xC9);	// ret
+			SetByte(0x40038,0xF3);	// di
+			SetByte(0x40039,0xF5);	// push af
+			SetByte(0x4003A,0xDB);	// in a,(7)
+			SetByte(0x4003B,0x07);
+			SetByte(0x4003C,0xF1);	// pop af
+			SetByte(0x4003D,0xFB);	// ei
+			SetByte(0x4003E,0xC9);	// ret
 			break;
 	}
 }

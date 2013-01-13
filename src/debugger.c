@@ -229,6 +229,9 @@ void DebugWPort(uint16_t port)
 				case 0x0009:
 					CONSOLE_OUTPUT("CMD2 - (bit 0 is lo/hi res select (could be MODE register))\n");
 					break;
+				case 0x000A:
+					CONSOLE_OUTPUT("BORDER - (presumably palette index - but palette might be formed directly from index\n");
+					break;
 				case 0x000B:
 					CONSOLE_OUTPUT("SCRLH - horizontal scroll register\n");
 					break;
@@ -249,6 +252,12 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x0022:
 					CONSOLE_OUTPUT("GPO - General Purpose Output Port - ??? unknown use\n");
+					break;
+				case 0x0003:
+					CONSOLE_OUTPUT("BANK3 - Bank Switch 0xC000-0xFFFF range of cpu\n");
+					break;
+				case 0x000D:
+					CONSOLE_OUTPUT("TRANS - pal index used for colour hold mode\n");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
