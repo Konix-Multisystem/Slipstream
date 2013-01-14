@@ -83,10 +83,10 @@ int HandleExecuteSection(FILE* inFile)
 	CS=segment;
 	IP=offset;
 	Z80_PC=offset;
-	ASIC_BANK0=segment<<4;
-	ASIC_BANK1=segment<<4;
-	ASIC_BANK2=segment<<4;
-	ASIC_BANK3=segment<<4;
+	ASIC_BANK0=(segment<<4);
+	ASIC_BANK1=(segment<<4)+16384;
+	ASIC_BANK2=(segment<<4)+32768;
+	ASIC_BANK3=0x4C000;				// PAGE 19 - 
 
 	CONSOLE_OUTPUT("Found Section Execute : %04X:%04X\n",segment,offset);
 

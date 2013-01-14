@@ -15,8 +15,8 @@
 #include "debugger.h"
 #include "memory.h"
 
-int doDebug=1;
-int doShowPortStuff=0;
+int doDebug=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -267,6 +267,7 @@ void DebugWPort(uint16_t port)
 			break;
 			
 	}
+
 #endif
 }
 

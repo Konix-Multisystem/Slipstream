@@ -1356,11 +1356,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 	switch (port)
 	{
 		case 0x0003:
-			if ((byte%4)!=0)
-			{
-				CONSOLE_OUTPUT("Attempt to page a weird offset : %d\n",byte);
-			}
-			ASIC_BANK3=(byte/4)<<16;
+			ASIC_BANK3=byte*16384;
 			break;
 		case 0x0007:			// INTREG
 			ASIC_KINT&=0xFF00;
