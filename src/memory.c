@@ -609,6 +609,24 @@ void PALETTE_INIT()
 
 }
 
+void MEMORY_INIT()
+{
+	memset(RAM,0xFF,RAM_SIZE);
+
+	numPadRowSelect=0;
+	numPadState=0;
+	joyPadState=0;
+	buttonState=0;			// bits 4&5 are button state -- I can only assume on front of unit?? (Start/Select style) -- bits 0&1 are fire button states - stored here for convenience
+	ADPSelect=0;
+
+	PotXValue=0x80;
+	PotYValue=0x10;
+	PotZValue=0xFF;
+	PotLPValue=0x01;
+	PotRPValue=0x00;
+	PotSpareValue=0x40;
+}
+
 void VECTORS_INIT()
 {
 	int a;

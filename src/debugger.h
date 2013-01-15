@@ -87,6 +87,8 @@ int DisassembleZ80(unsigned int address,int registers);
 void FETCH_REGISTERS8086(char* tmp);
 void FETCH_REGISTERSZ80(char* tmp);
 
+int FETCH_DISASSEMBLE8086(unsigned int address,char* tmp);
+int FETCH_DISASSEMBLEZ80(unsigned int address,char* tmp);
 
 #endif//_DEBUGGER__H
 

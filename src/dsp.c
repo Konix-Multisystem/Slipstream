@@ -17,6 +17,7 @@
 #include "audio.h"
 #include "system.h"
 
+uint16_t DSP_STATUS=0;
 
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
@@ -138,9 +139,9 @@ void DSP_RAM_INIT()
 	DSP_InitDataWord(0x10A,0xFFFE);		// Constants
 	DSP_InitDataWord(0x10B,0xFFFC);		// Constants
 	DSP_InitDataWord(0x10C,0x8000);		// Constants
+
+	DSP_STATUS=0;
 }
-
-
 
 void DSP_STEP(void);
 
@@ -313,7 +314,6 @@ int DSP_Disassemble(unsigned int address,int registers)
 
 #define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
 
-uint16_t DSP_STATUS=0;
 extern int emulateDSP;
 
 void TickDSP()

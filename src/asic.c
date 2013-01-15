@@ -37,13 +37,13 @@ extern unsigned char PALETTE[256*2];
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
 
+int doShowBlits=1;
+
+// Current ASIC registers
 int hClock=0;
 int vClock=0;
 int VideoInterruptLatch=0;
 
-int doShowBlits=0;
-
-// Current ASIC registers
 
 uint16_t	ASIC_KINT=0x00FF;
 uint8_t		ASIC_STARTL=33;
@@ -68,10 +68,6 @@ uint32_t	ASIC_BANK1=0;
 uint32_t	ASIC_BANK2=0;
 uint32_t	ASIC_BANK3=0;
 
-uint8_t GetByte(uint32_t addr);
-void SetByte(uint32_t addr,uint8_t byte);
-
-
 uint8_t BLT_OUTER_SRC_FLAGS;
 uint8_t BLT_OUTER_DST_FLAGS;
 uint8_t BLT_OUTER_CMD;
@@ -83,6 +79,22 @@ uint8_t BLT_OUTER_CNT;
 uint16_t BLT_INNER_CNT;
 uint8_t BLT_INNER_STEP;
 uint8_t BLT_INNER_PAT;
+
+uint32_t ADDRESSGENERATOR_SRCADDRESS;			// 21 bit  - LSB = nibble
+uint32_t ADDRESSGENERATOR_DSTADDRESS;			// 21 bit  - LSB = nibble
+
+uint16_t DATAPATH_SRCDATA;
+uint8_t DATAPATH_DSTDATA;
+uint8_t DATAPATH_PATDATA;
+uint16_t DATAPATH_DATAOUT;
+
+uint16_t BLT_INNER_CUR_CNT;
+
+
+
+uint8_t GetByte(uint32_t addr);
+void SetByte(uint32_t addr,uint8_t byte);
+
 
 void DoBlit();
 
@@ -544,14 +556,6 @@ void TickBlitterFL1()
 }
 
 
-uint32_t ADDRESSGENERATOR_SRCADDRESS;			// 21 bit  - LSB = nibble
-uint32_t ADDRESSGENERATOR_DSTADDRESS;			// 21 bit  - LSB = nibble
-
-uint16_t DATAPATH_SRCDATA;
-uint8_t DATAPATH_DSTDATA;
-uint8_t DATAPATH_PATDATA;
-uint16_t DATAPATH_DATAOUT;
-
 /*
 
  Data Path
@@ -571,8 +575,6 @@ uint16_t DATAPATH_DATAOUT;
 
 
 */
-
-uint16_t BLT_INNER_CUR_CNT;
 
 int DoDataPath()
 {
@@ -1335,6 +1337,9 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+extern int useRemoteDebugger;
+extern int pause;
+
 void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 {
 	switch (port)
@@ -1404,6 +1409,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0020:
 			ASIC_BLTCMD=byte;
+			if (useRemoteDebugger)
+			{
+				pause=1;
+			}
 			break;
 		default:
 #if ENABLE_DEBUG
@@ -1600,4 +1609,56 @@ void TickAsicFL1(int cycles)
 	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
 	TickBlitterFL1();
 	TickAsic(cycles,ConvPaletteP88);
+}
+
+void ASIC_INIT()
+{
+	hClock=0;
+	vClock=0;
+	VideoInterruptLatch=0;
+
+	ASIC_KINT=0x00FF;
+	ASIC_STARTL=33;
+	ASIC_STARTH=0;
+	ASIC_SCROLL=0;
+	ASIC_MODE=0;
+	ASIC_BORD=0;
+	ASIC_PMASK=0;
+	ASIC_INDEX=0;
+	ASIC_ENDL=33;
+	ASIC_ENDH=1;
+	ASIC_MEM=0;
+	ASIC_DIAG=0;
+	ASIC_DIS=0;
+	ASIC_BLTCON=0;
+	ASIC_BLTCMD=0;
+	ASIC_BLTPC=0;				// 20 bit address
+	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+
+	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
+	ASIC_BANK1=0;
+	ASIC_BANK2=0;
+	ASIC_BANK3=0;
+
+	BLT_OUTER_SRC_FLAGS=0;
+	BLT_OUTER_DST_FLAGS=0;
+	BLT_OUTER_CMD=0;
+	BLT_OUTER_SRC=0;
+	BLT_OUTER_DST=0;
+	BLT_OUTER_MODE=0;
+	BLT_OUTER_CPLG=0;
+	BLT_OUTER_CNT=0;
+	BLT_INNER_CNT=0;
+	BLT_INNER_STEP=0;
+	BLT_INNER_PAT=0;
+
+	ADDRESSGENERATOR_SRCADDRESS=0;			// 21 bit  - LSB = nibble
+	ADDRESSGENERATOR_DSTADDRESS=0;			// 21 bit  - LSB = nibble
+
+	DATAPATH_SRCDATA=0;
+	DATAPATH_DSTDATA=0;
+	DATAPATH_PATDATA=0;
+	DATAPATH_DATAOUT=0;
+
+	BLT_INNER_CUR_CNT=0;
 }

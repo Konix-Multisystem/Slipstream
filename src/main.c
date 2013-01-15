@@ -23,12 +23,46 @@
 #include "memory.h"
 #include "debugger.h"
 
+ESlipstreamSystem curSystem=ESS_MSU;
+int numClocks;
+int masterClock=0;
+int pause=0;
+int single=0;
+
+extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
+
+int use6MhzP88Cpu=1;
+int emulateDSP=1;
+int useRemoteDebugger=0;
+
+char lastRomLoaded[1024];
+
+
 #include <winsock2.h>
 
 #include <pthread.h>
 #include <unistd.h>
 
-volatile int serverAlive=1;
+extern char remoteDebuggerLog[1024*1024];
+
+pthread_t pth;
+pthread_mutex_t commandSyncMutex;
+
+typedef enum 
+{
+	ERC_None,
+	ERC_Step,
+	ERC_Run,
+	ERC_Pause,
+	ERC_Reset,
+	ERC_Load
+}ERemoteCommand;
+
+volatile ERemoteCommand remoteCommand=ERC_None;
+char param[1024];
+
+
+volatile int serverAlive;
 int list_s;
 int conn_s;
 struct sockaddr_in addr;
@@ -85,7 +119,10 @@ ssize_t WriteCommand(int sockd, const void *vptr, size_t n)
 	    if ( errno == EINTR )
 		nwritten = 0;
 	    else
+	    {
+	    	printf("Whoops\n");
 		return -1;
+		}
 	}
 	nleft  -= nwritten;
 	buffer += nwritten;
@@ -113,32 +150,68 @@ uint32_t GetZ80LinearAddress()
 	}
 	return ASIC_BANK3+(addr&0x3FFF);
 }
-
+	
 void SendStatus(int sock)
 {
-	char tmp[1024];
-	char tmp2[1024];
+	uint32_t address=0;
+	int a;
+	char tmp[32768];
+	char tmp2[32768];
 
 	switch (curSystem)
 	{
 		case ESS_MSU:
-			sprintf(tmp,"Status:MSU%05X\n",SEGTOPHYS(CS,IP)&0xFFFFF);
+			address=SEGTOPHYS(CS,IP)&0xFFFFF;
+			sprintf(tmp,"%s:MSU%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERS8086(tmp2);
 			break;
 		case ESS_P88:
-			sprintf(tmp,"Status:P88%05X\n",SEGTOPHYS(CS,IP)&0xFFFFF);
+			address=SEGTOPHYS(CS,IP)&0xFFFFF;
+			sprintf(tmp,"%s:P88%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERS8086(tmp2);
 			break;
 		case ESS_FL1:
-			sprintf(tmp,"Status:FL1%05X\n",GetZ80LinearAddress()&0xFFFFF);
+			address=GetZ80LinearAddress()&0xFFFFF;
+			sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERSZ80(tmp2);
 			break;
 	}
 	strcat(tmp,"REG\n");
 	strcat(tmp,tmp2);
 	strcat(tmp,"REGEND\n");
+	strcat(tmp,"DIS\n");
+	for (a=0;a<10;a++)
+	{
+		switch (curSystem)
+		{
+			case ESS_MSU:
+			case ESS_P88:
+				address+=FETCH_DISASSEMBLE8086(address,tmp2);
+				break;
+			case ESS_FL1:
+				address+=FETCH_DISASSEMBLEZ80(address,tmp2);
+				break;
+		}
+		strcat(tmp,tmp2);
+	}
+	strcat(tmp,"DISEND\n");
+	if (remoteDebuggerLog[0]!=0)
+	{
+		strcat(tmp,"LOG\n");
+	}
 							
+	sprintf(tmp2,"%08X",strlen(tmp));
+	WriteCommand(conn_s,tmp2,8);
 	WriteCommand(conn_s,tmp,strlen(tmp));
+
+	if (remoteDebuggerLog[0]!=0)
+	{
+		sprintf(tmp2,"%08X",strlen(remoteDebuggerLog));
+		WriteCommand(conn_s,tmp2,8);
+		WriteCommand(conn_s,remoteDebuggerLog,strlen(remoteDebuggerLog));
+		remoteDebuggerLog[0]=0;
+	}
+
 }
 
 void* threadFunc(void* arg)
@@ -157,28 +230,61 @@ void* threadFunc(void* arg)
 			{
 				if (listen(list_s, 1024)!=-1)
 				{
-					if ( (conn_s = accept(list_s, NULL, NULL) ) >= 0 )
+					while (serverAlive)
 					{
-						printf("Connection\n");
-						while (serverAlive)
+						if ( (conn_s = accept(list_s, NULL, NULL) ) >= 0 )
 						{
-							char tmpCom[1025]="";
-							ReadCommand(conn_s,tmpCom,1024);
-
-							if (strcmp(tmpCom,"Status\n")==0)
+							printf("Connection\n");
+							while (serverAlive)
 							{
-								printf("Status request\n");
-								SendStatus(conn_s);
-								ReadCommand(conn_s,tmpCom,1024);
-							}
-							if (strcmp(tmpCon,"Step\n")==0)
-							{
+								if (remoteCommand==ERC_None)
+								{
+									char tmpCom[1025]="";
+									if (ReadCommand(conn_s,tmpCom,1024)==0)
+										break;
+
+									pthread_mutex_lock(&commandSyncMutex);
+
+									if (strcmp(tmpCom,"Status\n")==0)
+									{
+										SendStatus(conn_s);
+									}
+									if (strcmp(tmpCom,"Step\n")==0)
+									{
+										remoteCommand=ERC_Step;
+									}
+									if (strcmp(tmpCom,"Run\n")==0)
+									{
+										remoteCommand=ERC_Run;
+									}
+									if (strcmp(tmpCom,"Pause\n")==0)
+									{
+										remoteCommand=ERC_Pause;
+									}
+									if (strncmp(tmpCom,"Load",4)==0)
+									{
+										strcpy(param,tmpCom+5);
+										param[strlen(param)-1]=0;
+										remoteCommand=ERC_Load;
+									}
+									if (strcmp(tmpCom,"Reset\n")==0)
+									{
+										remoteCommand=ERC_Reset;
+									}
+
+									pthread_mutex_unlock(&commandSyncMutex);
+
+								}
+								else
+								{
+									usleep(100);
+								}
 
 							}
-
+							printf("dropped\n");
+							//usleep(33);
+							closesocket(conn_s);
 						}
-						//usleep(33);
-						closesocket(conn_s);
 					}
 					usleep(10);
 				}
@@ -193,13 +299,14 @@ void* threadFunc(void* arg)
 	return NULL;
 }
 
-pthread_t pth;
 
 void CreateRemoteServer()
 {
     	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
+	serverAlive=1;
+	pthread_mutex_init(&commandSyncMutex,NULL);
 	pthread_create(&pth,NULL,threadFunc,"RemoteSocket");
 }
 
@@ -207,12 +314,9 @@ void CloseRemoteServer()
 {
 	serverAlive=0;
 	pthread_join(pth,NULL);
-
+	pthread_mutex_destroy(&commandSyncMutex);
 	WSACleanup();
 }
-
-ESlipstreamSystem curSystem=ESS_MSU;
-int masterClock=0;
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -284,7 +388,13 @@ int HandleExecuteSection(FILE* inFile)
 int LoadMSU(const char* fname)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
+	strcpy(lastRomLoaded,fname);
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile==NULL)
+	{
+		CONSOLE_OUTPUT("Failed to open %s\n",fname);
+		return 1;
+	}
 	fseek(inFile,0,SEEK_END);
 	expectedSize=ftell(inFile);
 	fseek(inFile,0,SEEK_SET);
@@ -362,11 +472,6 @@ void RESET(void);
 void Z80_RESET(void);
 void Z80_STEP(void);
 
-extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
-
-int use6MhzP88Cpu=1;
-int emulateDSP=1;
-
 void CPU_RESET()
 {
 	RESET();
@@ -397,12 +502,13 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if (Z80_PC==0)//0x1205)
+	if ((GetZ80LinearAddress()&0xFFFFF)==525426)//0x1205)
 	{
-		doDebug=1;
+//		pause=1;
+//		doDebug=1;
 		//debugWatchWrites=1;
 		//debugWatchReads=1;
-		doShowPortStuff=1;
+//		doShowPortStuff=1;
 		//doShowBlits=1;
 		//			numClocks=1;
 	}
@@ -454,7 +560,8 @@ int CPU_STEP(int doDebug)
 
 void Usage()
 {
-	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88\n");
+	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88/program.fl1\n");
+	CONSOLE_OUTPUT("-r [Startup in remote debugger mode]\n");
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
@@ -477,6 +584,11 @@ void ParseCommandLine(int argc,char** argv)
 	{
 		if (argv[a][0]=='-')
 		{
+			if (strcmp(argv[a],"-r")==0)
+			{
+				useRemoteDebugger=1;
+				continue;
+			}
 			if (strcmp(argv[a],"-f")==0)
 			{
 				use6MhzP88Cpu=0;
@@ -529,40 +641,59 @@ void ParseCommandLine(int argc,char** argv)
 	}
 }
 
-int main(int argc,char**argv)
+void ResetHardware()
 {
-	int numClocks;
-
-	CreateRemoteServer();
+	numClocks=0;
+	memset(videoMemory[MAIN_WINDOW],0,WIDTH*HEIGHT*sizeof(unsigned int));
 
 	CPU_RESET();
 	DSP_RESET();
 
+	MEMORY_INIT();
+	ASIC_INIT();
+
 	PALETTE_INIT();
 	DSP_RAM_INIT();
+}
+
+int main(int argc,char**argv)
+{
+
+	videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(WIDTH*HEIGHT*sizeof(unsigned int));
+
+	ResetHardware();
+		
+	CreateRemoteServer();
 
 	ParseCommandLine(argc,argv);
 
-	VECTORS_INIT();
+	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
-	VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
-	KeysIntialise();
-	AudioInitialise(WIDTH*HEIGHT);
+	if (useRemoteDebugger)
+	{
+//		printf("Running in headless mode - CTRL-C to quit\n");
+		pause=1;
+	}
 
+	{
+		VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
+		KeysIntialise();
+		AudioInitialise(WIDTH*HEIGHT);
+	}
 	//////////////////
 	
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
 //	doDebug=1;
 
-	int pause=1;
-	int single=0;
-
 	while (1==1)
 	{
 		if (!pause)
 		{
-			numClocks=CPU_STEP(doDebug);
+			numClocks+=CPU_STEP(doDebug);
+		}
+		if (!pause)
+		{
 			switch (curSystem)
 			{
 				case ESS_MSU:
@@ -578,6 +709,7 @@ int main(int argc,char**argv)
 			masterClock+=numClocks;
 
 			AudioUpdate(numClocks);
+			numClocks=0;
 			if (single)
 			{
 				pause=1;
@@ -591,28 +723,88 @@ int main(int argc,char**argv)
 				masterClock-=WIDTH*HEIGHT;
 			}
 
-			TickKeyboard();
-			if (JoystickPresent())
+			if (useRemoteDebugger)
 			{
-				JoystickPoll();
-			}
-			VideoUpdate();
+				if (remoteCommand!=ERC_None)
+				{
+					char tParam[1024];
+					ERemoteCommand remCom;
 
-			if (CheckKey(GLFW_KEY_ESC))
-			{
-				break;
+					pthread_mutex_lock(&commandSyncMutex);
+
+					remCom=remoteCommand;
+					strcpy(tParam,param);
+					remoteCommand=ERC_None;
+
+					pthread_mutex_unlock(&commandSyncMutex);
+
+					// Check for a command
+
+					switch (remCom)
+					{
+					default:
+						break;
+					case ERC_Run:
+						pause=0;
+						break;
+					case ERC_Pause:
+						pause=1;
+						break;
+					case ERC_Step:
+						pause=0;
+						single=1;
+						break;
+					case ERC_Reset:
+						ResetHardware();
+						LoadMSU(lastRomLoaded);
+						VECTORS_INIT();
+						pause=1;
+						single=0;
+						break;
+					case ERC_Load:
+						ResetHardware();
+						printf("Loading : %s\n",tParam);
+						LoadMSU(tParam);
+						printf("Loaded : %s\n",tParam);
+						VECTORS_INIT();
+						pause=1;
+						single=0;
+						break;
+					}
+				}
 			}
+
+			{
+				TickKeyboard();
+				if (JoystickPresent())
+				{
+					JoystickPoll();
+				}
+				VideoUpdate();
+
+				if (CheckKey(GLFW_KEY_ESC))
+				{
+					ClearKey(GLFW_KEY_ESC);
+					break;
+				}
+				if (CheckKey(GLFW_KEY_END))
+				{
+					pause=0;
+					ClearKey(GLFW_KEY_END);
+				}
 #if !ENABLE_DEBUG
-			VideoWait();
+				VideoWait();
 #endif
+			}
 		}
 	}
+
+	CloseRemoteServer();
 
 	KeysKill();
 	AudioKill();
 	VideoKill();
 
-	CloseRemoteServer();
 
 	return 0;
 }

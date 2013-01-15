@@ -52,8 +52,6 @@ void ShowScreen(int windowNum,int w,int h)
 void setupGL(int windowNum,int w, int h) 
 {
 	videoTexture[windowNum] = windowNum+1;
-	videoMemory[windowNum] = (unsigned char*)malloc(w*h*sizeof(unsigned int));
-	memset(videoMemory[windowNum],0,w*h*sizeof(unsigned int));
 
 	//Tell OpenGL how to convert from coordinates to pixel values
 	glViewport(0, 0, w, h);

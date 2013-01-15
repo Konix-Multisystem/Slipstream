@@ -6,25 +6,56 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "logfile.h"
+
+#include <pthread.h>
 
 #define LOGFILENAME	"OUT.LOG"
 
 FILE* logFile=NULL;
 
+extern int useRemoteDebugger;
+
+char remoteDebuggerLog[1024*1024]={0};
+
+extern pthread_mutex_t commandSyncMutex;
+
 void CONSOLE_OUTPUT(char* fmt,...)
 {
 	va_list args;
 
-	if (logFile==NULL)
+	if (useRemoteDebugger)
 	{
-		logFile=fopen(LOGFILENAME,"w");
-	}
+		char tmpForLog[32768];
+		
+		va_start(args,fmt);
 
-	va_start(args,fmt);
-	vprintf(fmt,args);
-	vfprintf(logFile,fmt,args);
-	va_end(args);
+		vsprintf(tmpForLog,fmt,args);
+		
+		va_end(args);
+
+		pthread_mutex_lock(&commandSyncMutex);
+
+		if (strlen(tmpForLog)<(sizeof(remoteDebuggerLog)-strlen(remoteDebuggerLog)))
+		{
+			strcat(remoteDebuggerLog,tmpForLog);
+		}
+
+		pthread_mutex_unlock(&commandSyncMutex);
+	}
+	else
+	{
+		if (logFile==NULL)
+		{
+			logFile=fopen(LOGFILENAME,"w");
+		}
+
+		va_start(args,fmt);
+		vprintf(fmt,args);
+		vfprintf(logFile,fmt,args);
+		va_end(args);
+	}
 }
 

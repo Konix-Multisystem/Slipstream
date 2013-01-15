@@ -38,4 +38,6 @@
 	extern uint32_t		ASIC_BANK2;
 	extern uint32_t		ASIC_BANK3;
 
+	void ASIC_INIT();
+
 #endif//_ASIC__H

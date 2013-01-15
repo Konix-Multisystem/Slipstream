@@ -934,8 +934,9 @@ const char* decodeDisasm8086(uint8_t *table[256],unsigned int address,int *count
 	return temporaryBuffer;
 }
 
-int Disassemble8086(unsigned int address,int registers)
+int DoDisassemble8086(unsigned int address,int registers,char* tmp)
 {
+	char tBuffer[1024];
 	int a;
 	int numBytes=0;
 	const char* retVal = decodeDisasm8086(DIS_,address,&numBytes,DIS_max_);
@@ -961,24 +962,42 @@ int Disassemble8086(unsigned int address,int registers)
 	{
 		DUMP_REGISTERS8086();
 	}
-	CONSOLE_OUTPUT("%05X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+	sprintf(tmp,"%05X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
 	for (a=0;a<numBytes+1;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PeekByte(address+a));
+		sprintf(tBuffer,"%02X ",PeekByte(address+a));
+		strcat(tmp,tBuffer);
 	}
 	for (a=0;a<8-(numBytes+1);a++)
 	{
-		CONSOLE_OUTPUT("   ");
+		strcat(tmp,"   ");
 	}
-	CONSOLE_OUTPUT("%s\n",retVal);
+	sprintf(tBuffer,"%s\n",retVal);
+	strcat(tmp,tBuffer);
 
 	return numBytes+1;
 }
 
+int Disassemble8086(unsigned int address,int registers)
+{
+	int res;
+	char tmp[2048];
+	res=DoDisassemble8086(address,registers,tmp);
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT(tmp);
+	CONSOLE_OUTPUT("--------\n");
+	return res;
+}
+
+int FETCH_DISASSEMBLE8086(unsigned int address,char* tmp)
+{
+	return DoDisassemble8086(address,0,tmp);
+}
+
 void FETCH_REGISTERSZ80(char* tmp)
 {
-	sprintf(tmp,"--------\nFLAGS = S  Z  -  H  -  P  N  C\n        %s  %s  %s  %s  %s  %s  %s  %s\nAF= %04X\nBC= %04X\nDE= %04X\nHL= %04X\nAF'= %04X\nBC'= %04X\nDE'= %04X\nHL'= %04X\nIX= %04X\nIY= %04X\nIR= %04X\nSP= %04X\n--------\n",
+	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\n",
 			Z80_AF&0x80 ? "1" : "0",
 			Z80_AF&0x40 ? "1" : "0",
 			Z80_AF&0x20 ? "1" : "0",
@@ -1104,8 +1123,9 @@ const char* decodeDisasmZ80(uint8_t *table[256],unsigned int address,int *count,
 	return temporaryBuffer;
 }
 
-int DisassembleZ80(unsigned int address,int registers)
+int DoDisassembleZ80(unsigned int address,int registers,char* tmp)
 {
+	char tBuffer[1024];
 	int a;
 	int numBytes=0;
 	const char* retVal;
@@ -1119,12 +1139,12 @@ int DisassembleZ80(unsigned int address,int registers)
 
 	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
 	{
-		printf("UNKNOWN AT : %04X\n",address);
+		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
 		for (a=0;a<numBytes+1;a++)
 		{
-			printf("%02X ",PeekByteZ80(address+a));
+			CONSOLE_OUTPUT("%02X ",PeekByteZ80(address+a));
 		}
-		printf("\n");
+		CONSOLE_OUTPUT("\n");
 		exit(-1);
 	}
 
@@ -1132,19 +1152,35 @@ int DisassembleZ80(unsigned int address,int registers)
 	{
 		DUMP_REGISTERSZ80();
 	}
-	printf("%04X :",address);
+	sprintf(tmp,"%05X\t",address&0xFFFFF);
 
 	for (a=0;a<numBytes+1;a++)
 	{
-		printf("%02X ",PeekByteZ80(address+a));
+		sprintf(tBuffer,"%02X\t",PeekByteZ80(address+a));
+		strcat(tmp,tBuffer);
 	}
-	for (a=0;a<8-(numBytes+1);a++)
+	for (a=0;a<5-(numBytes+1);a++)
 	{
-		printf("   ");
+		strcat(tmp,"\t");
 	}
-	printf("%s\n",retVal);
+	sprintf(tBuffer,"%s\n",retVal);
+	strcat(tmp,tBuffer);
 
 	return numBytes+1;
+}
+
+int DisassembleZ80(unsigned int address,int registers)
+{
+	int res;
+	char tmp[2048];
+	res=DoDisassembleZ80(address,registers,tmp);
+	CONSOLE_OUTPUT(tmp);
+	return res;
+}
+
+int FETCH_DISASSEMBLEZ80(unsigned int address,char* tmp)
+{
+	return DoDisassembleZ80(address,0,tmp);
 }
 
 #endif
