@@ -356,11 +356,10 @@ void DebugRPort(uint16_t port)
 }
 
 #if ENABLE_DEBUG
-void DUMP_REGISTERS8086()
+
+void FETCH_REGISTERS8086(char* tmp)
 {
-	CONSOLE_OUTPUT("--------\n");
-	CONSOLE_OUTPUT("FLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n");
-	CONSOLE_OUTPUT("        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\n",
+	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
 			FLAGS&0x800 ? "1" : "0",
 			FLAGS&0x400 ? "1" : "0",
 			FLAGS&0x200 ? "1" : "0",
@@ -372,21 +371,15 @@ void DUMP_REGISTERS8086()
 			FLAGS&0x008 ? "1" : "0",
 			FLAGS&0x004 ? "1" : "0",
 			FLAGS&0x002 ? "1" : "0",
-			FLAGS&0x001 ? "1" : "0");
+			FLAGS&0x001 ? "1" : "0",
+			AX,BX,CX,DX,SP,BP,SI,DI,CS,DS,ES,SS);
+}
 
-	CONSOLE_OUTPUT("AX= %04X\n",AX);
-	CONSOLE_OUTPUT("BX= %04X\n",BX);
-	CONSOLE_OUTPUT("CX= %04X\n",CX);
-	CONSOLE_OUTPUT("DX= %04X\n",DX);
-	CONSOLE_OUTPUT("SP= %04X\n",SP);
-	CONSOLE_OUTPUT("BP= %04X\n",BP);
-	CONSOLE_OUTPUT("SI= %04X\n",SI);
-	CONSOLE_OUTPUT("DI= %04X\n",DI);
-	CONSOLE_OUTPUT("CS= %04X\n",CS);
-	CONSOLE_OUTPUT("DS= %04X\n",DS);
-	CONSOLE_OUTPUT("ES= %04X\n",ES);
-	CONSOLE_OUTPUT("SS= %04X\n",SS);
-	CONSOLE_OUTPUT("--------\n");
+void DUMP_REGISTERS8086()
+{
+	char tmp[1024];
+	FETCH_REGISTERS8086(tmp);
+	CONSOLE_OUTPUT(tmp);
 }
 
 const char* GetSReg(int reg)
@@ -983,11 +976,9 @@ int Disassemble8086(unsigned int address,int registers)
 	return numBytes+1;
 }
 
-void DUMP_REGISTERSZ80()
+void FETCH_REGISTERSZ80(char* tmp)
 {
-	printf("--------\n");
-	printf("FLAGS = S  Z  -  H  -  P  N  C\n");
-	printf("        %s  %s  %s  %s  %s  %s  %s  %s\n",
+	sprintf(tmp,"--------\nFLAGS = S  Z  -  H  -  P  N  C\n        %s  %s  %s  %s  %s  %s  %s  %s\nAF= %04X\nBC= %04X\nDE= %04X\nHL= %04X\nAF'= %04X\nBC'= %04X\nDE'= %04X\nHL'= %04X\nIX= %04X\nIY= %04X\nIR= %04X\nSP= %04X\n--------\n",
 			Z80_AF&0x80 ? "1" : "0",
 			Z80_AF&0x40 ? "1" : "0",
 			Z80_AF&0x20 ? "1" : "0",
@@ -995,20 +986,15 @@ void DUMP_REGISTERSZ80()
 			Z80_AF&0x08 ? "1" : "0",
 			Z80_AF&0x04 ? "1" : "0",
 			Z80_AF&0x02 ? "1" : "0",
-			Z80_AF&0x01 ? "1" : "0");
-	printf("AF= %04X\n",Z80_AF);
-	printf("BC= %04X\n",Z80_BC);
-	printf("DE= %04X\n",Z80_DE);
-	printf("HL= %04X\n",Z80_HL);
-	printf("AF'= %04X\n",Z80__AF);
-	printf("BC'= %04X\n",Z80__BC);
-	printf("DE'= %04X\n",Z80__DE);
-	printf("HL'= %04X\n",Z80__HL);
-	printf("IX= %04X\n",Z80_IX);
-	printf("IY= %04X\n",Z80_IY);
-	printf("IR= %04X\n",Z80_IR);
-	printf("SP= %04X\n",Z80_SP);
-	printf("--------\n");
+			Z80_AF&0x01 ? "1" : "0",
+			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP);
+}
+
+void DUMP_REGISTERSZ80()
+{
+	char tmp[1024];
+	FETCH_REGISTERSZ80(tmp);
+	CONSOLE_OUTPUT(tmp);
 }
 
 const char* decodeDisasmZ80(uint8_t *table[256],unsigned int address,int *count,int realLength)

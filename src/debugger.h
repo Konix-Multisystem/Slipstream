@@ -84,5 +84,9 @@ void DebugRPort(uint16_t port);
 int Disassemble8086(unsigned int address,int registers);
 int DisassembleZ80(unsigned int address,int registers);
 
+void FETCH_REGISTERS8086(char* tmp);
+void FETCH_REGISTERSZ80(char* tmp);
+
+
 #endif//_DEBUGGER__H
 

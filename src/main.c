@@ -23,6 +23,194 @@
 #include "memory.h"
 #include "debugger.h"
 
+#include <winsock2.h>
+
+#include <pthread.h>
+#include <unistd.h>
+
+volatile int serverAlive=1;
+int list_s;
+int conn_s;
+struct sockaddr_in addr;
+struct hostent *host;
+
+
+ssize_t ReadCommand(int sockd, void *vptr, size_t maxlen) 
+{
+    ssize_t n, rc;
+    char    c, *buffer;
+
+    buffer = vptr;
+
+    for ( n = 1; n < maxlen; n++ ) {
+	
+	if ( (rc = recv(sockd, &c, 1,0 )) == 1 ) 
+	{
+	    *buffer++ = c;
+	    if ( c == '\n' )
+		break;
+	}
+	else if ( rc == 0 ) 
+	{
+	    if ( n == 1 )
+		return 0;
+	    else
+		break;
+	}
+	else 
+	{
+	    if ( errno == EINTR )
+		continue;
+	    return -1;
+	}
+    }
+
+    *buffer = 0;
+    return n;
+}
+
+ssize_t WriteCommand(int sockd, const void *vptr, size_t n) 
+{
+    size_t      nleft;
+    ssize_t     nwritten;
+    const char *buffer;
+
+    buffer = vptr;
+    nleft  = n;
+
+    while ( nleft > 0 ) 
+    {
+	if ( (nwritten = send(sockd, buffer, nleft,0)) <= 0 ) 
+	{
+	    if ( errno == EINTR )
+		nwritten = 0;
+	    else
+		return -1;
+	}
+	nleft  -= nwritten;
+	buffer += nwritten;
+    }
+
+    return n;
+}
+
+uint32_t GetZ80LinearAddress()
+{
+	uint16_t addr=Z80_PC;
+	switch (addr&0xC000)
+	{
+		case 0x0000:
+			return ASIC_BANK0+(addr&0x3FFF);
+
+		case 0x4000:
+			return ASIC_BANK1+(addr&0x3FFF);
+
+		case 0x8000:
+			return ASIC_BANK2+(addr&0x3FFF);
+		
+		case 0xC000:
+			break;
+	}
+	return ASIC_BANK3+(addr&0x3FFF);
+}
+
+void SendStatus(int sock)
+{
+	char tmp[1024];
+	char tmp2[1024];
+
+	switch (curSystem)
+	{
+		case ESS_MSU:
+			sprintf(tmp,"Status:MSU%05X\n",SEGTOPHYS(CS,IP)&0xFFFFF);
+			FETCH_REGISTERS8086(tmp2);
+			break;
+		case ESS_P88:
+			sprintf(tmp,"Status:P88%05X\n",SEGTOPHYS(CS,IP)&0xFFFFF);
+			FETCH_REGISTERS8086(tmp2);
+			break;
+		case ESS_FL1:
+			sprintf(tmp,"Status:FL1%05X\n",GetZ80LinearAddress()&0xFFFFF);
+			FETCH_REGISTERSZ80(tmp2);
+			break;
+	}
+	strcat(tmp,"REG\n");
+	strcat(tmp,tmp2);
+	strcat(tmp,"REGEND\n");
+							
+	WriteCommand(conn_s,tmp,strlen(tmp));
+}
+
+void* threadFunc(void* arg)
+{
+	if ((list_s=socket(AF_INET,SOCK_STREAM,0))>=0)
+	{
+		
+		memset(&addr, 0, sizeof(addr));
+		host = gethostbyname("localhost");
+		if (host)
+		{
+			memcpy(&addr.sin_addr, host->h_addr_list[0], sizeof(host->h_addr_list[0]));
+			addr.sin_family = AF_INET;
+			addr.sin_port   = htons(45454);
+			if (bind(list_s, (struct sockaddr *)&addr, sizeof(addr))!=-1)
+			{
+				if (listen(list_s, 1024)!=-1)
+				{
+					if ( (conn_s = accept(list_s, NULL, NULL) ) >= 0 )
+					{
+						printf("Connection\n");
+						while (serverAlive)
+						{
+							char tmpCom[1025]="";
+							ReadCommand(conn_s,tmpCom,1024);
+
+							if (strcmp(tmpCom,"Status\n")==0)
+							{
+								printf("Status request\n");
+								SendStatus(conn_s);
+								ReadCommand(conn_s,tmpCom,1024);
+							}
+							if (strcmp(tmpCon,"Step\n")==0)
+							{
+
+							}
+
+						}
+						//usleep(33);
+						closesocket(conn_s);
+					}
+					usleep(10);
+				}
+			}
+		}
+		closesocket(list_s);
+	}
+	else
+	{
+		printf("Failed to create socket!");
+	}
+	return NULL;
+}
+
+pthread_t pth;
+
+void CreateRemoteServer()
+{
+    	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	pthread_create(&pth,NULL,threadFunc,"RemoteSocket");
+}
+
+void CloseRemoteServer()
+{
+	serverAlive=0;
+	pthread_join(pth,NULL);
+
+	WSACleanup();
+}
+
 ESlipstreamSystem curSystem=ESS_MSU;
 int masterClock=0;
 
@@ -345,6 +533,8 @@ int main(int argc,char**argv)
 {
 	int numClocks;
 
+	CreateRemoteServer();
+
 	CPU_RESET();
 	DSP_RESET();
 
@@ -365,28 +555,41 @@ int main(int argc,char**argv)
 //	debugWatchWrites=1;
 //	doDebug=1;
 
+	int pause=1;
+	int single=0;
+
 	while (1==1)
 	{
-		numClocks=CPU_STEP(doDebug);
-		switch (curSystem)
+		if (!pause)
 		{
-			case ESS_MSU:
-				TickAsicMSU(numClocks);
-				break;
-			case ESS_P88:
-				TickAsicP88(numClocks);
-				break;
-			case ESS_FL1:
-				TickAsicFL1(numClocks);
-				break;
+			numClocks=CPU_STEP(doDebug);
+			switch (curSystem)
+			{
+				case ESS_MSU:
+					TickAsicMSU(numClocks);
+					break;
+				case ESS_P88:
+					TickAsicP88(numClocks);
+					break;
+				case ESS_FL1:
+					TickAsicFL1(numClocks);
+					break;
+			}
+			masterClock+=numClocks;
+
+			AudioUpdate(numClocks);
+			if (single)
+			{
+				pause=1;
+				single=0;
+			}
 		}
-		masterClock+=numClocks;
-
-		AudioUpdate(numClocks);
-
-		if (masterClock>=WIDTH*HEIGHT)
+		if (masterClock>=WIDTH*HEIGHT || pause)
 		{	
-			masterClock-=WIDTH*HEIGHT;
+			if (masterClock>=WIDTH*HEIGHT)
+			{
+				masterClock-=WIDTH*HEIGHT;
+			}
 
 			TickKeyboard();
 			if (JoystickPresent())
@@ -399,11 +602,6 @@ int main(int argc,char**argv)
 			{
 				break;
 			}
-			if (CheckKey(GLFW_KEY_END))
-			{
-//				doDebug=1;
-				ClearKey(GLFW_KEY_END);
-			}
 #if !ENABLE_DEBUG
 			VideoWait();
 #endif
@@ -413,6 +611,8 @@ int main(int argc,char**argv)
 	KeysKill();
 	AudioKill();
 	VideoKill();
+
+	CloseRemoteServer();
 
 	return 0;
 }

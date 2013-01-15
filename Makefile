@@ -6,7 +6,7 @@ EDL=../edl/bin/edl.exe
 
 COMPILER=gcc
 
-ENABLE_DEBUG=0
+ENABLE_DEBUG=1
 ENABLE_GPROF=0
 DISABLE_AUDIO=0
 DISABLE_DSP=0
@@ -98,5 +98,5 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
 slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -o slipstream.exe
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
 
