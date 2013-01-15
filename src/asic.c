@@ -32,6 +32,8 @@
 #define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #endif
 
+extern unsigned char PALETTE[256*2];
+
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
 
@@ -39,7 +41,7 @@ int hClock=0;
 int vClock=0;
 int VideoInterruptLatch=0;
 
-int doShowBlits=1;
+int doShowBlits=0;
 
 // Current ASIC registers
 
@@ -59,7 +61,7 @@ uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
 uint8_t		ASIC_BLTCMD=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
-uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+uint32_t	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
 uint32_t	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
 uint32_t	ASIC_BANK1=0;
@@ -86,6 +88,8 @@ void DoBlit();
 
 void TickBlitterMSU()								// TODO - make this more modular!!!
 {
+	if (ASIC_BLTCMD & 1)
+	{
 	// Step one, make the blitter "free"
 #if ENABLE_DEBUG_BLITTER
 	if (doShowBlits)
@@ -101,9 +105,8 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 	}
 #endif
 
-	if (ASIC_BLTCMD & 1)
-	{
 		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of MSU version!!
+		ASIC_BLTCMD=0;
 
 		do
 		{
@@ -201,6 +204,8 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 
 void TickBlitterP88()
 {
+	if (ASIC_BLTCMD & 1)
+	{
 	// Step one, make the blitter "free"
 #if ENABLE_DEBUG_BLITTER
 	if (doShowBlits)
@@ -216,9 +221,8 @@ void TickBlitterP88()
 	}
 #endif
 
-	if (ASIC_BLTCMD & 1)
-	{
 		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command	
+		ASIC_BLTCMD=0;
 
 		do
 		{
@@ -364,53 +368,17 @@ void TickBlitterP88()
 
 void TickBlitterFL1()
 {
-	// Step one, make the blitter "free"
-#if ENABLE_DEBUG_BLITTER
-	if (doShowBlits)
-	{
-		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
-			ASIC_BLTCMD&0x02?1:0,
-			ASIC_BLTCMD&0x04?1:0,
-			ASIC_BLTCMD&0x08?1:0,
-			ASIC_BLTCMD&0x10?1:0,
-			ASIC_BLTCMD&0x20?1:0,
-			ASIC_BLTCMD&0x40?1:0,
-			ASIC_BLTCMD&0x80?1:0);
-	}
-#endif
+	// Flare One blitter seems to be quite different - Going to try some hackery to make it work on a case by case basis for now
 
 	if (ASIC_BLTCMD & 1)
 	{
+	// Step one, make the blitter "free"
 		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command	
+		ASIC_BLTCMD=0;
 
 		do
 		{
-#if ENABLE_DEBUG_BLITTER
-		if (doShowBlits)
-		{
-			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
-				BLT_OUTER_CMD&0x02?1:0,
-				BLT_OUTER_CMD&0x04?1:0,
-				BLT_OUTER_CMD&0x08?1:0,
-				BLT_OUTER_CMD&0x10?1:0,
-				BLT_OUTER_CMD&0x20?1:0,
-				BLT_OUTER_CMD&0x40?1:0,
-				BLT_OUTER_CMD&0x80?1:0);
-		}
-
-		if (BLT_OUTER_CMD&0x02)
-		{
-			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
-			exit(1);
-		}
-
-
-		if (doShowBlits)
-		{
-			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
-		}
-#endif
-
+	
 		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
@@ -452,58 +420,103 @@ void TickBlitterFL1()
 		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 
-
-#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
-			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
-				BLT_OUTER_CMD&0x02?1:0,
-				BLT_OUTER_CMD&0x04?1:0,
-				BLT_OUTER_CMD&0x08?1:0,
-				BLT_OUTER_CMD&0x10?1:0,
-				BLT_OUTER_CMD&0x20?1:0,
-				BLT_OUTER_CMD&0x40?1:0,
-				BLT_OUTER_CMD&0x80?1:0);
+			CONSOLE_OUTPUT("CMD %02X  (PARD - %s)\n",BLT_OUTER_CMD&0xFB,(BLT_OUTER_CMD&0x04)?"yes":"no");
+
 			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
-			CONSOLE_OUTPUT("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
-				BLT_OUTER_SRC_FLAGS&0x10?1:0,
-				BLT_OUTER_SRC_FLAGS&0x20?1:0,
-				BLT_OUTER_SRC_FLAGS&0x40?1:0,
-				BLT_OUTER_SRC_FLAGS&0x80?1:0);
+			CONSOLE_OUTPUT("Src Flags : %01X\n",((BLT_OUTER_SRC_FLAGS&0xF0)>>4));
 			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			CONSOLE_OUTPUT("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
-				BLT_OUTER_DST_FLAGS&0x10?1:0,
-				BLT_OUTER_DST_FLAGS&0x20?1:0,
-				BLT_OUTER_DST_FLAGS&0x40?1:0,
-				BLT_OUTER_DST_FLAGS&0x80?1:0);
-			CONSOLE_OUTPUT("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
-				BLT_OUTER_MODE&0x01?1:0,
-				BLT_OUTER_MODE&0x02?1:0,
-				BLT_OUTER_MODE&0x04?1:0,
-				BLT_OUTER_MODE&0x08?1:0,
-				BLT_OUTER_MODE&0x10?1:0,
-				BLT_OUTER_MODE&0x20?1:0,
-				BLT_OUTER_MODE&0x40?1:0,
-				BLT_OUTER_MODE&0x80?1:0);
-			CONSOLE_OUTPUT("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
-				BLT_OUTER_CPLG&0x01?1:0,
-				BLT_OUTER_CPLG&0x02?1:0,
-				BLT_OUTER_CPLG&0x04?1:0,
-				BLT_OUTER_CPLG&0x08?1:0,
-				BLT_OUTER_CPLG&0x10?1:0,
-				BLT_OUTER_CPLG&0x20?1:0,
-				BLT_OUTER_CPLG&0x40?1:0,
-				BLT_OUTER_CPLG&0x80?1:0);
+			CONSOLE_OUTPUT("Dst Flags : %01X\n",((BLT_OUTER_DST_FLAGS&0xF0)>>4));
+			CONSOLE_OUTPUT("MODE : %02X\n",BLT_OUTER_MODE);
+			CONSOLE_OUTPUT("CPLG : %02X\n",BLT_OUTER_CPLG);
 			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
 			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
 			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
 			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
-
-			//getch();
 		}
-#endif
 
+		// Unlike other blitters, for now we hardware in a set of known blitter operations
+		switch (BLT_OUTER_CMD&0xFB)			// 0x04 is definately still PARD
+		{
+			default:
+				CONSOLE_OUTPUT("wrn - Unknown BLTCMD\n");
+				break;
+			case 0x21:
+			case 0x31:
+				// Appears to be block copy
+				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
+				{
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
+				}
 
+				BLT_OUTER_CMD=0x31 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_MODE=0x20;
+				BLT_OUTER_SRC_FLAGS=0;
+				BLT_OUTER_DST_FLAGS=0;
+				if (BLT_INNER_CNT==0)
+				{
+					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
+				}
+				DoBlit();
+				break;
+			case 0x71:
+				// Used when doing Mode 4
+				if (BLT_OUTER_MODE!=0x04)
+				{
+					CONSOLE_OUTPUT("wrn - 0x71 command but mode not set to known value");
+					break;
+				}
+				else
+				{
+					BLT_OUTER_CMD=0x91 | (BLT_OUTER_CMD&0x04);
+					BLT_OUTER_MODE=0xA4;
+					BLT_OUTER_SRC_FLAGS=0;
+					BLT_OUTER_DST_FLAGS=0;
+					if (BLT_INNER_CNT==0)
+					{
+						BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
+					}
+					DoBlit();
+				}
+				break;
+			case 0x41:
+			case 0x51:
+				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
+				{
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
+				}
+				// Appears to be byte fill  -- assume cnts are 8bit not 9
+				BLT_OUTER_CMD=0x11 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_MODE=0x20;
+				BLT_OUTER_SRC_FLAGS=0;
+				BLT_OUTER_DST_FLAGS=0;
+				if (BLT_INNER_CNT==0)
+				{
+					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
+				}
+				DoBlit();
+				break;
+			case 0xC1:
+				if ((BLT_OUTER_MODE&0x1F)!=0)
+				{
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
+				}
+				// Line Drawing
+				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
+				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
+				BLT_OUTER_CMD=0x01 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_MODE=0x28 | (BLT_OUTER_MODE&0x20?0x10:0x00);
+				if (BLT_INNER_CNT==0)
+				{
+					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
+				}
+				DoBlit();
+				break;
+
+		}
+
+/*
 		// TEST
 
 		BLT_OUTER_SRC_FLAGS=BLT_OUTER_MODE;
@@ -518,74 +531,10 @@ void TickBlitterFL1()
 
 		BLT_OUTER_SRC_FLAGS=0;//(BLT_OUTER_MODE&0x80) ? 0x40 : 0x00;
 		BLT_OUTER_DST_FLAGS=0;//(BLT_OUTER_MODE&0x40) ? 0x40 : 0x00;
-
-/*
-#if ENABLE_DEBUG_BLITTER
-		if (doShowBlits)
-		{
-			CONSOLE_OUTPUT("BLIT CMD : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
-				BLT_OUTER_CMD&0x02?1:0,
-				BLT_OUTER_CMD&0x04?1:0,
-				BLT_OUTER_CMD&0x08?1:0,
-				BLT_OUTER_CMD&0x10?1:0,
-				BLT_OUTER_CMD&0x20?1:0,
-				BLT_OUTER_CMD&0x40?1:0,
-				BLT_OUTER_CMD&0x80?1:0);
-			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
-			CONSOLE_OUTPUT("Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
-				BLT_OUTER_SRC_FLAGS&0x10?1:0,
-				BLT_OUTER_SRC_FLAGS&0x20?1:0,
-				BLT_OUTER_SRC_FLAGS&0x40?1:0,
-				BLT_OUTER_SRC_FLAGS&0x80?1:0);
-			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			CONSOLE_OUTPUT("Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
-				BLT_OUTER_DST_FLAGS&0x10?1:0,
-				BLT_OUTER_DST_FLAGS&0x20?1:0,
-				BLT_OUTER_DST_FLAGS&0x40?1:0,
-				BLT_OUTER_DST_FLAGS&0x80?1:0);
-			CONSOLE_OUTPUT("BLT_MODE : STEP-1 (%d) , ILCNT (%d) , CMPBIT (%d) , LINDR (%d) , YFRAC (%d) , RES0 (%d) , RES1 (%d), PATSEL (%d)\n",
-				BLT_OUTER_MODE&0x01?1:0,
-				BLT_OUTER_MODE&0x02?1:0,
-				BLT_OUTER_MODE&0x04?1:0,
-				BLT_OUTER_MODE&0x08?1:0,
-				BLT_OUTER_MODE&0x10?1:0,
-				BLT_OUTER_MODE&0x20?1:0,
-				BLT_OUTER_MODE&0x40?1:0,
-				BLT_OUTER_MODE&0x80?1:0);
-			CONSOLE_OUTPUT("BLT_COMP : CMPEQ (%d) , CMPNE (%d) , CMPGT (%d) , CMPLN (%d) , LOG0 (%d) , LOG1 (%d) , LOG2 (%d), LOG3 (%d)\n",
-				BLT_OUTER_CPLG&0x01?1:0,
-				BLT_OUTER_CPLG&0x02?1:0,
-				BLT_OUTER_CPLG&0x04?1:0,
-				BLT_OUTER_CPLG&0x08?1:0,
-				BLT_OUTER_CPLG&0x10?1:0,
-				BLT_OUTER_CPLG&0x20?1:0,
-				BLT_OUTER_CPLG&0x40?1:0,
-				BLT_OUTER_CPLG&0x80?1:0);
-			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
-			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
-			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
-			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
-
-			//getch();
-		}
-#endif*/
-		DoBlit();
+*/
 
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
-#if ENABLE_DEBUG_BLITTER
-		if (doShowBlits)
-		{
-			CONSOLE_OUTPUT("Next Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
-				BLT_OUTER_CMD&0x02?1:0,
-				BLT_OUTER_CMD&0x04?1:0,
-				BLT_OUTER_CMD&0x08?1:0,
-				BLT_OUTER_CMD&0x10?1:0,
-				BLT_OUTER_CMD&0x20?1:0,
-				BLT_OUTER_CMD&0x40?1:0,
-				BLT_OUTER_CMD&0x80?1:0);
-		}
-#endif
 		}
 		while (BLT_OUTER_CMD&1);
 
@@ -1017,6 +966,35 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 		if (outerCnt==0)
 			break;
 
+		if (BLT_OUTER_CMD&0x04)
+		{
+			BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+
+			BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+
+			BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+			ASIC_BLTPC++;
+	
+#if ENABLE_DEBUG_BLITTER
+			if (doShowBlits)
+			{
+				CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+				CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+				CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+			}
+#endif
+
+			step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+			length = BLT_INNER_CNT;
+
+			//Not clear if reloaded for between blocks (but for now assume it is)
+			DATAPATH_SRCDATA=BLT_INNER_PAT|(BLT_INNER_PAT<<8);
+			DATAPATH_DSTDATA=BLT_INNER_PAT;
+			DATAPATH_PATDATA=BLT_INNER_PAT;
+		}
+
 		if (BLT_OUTER_CMD&0x10)				//DSTUP
 		{
 			AddressGeneratorDestinationStep(step);			// Should never reach here in line mode!
@@ -1147,6 +1125,14 @@ void DoBlit()
 	}
 }
 
+void TickBlitter()
+{
+	if (BLT_OUTER_CMD&0x01)
+	{
+		DoBlit();
+	}
+}
+
 void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 {
 	switch (port)
@@ -1221,7 +1207,6 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0043:
 			ASIC_BLTCMD=byte;
-			TickBlitterMSU();
 			break;
 		case 0x0044:
 			ASIC_BLTCON=byte;
@@ -1333,7 +1318,6 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0033:
 			ASIC_BLTCMD=byte;
-			TickBlitterP88();
 			break;
 		case 0x0034:
 			ASIC_BLTCON=byte;
@@ -1365,6 +1349,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0008:			// CMD1 - bit 2 (msb of line interrupt), bit 6 (which screen is visible)
 			ASIC_KINT&=0xFEFF;
 			ASIC_KINT|=(byte&0x04)<<6;
+			if (byte&0xBB)
+			{
+				CONSOLE_OUTPUT("Unknown CMD1 bits set : %02X\n",byte&0xBB);
+			}
 			CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
 
 			ASIC_SCROLL&=0x0000FFFF;
@@ -1380,8 +1368,13 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			}
 			break;
 		case 0x0009:			// CMD2 - bit 0 (mode 16/256 colour)
-			ASIC_MODE&=0xFE;
-			ASIC_MODE|=~(byte&0x01);
+			ASIC_MODE&=0xDE;
+			ASIC_MODE|=((~byte)&0x01);
+			ASIC_MODE|=((byte&0x08)<<2);
+			if (byte&0xF6)
+			{
+				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0xF6);
+			}
 			break;
 		case 0x000A:
 			ASIC_BORD=byte;		// BORD
@@ -1395,7 +1388,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_SCROLL|=byte<<8;
 			break;
 		case 0x000D:
-			ASIC_COLHOLD=byte;
+			ASIC_COLHOLD=RGB444_RGB8(((PALETTE[byte*2+1]<<8)|PALETTE[byte*2]));
 			break;
 		case 0x0018:
 			ASIC_BLTPC&=0xFFF00;
@@ -1411,7 +1404,6 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0020:
 			ASIC_BLTCMD=byte;
-			TickBlitterFL1();			// Flare 1 has simpler blitter, hopefully i can map register settings across for the most part
 			break;
 		default:
 #if ENABLE_DEBUG
@@ -1476,7 +1468,6 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 //  active display is 33 to 288 vertical		-- From documentation
 //
 
-extern unsigned char PALETTE[256*2];
 
 uint8_t PeekByte(uint32_t addr);
 
@@ -1510,6 +1501,8 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 	uint32_t screenPtr = ASIC_SCROLL;
+	static uint32_t lastCol;
+	uint32_t curCol;
 	uint32_t wrapOffset;
 	uint16_t StartL = ((ASIC_STARTH&1)<<8)|ASIC_STARTL;
 	uint16_t EndL = ((ASIC_ENDH&1)<<8)|ASIC_ENDL;
@@ -1555,7 +1548,16 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 
 					break;
 			}
-			*outputTexture++=conv(palEntry);
+			curCol=conv(palEntry);
+			if ((ASIC_MODE&0x20) && (curCol==ASIC_COLHOLD))
+			{
+				*outputTexture++ = lastCol;
+			}
+			else
+			{
+				*outputTexture++=curCol;
+				lastCol=curCol;
+			}
 		}
 		else
 		{
@@ -1583,16 +1585,19 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 
 void TickAsicMSU(int cycles)
 {
+	TickBlitterMSU();
 	TickAsic(cycles,ConvPaletteMSU);
 }
 
 void TickAsicP88(int cycles)
 {
+	TickBlitterP88();
 	TickAsic(cycles,ConvPaletteP88);
 }
 
 void TickAsicFL1(int cycles)
 {
 	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
+	TickBlitterFL1();
 	TickAsic(cycles,ConvPaletteP88);
 }

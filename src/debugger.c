@@ -227,7 +227,7 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("CMD1 - (bit 2 is msb of INTL? , bit 6 indicates which of the 2 screen banks is visible) ... rest unknown)\n");
 					break;
 				case 0x0009:
-					CONSOLE_OUTPUT("CMD2 - (bit 0 is lo/hi res select (could be MODE register))\n");
+					CONSOLE_OUTPUT("CMD2 - (bit 0 is lo/hi res select (could be MODE register),bit 3 is Colour Hold Mode)\n");
 					break;
 				case 0x000A:
 					CONSOLE_OUTPUT("BORDER - (presumably palette index - but palette might be formed directly from index\n");
