@@ -37,6 +37,7 @@ int useRemoteDebugger=0;
 
 char lastRomLoaded[1024];
 
+#if ENABLE_DEBUG
 
 #include <winsock2.h>
 
@@ -317,6 +318,7 @@ void CloseRemoteServer()
 	pthread_mutex_destroy(&commandSyncMutex);
 	WSACleanup();
 }
+#endif
 
 int HandleLoadSection(FILE* inFile)
 {
@@ -502,12 +504,12 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if ((GetZ80LinearAddress()&0xFFFFF)==525426)//0x1205)
+	if (((GetZ80LinearAddress()&0xFFFFF)==0x40704) && !(Z80_HALTED&1))
 	{
 //		pause=1;
 //		doDebug=1;
-		//debugWatchWrites=1;
-		//debugWatchReads=1;
+//		debugWatchWrites=1;
+//		debugWatchReads=1;
 //		doShowPortStuff=1;
 		//doShowBlits=1;
 		//			numClocks=1;
@@ -663,17 +665,21 @@ int main(int argc,char**argv)
 
 	ResetHardware();
 		
+#if ENABLE_DEBUG
 	CreateRemoteServer();
+#endif
 
 	ParseCommandLine(argc,argv);
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
+#if ENABLE_DEBUG
 	if (useRemoteDebugger)
 	{
 //		printf("Running in headless mode - CTRL-C to quit\n");
 		pause=1;
 	}
+#endif
 
 	{
 		VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
@@ -722,7 +728,7 @@ int main(int argc,char**argv)
 			{
 				masterClock-=WIDTH*HEIGHT;
 			}
-
+#if ENABLE_DEBUG
 			if (useRemoteDebugger)
 			{
 				if (remoteCommand!=ERC_None)
@@ -773,7 +779,7 @@ int main(int argc,char**argv)
 					}
 				}
 			}
-
+#endif
 			{
 				TickKeyboard();
 				if (JoystickPresent())
@@ -799,7 +805,9 @@ int main(int argc,char**argv)
 		}
 	}
 
+#if ENABLE_DEBUG
 	CloseRemoteServer();
+#endif
 
 	KeysKill();
 	AudioKill();

@@ -16,16 +16,19 @@
 
 FILE* logFile=NULL;
 
+#if ENABLE_DEBUG
 extern int useRemoteDebugger;
 
 char remoteDebuggerLog[1024*1024]={0};
 
 extern pthread_mutex_t commandSyncMutex;
+#endif
 
 void CONSOLE_OUTPUT(char* fmt,...)
 {
 	va_list args;
 
+#if ENABLE_DEBUG
 	if (useRemoteDebugger)
 	{
 		char tmpForLog[32768];
@@ -46,6 +49,7 @@ void CONSOLE_OUTPUT(char* fmt,...)
 		pthread_mutex_unlock(&commandSyncMutex);
 	}
 	else
+#endif
 	{
 		if (logFile==NULL)
 		{

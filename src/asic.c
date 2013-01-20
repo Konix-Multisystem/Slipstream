@@ -432,6 +432,7 @@ void TickBlitterFL1()
 		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 
+#if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("CMD %02X  (PARD - %s)\n",BLT_OUTER_CMD&0xFB,(BLT_OUTER_CMD&0x04)?"yes":"no");
@@ -447,6 +448,7 @@ void TickBlitterFL1()
 			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
 			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
 		}
+#endif
 
 		// Unlike other blitters, for now we hardware in a set of known blitter operations
 		switch (BLT_OUTER_CMD&0xFB)			// 0x04 is definately still PARD
@@ -1358,18 +1360,24 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			{
 				CONSOLE_OUTPUT("Unknown CMD1 bits set : %02X\n",byte&0xBB);
 			}
+#if ENABLE_DEBUG
 			CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
+#endif
 
 			ASIC_SCROLL&=0x0000FFFF;
 			if (byte&0x40)
 			{
 				ASIC_SCROLL|=0x00030000;
+#if ENABLE_DEBUG
 				CONSOLE_OUTPUT("Visible screen is at Bank 3\n");
+#endif
 			}
 			else
 			{
 				ASIC_SCROLL|=0x00020000;
+#if ENABLE_DEBUG
 				CONSOLE_OUTPUT("Visible screen is at Bank 2\n");
+#endif
 			}
 			break;
 		case 0x0009:			// CMD2 - bit 0 (mode 16/256 colour)
