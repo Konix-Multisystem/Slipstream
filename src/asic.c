@@ -63,6 +63,19 @@ uint8_t		ASIC_BLTCMD=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint32_t	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
+uint8_t		ASIC_PROGCNT=0;		// FL1 Only
+uint16_t	ASIC_PROGWRD=0;
+uint16_t	ASIC_PROGADDR=0;
+uint16_t	ASIC_INTRA=0;
+uint16_t	ASIC_INTRD=0;
+uint8_t		ASIC_INTRCNT=0;
+
+uint8_t		ASIC_PALAW=0;		// FL1 Palette Board Extension
+uint32_t	ASIC_PALVAL=0;
+uint8_t		ASIC_PALCNT=0;
+uint8_t		ASIC_PALMASK=0xFF;
+
+
 uint32_t	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
 uint32_t	ASIC_BANK1=0;
 uint32_t	ASIC_BANK2=0;
@@ -1338,6 +1351,7 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 	}
 }
+void FL1DSP_POKE(uint16_t,uint16_t);
 
 extern int useRemoteDebugger;
 extern int pause;
@@ -1403,6 +1417,52 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x000D:
 			ASIC_COLHOLD=RGB444_RGB8(((PALETTE[byte*2+1]<<8)|PALETTE[byte*2]));
 			break;
+		case 0x0010:
+			ASIC_INTRCNT=(~ASIC_INTRCNT)&1;
+			ASIC_INTRD>>=8;
+			ASIC_INTRD|=byte<<8;
+			if (ASIC_INTRCNT==0)
+			{
+#if ENABLE_DEBUG
+				CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+#endif
+				FL1DSP_POKE(ASIC_INTRA,ASIC_INTRD);
+			}
+			break;
+		case 0x0011:
+			ASIC_INTRCNT=(~ASIC_INTRCNT)&1;
+			ASIC_INTRD>>=8;
+			ASIC_INTRD|=byte<<8;
+			if (ASIC_INTRCNT==0)
+			{
+#if ENABLE_DEBUG
+				CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+#endif
+				FL1DSP_POKE(ASIC_INTRA,ASIC_INTRD);
+				ASIC_INTRA++;		// Post Increment Intrude
+			}
+			break;
+		case 0x0012:
+			ASIC_INTRA>>=8;
+			ASIC_INTRA|=byte<<8;
+			break;
+		case 0x0013:
+			ASIC_PROGCNT=(~ASIC_PROGCNT)&1;
+			ASIC_PROGWRD>>=8;
+			ASIC_PROGWRD|=byte<<8;
+			if (ASIC_PROGCNT==0)
+			{
+#if ENABLE_DEBUG
+				CONSOLE_OUTPUT("Load DSP Program %04X <- %04X\n",ASIC_PROGADDR,ASIC_PROGWRD);
+				DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
+#endif
+				FL1DSP_POKE(0x800+ASIC_PROGADDR,ASIC_PROGWRD);
+			}
+			break;
+		case 0x0015:
+			ASIC_PROGADDR>>=8;
+			ASIC_PROGADDR|=byte<<8;
+			break;
 		case 0x0018:
 			ASIC_BLTPC&=0xFFF00;
 			ASIC_BLTPC|=byte;
@@ -1419,7 +1479,29 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_BLTCMD=byte;
 			if (useRemoteDebugger)
 			{
-				pause=1;
+				//pause=1;
+			}
+		case 0x0050:
+			ASIC_PALAW=byte;
+			break;
+		case 0x0051:
+			ASIC_PALVAL<<=8;
+			ASIC_PALVAL|=byte;
+			ASIC_PALVAL&=0x00FFFFFF;
+			ASIC_PALCNT++;
+			if (ASIC_PALCNT==3)
+			{
+				ASIC_PALCNT=0;
+				CONSOLE_OUTPUT("New Palette Written : %08X\n",ASIC_PALVAL);
+				PALETTE[ASIC_PALAW*2+0]=((ASIC_PALVAL&0x3F)>>2)|((ASIC_PALVAL&0x3C00)>>6);
+				PALETTE[ASIC_PALAW*2+1]=ASIC_PALVAL>>(16+2);
+			}
+			break;
+		case 0x0052:
+			ASIC_PALMASK=byte;
+			if (byte!=255)
+			{
+				CONSOLE_OUTPUT("Unknown PALMASK value of : %02X\n",byte);
 			}
 			break;
 		default:
@@ -1464,6 +1546,8 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 		case 0x0007:		// INTACK
 			VideoInterruptLatch=0;
 			return 0;
+		case 0x0014:		// RUNST
+			return 0;			// Temporary -known bottom 3 bits are intrude status
 		default:
 			if (warnIgnore)
 			{
@@ -1512,7 +1596,7 @@ void DoScreenInterrupt()
 	}
 }
 
-void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
+void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 {
 	uint8_t palIndex;
 	uint16_t palEntry;
@@ -1529,7 +1613,14 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 
 	while (cycles)
 	{
-		TickDSP();
+		if (fl1)
+		{
+			TickFL1DSP();
+		}
+		else
+		{
+			TickDSP();
+		}
 
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
@@ -1603,20 +1694,20 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 void TickAsicMSU(int cycles)
 {
 	TickBlitterMSU();
-	TickAsic(cycles,ConvPaletteMSU);
+	TickAsic(cycles,ConvPaletteMSU,0);
 }
 
 void TickAsicP88(int cycles)
 {
 	TickBlitterP88();
-	TickAsic(cycles,ConvPaletteP88);
+	TickAsic(cycles,ConvPaletteP88,0);
 }
 
 void TickAsicFL1(int cycles)
 {
 	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
 	TickBlitterFL1();
-	TickAsic(cycles,ConvPaletteP88);
+	TickAsic(cycles,ConvPaletteP88,1);
 }
 
 void ASIC_INIT()
@@ -1642,6 +1733,18 @@ void ASIC_INIT()
 	ASIC_BLTCMD=0;
 	ASIC_BLTPC=0;				// 20 bit address
 	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+
+	ASIC_PROGCNT=0;
+	ASIC_PROGWRD=0;
+	ASIC_PROGADDR=0;
+	ASIC_INTRA=0;
+	ASIC_INTRD=0;
+	ASIC_INTRCNT=0;
+
+	ASIC_PALAW=0;
+	ASIC_PALVAL=0;
+	ASIC_PALCNT=0;
+	ASIC_PALMASK=0xFF;
 
 	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
 	ASIC_BANK1=0;

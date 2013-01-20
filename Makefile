@@ -54,6 +54,13 @@ out/slipDSP.lls: src/chips/slipDSP.edl
 out/slipDSP.lls.s: out/slipDSP.lls
 	llc -O3 out/slipDSP.lls
 
+out/flare1DSP.lls: src/chips/flare1DSP.edl
+	mkdir -p out
+	$(EDL) $(DISASSM) -O2 -s FL1DSP_ src/chips/flare1DSP.edl >out/flare1DSP.lls
+
+out/flare1DSP.lls.s: out/flare1DSP.lls
+	llc -O3 out/flare1DSP.lls
+
 out/z80.lls: src/chips/z80.edl
 	mkdir -p out
 	$(EDL) $(DISASSM) -O2 -s Z80_ src/chips/z80.edl >out/z80.lls
@@ -97,6 +104,6 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
 

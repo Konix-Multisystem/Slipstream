@@ -218,7 +218,7 @@ void DebugWPort(uint16_t port)
 			switch (port)
 			{
 				case 0x0014:
-					CONSOLE_OUTPUT("runst - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
+					CONSOLE_OUTPUT("RUNST - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
 					break;
 				case 0x0007:
 					CONSOLE_OUTPUT("INTREG - low 8 bits of interrupt line\n");
@@ -237,6 +237,12 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x000C:
 					CONSOLE_OUTPUT("SCRLV - vertical scroll register\n");
+					break;
+				case 0x0013:
+					CONSOLE_OUTPUT("MPROG - dsp program word register (double write)\n");
+					break;
+				case 0x0015:
+					CONSOLE_OUTPUT("PROGRAM - dsp program address register (double write)\n");
 					break;
 				case 0x0018:
 					CONSOLE_OUTPUT("BLTPC (byte 0)\n");
@@ -258,6 +264,24 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x000D:
 					CONSOLE_OUTPUT("TRANS - pal index used for colour hold mode\n");
+					break;
+				case 0x0050:
+					CONSOLE_OUTPUT("PALAW - Palette Address to change\n");
+					break;
+				case 0x0051:
+					CONSOLE_OUTPUT("PALVAL - Palette entry - written 3 times, Red,Green,Blue\n");
+					break;
+				case 0x0052:
+					CONSOLE_OUTPUT("PALMASK - unclear but should only affect palette board loading I suspect\n");
+					break;
+				case 0x0010:
+					CONSOLE_OUTPUT("INTRD - Intrude Data Register\n");
+					break;
+				case 0x0011:
+					CONSOLE_OUTPUT("INTRDP - Intrude Data Register (with Post increment Intrude Address)\n");
+					break;
+				case 0x0012:
+					CONSOLE_OUTPUT("INTRA - Intrude Address Register (reportedly 12 bits)\n");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
@@ -344,6 +368,9 @@ void DebugRPort(uint16_t port)
 			{
 				case 0x0007:
 					CONSOLE_OUTPUT("INTACK - Acknowledge interrupts on read\n");
+					break;
+				case 0x0014:
+					CONSOLE_OUTPUT("RUNST - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN (%04X)- TODO\n",port);

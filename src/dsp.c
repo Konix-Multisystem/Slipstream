@@ -26,6 +26,10 @@ void DSP_POKE(uint16_t,uint16_t);
 uint16_t DSP_PEEK(uint16_t);
 void DSP_POKE_BYTE(uint16_t,uint8_t);
 uint8_t DSP_PEEK_BYTE(uint16_t);
+void FL1DSP_POKE(uint16_t,uint16_t);
+uint16_t FL1DSP_PEEK(uint16_t);
+void FL1DSP_POKE_BYTE(uint16_t,uint8_t);
+uint8_t FL1DSP_PEEK_BYTE(uint16_t);
 
 int doDSPDisassemble=0;
 int doShowHostDSPWrites=0;
@@ -144,6 +148,7 @@ void DSP_RAM_INIT()
 }
 
 void DSP_STEP(void);
+void FL1DSP_STEP(void);
 
 void DSP_SetDAC(uint8_t channels,int16_t value)
 {
@@ -157,6 +162,77 @@ void DSP_SetDAC(uint8_t channels,int16_t value)
 		_AudioAddData(1,value>>2);			//(14 bit DAC)
 	}
 }
+
+uint16_t FL1DSP_DMAGetWord(uint32_t addr)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		CONSOLE_OUTPUT("DSP DMA HOST->DSP %05X\n",addr&0xFFFFE);
+	}
+#endif
+	return GetByte(addr&0xFFFFE)|(GetByte((addr&0xFFFFE) +1)<<8);
+}
+
+void FL1DSP_DMASetWord(uint32_t addr,uint16_t word)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		CONSOLE_OUTPUT("DSP DMA DSP->HOST %05X (%04X)\n",addr&0xFFFFE,word);
+	}
+#endif
+	SetByte(addr&0xFFFFE,word&0xFF);
+	SetByte((addr&0xFFFFE)+1,word>>8);
+}
+
+uint8_t FL1DSP_DMAGetByte(uint32_t addr)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		CONSOLE_OUTPUT("DSP DMA HOST->DSP %05X\n",addr&0xFFFFF);
+	}
+#endif
+	return GetByte(addr&0xFFFFF);
+}
+
+void FL1DSP_DMASetByte(uint32_t addr,uint8_t byte)
+{
+#if ENABLE_DEBUG
+	if (doShowDMA)
+	{
+		CONSOLE_OUTPUT("DSP DMA DSP->HOST %05X (%02X)\n",addr&0xFFFFF,byte);
+	}
+#endif
+	SetByte(addr&0xFFFFF,byte);
+}
+
+
+void FL1DSP_SetDAC(uint8_t channels,int16_t value)
+{
+	if (channels==0)
+	{
+		static int alternate=0;
+
+		// Not entirely clear - lets round robin
+		_AudioAddData(alternate,value>>2);			//(14 bit DAC)
+
+		alternate++;
+		alternate&=1;
+	}
+
+	// Bleep
+	if (channels&1)
+	{
+		_AudioAddData(0,value>>2);			//(14 bit DAC)
+	}
+	if (channels&2)
+	{
+		_AudioAddData(1,value>>2);			//(14 bit DAC)
+	}
+}
+
 
 #if ENABLE_DEBUG
 
@@ -310,6 +386,123 @@ int DSP_Disassemble(unsigned int address,int registers)
 	return 1;
 }
 
+extern uint8_t *FL1DSP_DIS_[32];			// FROM EDL
+
+extern uint16_t	FL1DSP_DEBUG_PC;
+
+extern uint16_t FL1DSP_MZ0;
+extern uint16_t FL1DSP_MZ1;
+extern uint16_t FL1DSP_MX;
+extern uint16_t FL1DSP_MY;
+extern uint16_t FL1DSP_CMPR;
+extern uint16_t FL1DSP_DMA0;
+extern uint16_t FL1DSP_DMA1;
+extern uint16_t FL1DSP_DMD;
+extern uint16_t FL1DSP_INTRA;
+extern uint16_t FL1DSP_AX;
+extern uint16_t FL1DSP_AZ;
+extern uint8_t FL1DSP_C;
+
+void FL1DSP_DUMP_REGISTERS()
+{
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT("FLAGS = C\n");
+	CONSOLE_OUTPUT("        %d\n",	FL1DSP_C&1);
+	CONSOLE_OUTPUT("MZ0= %04X\n",FL1DSP_MZ0);
+	CONSOLE_OUTPUT("MZ1= %04X\n",FL1DSP_MZ1);
+	CONSOLE_OUTPUT("MX = %04X\n",FL1DSP_MX);
+	CONSOLE_OUTPUT("MY = %04X\n",FL1DSP_MY);
+	CONSOLE_OUTPUT("AX = %04X\n",FL1DSP_AX);
+	CONSOLE_OUTPUT("AZ = %04X\n",FL1DSP_AZ);
+	CONSOLE_OUTPUT("DMD= %04X\n",FL1DSP_DMD);
+	CONSOLE_OUTPUT("DM0= %04X\n",FL1DSP_DMA0);
+	CONSOLE_OUTPUT("DM1= %04X\n",FL1DSP_DMA1);
+	CONSOLE_OUTPUT("--------\n");
+}
+
+const char* FL1DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+	uint16_t word=FL1DSP_PEEK(0x800+address);
+	uint16_t data=word&0x7FF;
+	const char* mnemonic=(char*)table[(word&0xF800)>>11];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='%')
+			{
+				doingDecode=1;
+			}
+			else
+			{
+				*dPtr++=*sPtr;
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			int negOffs=1;
+			if (*sPtr=='-')
+			{
+				sPtr++;
+				negOffs=-1;
+			}
+
+			sprintf(sprintBuffer,"%03X",data);
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	
+	return temporaryBuffer;
+}
+
+int FL1DSP_Disassemble(unsigned int address,int registers)
+{
+	const char* retVal = FL1DSP_decodeDisasm(FL1DSP_DIS_,address);
+
+	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
+	{
+		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
+		CONSOLE_OUTPUT("%04X ",FL1DSP_PEEK(0x800+address));
+		CONSOLE_OUTPUT("\n");
+		FL1DSP_DUMP_REGISTERS();
+		exit(-1);
+	}
+
+	if (registers)
+	{
+		FL1DSP_DUMP_REGISTERS();
+	}
+	CONSOLE_OUTPUT("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+
+	CONSOLE_OUTPUT("%04X ",FL1DSP_PEEK(0x800+address));
+	CONSOLE_OUTPUT("   ");
+	CONSOLE_OUTPUT("%s\n",retVal);
+
+	return 1;
+}
+
+
 #endif
 
 #define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
@@ -348,6 +541,256 @@ void TickDSP()
 #endif
 }
 
+void TickFL1DSP()
+{
+#if !DISABLE_DSP
+	static int iamslow=RATE_ADJUST;
+	int running=(DSP_STATUS&0x1) && emulateDSP;
+
+	if (running)
+	{
+		if (iamslow==0)
+		{
+
+#if ENABLE_DEBUG
+		if (FL1DSP_DEBUG_PC==0x56)
+		{
+			//doDSPDisassemble=1;
+		}
+		if (doDSPDisassemble)
+		{
+			FL1DSP_Disassemble(FL1DSP_DEBUG_PC,1);
+			//exit(111);
+		}
+#endif
+		FL1DSP_STEP();
+
+			iamslow=RATE_ADJUST;
+		}
+		else
+			iamslow--;
+	}
+#endif
+}
+
+void DSP_TranslateInstructionFL1(uint16_t addr,uint16_t pWord)
+{
+	uint16_t pAddr=(pWord&0x7FF)*2;		// bottom 11 bits - multiply 2 because word addresses make less sense to me at moment
+	uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
+
+	// Quick test
+
+	switch (pOpcode)
+	{
+		case 0:
+			CONSOLE_OUTPUT("  MOV (%04X),MZ0\n",pAddr);
+			break;
+		case 1:
+			CONSOLE_OUTPUT("  MOV (%04X),MZ1\n",pAddr);
+			break;
+		case 2:
+			CONSOLE_OUTPUT("  MOV MX,(%04X)\n",pAddr);
+			break;
+		case 3:
+			CONSOLE_OUTPUT("  MOV MY,(%04X)\n",pAddr);
+			break;
+		case 4:
+			CONSOLE_OUTPUT("  MOV (%04X),CMPR\n",pAddr);
+			break;
+		case 5:
+			CONSOLE_OUTPUT("  MOV DMA0,(%04X)\n",pAddr);
+			break;
+		case 6:
+			CONSOLE_OUTPUT("  MOV DMA1,(%04X)\n",pAddr);
+			break;
+		case 7:
+			CONSOLE_OUTPUT("  MOV DMD,(%04X)\n",pAddr);
+			break;
+		case 8:
+			CONSOLE_OUTPUT("  MOV (%04X),DMD\n",pAddr);
+			break;
+		case 9:
+			CONSOLE_OUTPUT("  NOP (%04X)\n",pAddr);
+			break;
+		case 10:
+			CONSOLE_OUTPUT("  MOV (%04X),INTRA\n",pAddr);
+			break;
+		case 11:
+			CONSOLE_OUTPUT("  OFFSET (%04X)\n",pAddr);
+			break;
+		case 12:
+			CONSOLE_OUTPUT("  MOV (%04X),PC\n",pAddr);
+			break;
+		case 13:
+			CONSOLE_OUTPUT("  MOV AX,(%04X)\n",pAddr);
+			break;
+		case 14:
+			CONSOLE_OUTPUT("  MOV (%04X),AX\n",pAddr);
+			break;
+		case 15:
+			CONSOLE_OUTPUT("  MOV (%04X),AZ\n",pAddr);
+			break;
+		case 16:
+			CONSOLE_OUTPUT("  ADD (%04X)\n",pAddr);
+			break;
+		case 17:
+			CONSOLE_OUTPUT("  SUB (%04X)\n",pAddr);
+			break;
+		case 18:
+			CONSOLE_OUTPUT("  AND (%04X)\n",pAddr);
+			break;
+		case 19:
+			CONSOLE_OUTPUT("  OR (%04X)\n",pAddr);
+			break;
+		case 20:
+			CONSOLE_OUTPUT("  ADC (%04X)\n",pAddr);
+			break;
+		case 21:
+			CONSOLE_OUTPUT("  SBC (%04X)\n",pAddr);
+			break;
+		case 22:
+			CONSOLE_OUTPUT("  ADDinC (%04X)\n",pAddr);
+			break;
+		case 23:
+			CONSOLE_OUTPUT("  MOV AZ,(%04X)\n",pAddr);
+			break;
+		case 24:
+			CONSOLE_OUTPUT("  MOV DAC0,(%04X)\n",pAddr);
+			break;
+		case 25:
+			CONSOLE_OUTPUT("  MOV DAC1,(%04X)\n",pAddr);
+			break;
+		case 26:
+			CONSOLE_OUTPUT("  MOV DAC2,(%04X)\n",pAddr);
+			break;
+		case 27:
+			CONSOLE_OUTPUT("  MOV DAC12,(%04X)\n",pAddr);
+			break;
+		case 28:
+			CONSOLE_OUTPUT("  NOPA (%04X)\n",pAddr);
+			break;
+		case 29:
+			CONSOLE_OUTPUT("  MOV PC,(%04X)\n",pAddr);
+			break;
+		case 30:
+			CONSOLE_OUTPUT("  NOPR (%04X)\n",pAddr);
+			break;
+		case 31:
+			CONSOLE_OUTPUT("  INTRUDE\n");
+			break;
+	}
+}
+ 
+void DSP_TranslateInstruction(uint16_t addr,uint16_t pWord)
+{
+	uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
+	uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
+	uint8_t isConditional=(pWord&0x0400)>>10;
+	uint8_t isIndexed=(pWord&0x0200)>>9;
+
+	// Quick test
+
+	switch (pOpcode)
+	{
+		case 0:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 1:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 2:
+			CONSOLE_OUTPUT("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 3:
+			CONSOLE_OUTPUT("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 4:
+			CONSOLE_OUTPUT("%s CCF\n",isConditional?"IF C THEN":"");
+			break;
+		case 5:
+			CONSOLE_OUTPUT("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 6:
+			CONSOLE_OUTPUT("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 7:
+			CONSOLE_OUTPUT("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 8:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 9:
+			CONSOLE_OUTPUT("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 10:
+			CONSOLE_OUTPUT("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 11:
+			CONSOLE_OUTPUT("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 12:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 13:
+			CONSOLE_OUTPUT("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 14:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 15:
+			CONSOLE_OUTPUT("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 16:
+			CONSOLE_OUTPUT("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 17:
+			CONSOLE_OUTPUT("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 18:
+			CONSOLE_OUTPUT("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 19:
+			CONSOLE_OUTPUT("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 20:
+			CONSOLE_OUTPUT("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 21:
+			CONSOLE_OUTPUT("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 22:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 23:
+			CONSOLE_OUTPUT("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 24:
+			CONSOLE_OUTPUT("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 25:
+			CONSOLE_OUTPUT("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 26:
+			CONSOLE_OUTPUT("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 27:
+			CONSOLE_OUTPUT("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 28:
+			CONSOLE_OUTPUT("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 29:
+			CONSOLE_OUTPUT("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
+			break;
+		case 30:
+			CONSOLE_OUTPUT("%s NOP\n",isConditional?"IF C THEN":"");
+			break;
+		case 31:
+			CONSOLE_OUTPUT("%s INTRUDE\n",isConditional?"IF C THEN":"");
+			break;
+	}
+}
+
 void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 {
 	if (addr>=0x800 && addr<0xE00 )
@@ -358,114 +801,8 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			if (doShowHostDSPWrites)
 			{
 				uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-				uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
-				uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
-				uint8_t isConditional=(pWord&0x0400)>>10;
-				uint8_t isIndexed=(pWord&0x0200)>>9;
-
 				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
-
-				// Quick test
-
-				switch (pOpcode)
-				{
-					case 0:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 1:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 2:
-						CONSOLE_OUTPUT("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 3:
-						CONSOLE_OUTPUT("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 4:
-						CONSOLE_OUTPUT("%s CCF\n",isConditional?"IF C THEN":"");
-						break;
-					case 5:
-						CONSOLE_OUTPUT("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 6:
-						CONSOLE_OUTPUT("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 7:
-						CONSOLE_OUTPUT("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 8:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 9:
-						CONSOLE_OUTPUT("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 10:
-						CONSOLE_OUTPUT("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 11:
-						CONSOLE_OUTPUT("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 12:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 13:
-						CONSOLE_OUTPUT("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 14:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 15:
-						CONSOLE_OUTPUT("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 16:
-						CONSOLE_OUTPUT("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 17:
-						CONSOLE_OUTPUT("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 18:
-						CONSOLE_OUTPUT("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 19:
-						CONSOLE_OUTPUT("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 20:
-						CONSOLE_OUTPUT("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 21:
-						CONSOLE_OUTPUT("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 22:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 23:
-						CONSOLE_OUTPUT("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 24:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 25:
-						CONSOLE_OUTPUT("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 26:
-						CONSOLE_OUTPUT("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 27:
-						CONSOLE_OUTPUT("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 28:
-						CONSOLE_OUTPUT("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 29:
-						CONSOLE_OUTPUT("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 30:
-						CONSOLE_OUTPUT("%s NOP\n",isConditional?"IF C THEN":"");
-						break;
-					case 31:
-						CONSOLE_OUTPUT("%s INTRUDE\n",isConditional?"IF C THEN":"");
-						break;
-				}
+				DSP_TranslateInstruction(addr-1,pWord);
 			}
 		}
 #endif
@@ -677,114 +1014,8 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 			if (doShowHostDSPWrites)
 			{
 				uint16_t pWord = DSP_PEEK_BYTE((addr+0x400)-1) | (byte<<8);
-				uint16_t pAddr=(pWord&0x1FF)*2;		// bottom 9 bits - multiply 2 because word addresses make less sense to me at moment
-				uint16_t pOpcode=(pWord&0xF800)>>11;		// top 5 bits?
-				uint8_t isConditional=(pWord&0x0400)>>10;
-				uint8_t isIndexed=(pWord&0x0200)>>9;
-
 				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
-
-				// Quick test
-
-				switch (pOpcode)
-				{
-					case 0:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ0\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 1:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),MZ1\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 2:
-						CONSOLE_OUTPUT("%s MOV MZ0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 3:
-						CONSOLE_OUTPUT("%s MOV MZ1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 4:
-						CONSOLE_OUTPUT("%s CCF\n",isConditional?"IF C THEN":"");
-						break;
-					case 5:
-						CONSOLE_OUTPUT("%s MOV DMA0,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 6:
-						CONSOLE_OUTPUT("%s MOV DMA1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 7:
-						CONSOLE_OUTPUT("%s MOV DMD,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 8:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),DMD\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 9:
-						CONSOLE_OUTPUT("%s MAC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 10:
-						CONSOLE_OUTPUT("%s MOV MODE,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 11:
-						CONSOLE_OUTPUT("%s MOV IX,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 12:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),PC\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 13:
-						CONSOLE_OUTPUT("%s MOV X,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 14:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),X\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 15:
-						CONSOLE_OUTPUT("%s MULT (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 16:
-						CONSOLE_OUTPUT("%s ADD (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 17:
-						CONSOLE_OUTPUT("%s SUB (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 18:
-						CONSOLE_OUTPUT("%s AND (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 19:
-						CONSOLE_OUTPUT("%s OR (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 20:
-						CONSOLE_OUTPUT("%s ADC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 21:
-						CONSOLE_OUTPUT("%s SBC (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 22:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),AZ\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 23:
-						CONSOLE_OUTPUT("%s MOV AZ,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 24:
-						CONSOLE_OUTPUT("%s MOV (%04X%s),Z2\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 25:
-						CONSOLE_OUTPUT("%s MOV DAC1,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 26:
-						CONSOLE_OUTPUT("%s MOV DAC2,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 27:
-						CONSOLE_OUTPUT("%s MOV DAC12,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 28:
-						CONSOLE_OUTPUT("%s GAI (%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 29:
-						CONSOLE_OUTPUT("%s MOV PC,(%04X%s)\n",isConditional?"IF C THEN":"",pAddr,isIndexed?"+IX":"");
-						break;
-					case 30:
-						CONSOLE_OUTPUT("%s NOP\n",isConditional?"IF C THEN":"");
-						break;
-					case 31:
-						CONSOLE_OUTPUT("%s INTRUDE\n",isConditional?"IF C THEN":"");
-						break;
-				}
+				DSP_TranslateInstruction(addr-1,pWord);
 			}
 		}
 #endif

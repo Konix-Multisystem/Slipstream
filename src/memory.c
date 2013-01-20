@@ -133,7 +133,7 @@ uint8_t GetByteFL1(uint32_t addr)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x8FFFF)
+	if (addr<0x9FFFF)
 	{
 		return RAM[addr];
 	}
@@ -247,7 +247,7 @@ void SetByteFL1(uint32_t addr,uint8_t byte)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x8FFFF)
+	if (addr<0x9FFFF)
 	{
 		RAM[addr]=byte;
 		return;
@@ -321,6 +321,7 @@ uint8_t GetPortB(uint16_t port)
 			switch (port)
 			{
 				case 0x0007:
+				case 0x0014:
 					return ASIC_ReadFL1(port,doShowPortStuff);
 			}
 			break;
@@ -373,6 +374,7 @@ void SetPortB(uint16_t port,uint8_t byte)
 			{
 				case 0x0014:
 					DSP_STATUS=byte;
+					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
 					break;
 				default:
 					ASIC_WriteFL1(port,byte,doShowPortStuff);

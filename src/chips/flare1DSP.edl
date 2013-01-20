@@ -1,0 +1,383 @@
+# Flare One DSP
+#
+# Simplified - Relatively quickly knocked together 
+#
+# 2 stage pipeline, which means Branch Delay Slot style jumps. Implemented crude Pipeline to simulate
+#
+# The DSP in the Flare One versions is a much earlier design, and there are some noticeable differences in the instruction set and modes of operation.
+# Unfortunately I have not to date been able to source a hardware description of this chip, so i`m having to take a wild guess at some of the behaviour
+# Unlike the later models, it does not appear to use memory mapped registers (i could be very wrong about this though). 
+#
+
+C_FUNC_EXTERN	[16]	DMAGetWord		[32];
+C_FUNC_EXTERN		DMASetWord		[32],[16];
+C_FUNC_EXTERN	[8]	DMAGetByte		[32];
+C_FUNC_EXTERN		DMASetByte		[32],[8];
+
+C_FUNC_EXTERN		SetDAC		[8],[16];
+# void SetDAC(unsigned char,unsigned short);
+#  Called when the DSP writes to the audio DAC (first parameter is DAC mask (bit 0 left, bit 1 right)), second parameter is DAC value
+
+#### MEMORY - Allocated as full 12 bit range - might need to be 13 bits, split as follows
+
+DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original hardware only used a portion, later revisions seemed to have added more ram but not a lot
+					#
+
+					# Memory Map
+					#
+					#       000	7FF			Data
+					#	800	FFF			Program
+
+############
+
+
+############
+
+DECLARE			DEBUG_PC[16];
+DECLARE			CPU_HOLD[8];
+
+############
+
+DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Address[11];
+DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
+
+DECLARE INTERNAL	DataAddress[16];
+
+DECLARE PC[16]		ALIAS	%0000100:PC_ACTUAL[9];
+DECLARE MZ0[16];
+DECLARE MZ1[16];
+DECLARE MX[16];
+DECLARE MY[16];
+DECLARE CMPR[16];		### Unknown purpose at this time
+DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
+DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
+DECLARE INTRA[16];
+DECLARE AX[16];
+DECLARE AZ[16];
+
+
+DECLARE C[1];
+
+############
+
+FUNCTION STEP
+{
+	DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
+
+	currentInstruction<-nextInstruction;
+	nextInstruction<-RAM[[PC]];
+	PC<-PC+1;
+	IR<-currentInstruction;
+
+	DataAddress<-Address;
+
+	EXECUTE	Instruction;
+}
+
+FUNCTION RESET
+{
+	CPU_HOLD<-0;
+	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
+}
+
+## Looks like dma direction is determined by reading/writing dmd register before transfer.. transfer is always a word?
+
+FUNCTION DoDMA
+{
+	# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+
+	DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
+
+	UPPER<-DMA_ADD_HI;
+	LOWER16<-DMA0;
+
+
+	IF DMA_BW
+	{
+		IF DMA_RW
+		{
+			IF DMA_LOHI
+			{
+				CALL DMAGetByte(ADDR)->DMA_DATA_HI;
+			}
+			IF ~DMA_LOHI
+			{
+				CALL DMAGetByte(ADDR)->DMA_DATA_LO;
+			}
+		}
+		IF ~DMA_RW
+		{
+			IF DMA_LOHI
+			{
+				CALL DMASetByte(ADDR,DMA_DATA_HI);
+			}
+			IF ~DMA_LOHI
+			{
+				CALL DMASetByte(ADDR,DMA_DATA_LO);
+			}
+		}
+	}
+	IF ~DMA_BW
+	{
+		IF DMA_RW
+		{
+			DMD<-CALL DMAGetWord(ADDR);
+		}
+		IF ~DMA_RW
+		{
+			CALL DMASetWord(ADDR,DMD);
+		}
+	}
+	
+#	DEBUG_TRACE "DMA REQUEST",BASE 16,DMA0," ",DMA1," ",DMD," ",DMA_BW," ",DMA_RW," ",DMA_LOHI;
+}
+
+FUNCTION POKE	ramAddress[16],value[16]
+{
+	RAM[[ramAddress]]<-value;
+}
+
+FUNCTION value[16]	PEEK	ramAddress[16]
+{
+	value<-RAM[[ramAddress]];
+}
+
+FUNCTION POKE_BYTE	ramAddress[16],value[8]
+{
+	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+
+	byteAddress<-ramAddress;
+	access<-RAM[[wordAddress]];
+	IF upper
+	{
+		msb<-value;
+	}
+	IF ~upper
+	{
+		lsb<-value;
+	}
+	RAM[[wordAddress]]<-access;
+}
+
+FUNCTION value[16]	PEEK_BYTE	ramAddress[16]
+{
+	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+
+	byteAddress<-ramAddress;
+	access<-RAM[[wordAddress]];
+	IF upper
+	{
+		value<-msb;
+	}
+	IF ~upper
+	{
+		value<-lsb;
+	}
+}
+
+
+############
+
+INSTRUCTION	"MOV %$1,MZ0"		%00000
+{
+	RAM[[DataAddress]]<-MZ0;
+}
+
+INSTRUCTION	"MOV %$1,MZ1"		%00001
+{
+	RAM[[DataAddress]]<-MZ1;
+}
+
+INSTRUCTION	"MOV MX,%$1"		%00010
+{
+	MX<-RAM[[DataAddress]];
+}
+
+INSTRUCTION	"MOV MY,%$1"		%00011
+{
+	MY<-RAM[[DataAddress]];
+	## 7 cycle multiply starts now -  for now generate the result immediately
+
+	# Multiplier is 16x16 which would generate a 32bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
+	DECLARE xExt[32];
+	DECLARE yExt[32];
+	DECLARE result[32];
+
+	xExt<-$0000000000++MX;
+	yExt<-$0000000000++MY;
+
+	result<-xExt * yExt;
+
+	result[0..15]->MZ0;
+	result[16..31]->MZ1;
+}
+
+INSTRUCTION	"MOV %$1,CMPR"		%00100
+{
+	DEBUG_TRACE "MOV (nn),CMPR - TODO";
+	#TODO
+}
+
+INSTRUCTION	"MOV DMA0,%$1"		%00101
+{
+	DMA0<-RAM[[DataAddress]];
+	CALL DoDMA();
+}
+
+INSTRUCTION	"MOV DMA1,%$1"		%00110
+{
+	DMA_ADD_HI<-RAM[[DataAddress]];
+}
+
+INSTRUCTION	"MOV DMD,%$1"		%00111
+{
+	DMD<-RAM[[DataAddress]];
+	DMA_RW<-0;
+}
+
+INSTRUCTION	"MOV %$1,DMD"		%01000
+{
+	RAM[[DataAddress]]<-DMD;
+	DMA_RW<-1;
+}
+
+INSTRUCTION	"NOP %$1"		%01001
+{
+}
+
+INSTRUCTION	"MOV %$1,INTRA"	%01010
+{
+	DEBUG_TRACE "TODO";
+}
+
+INSTRUCTION	"OFFSET %$1"		%01011
+{
+	DEBUG_TRACE "TODO";
+}
+
+INSTRUCTION	"MOV %$1,PC"		%01100
+{
+	RAM[[DataAddress]]<-PC;
+}
+
+INSTRUCTION	"MOV AX,%$1"		%01101
+{
+	AX<-RAM[[DataAddress]];
+}
+
+INSTRUCTION	"MOV %$1,AX"		%01110
+{
+	RAM[[DataAddress]]<-AX;
+}
+
+INSTRUCTION	"MOV %$1,AZ"		%01111
+{
+	RAM[[DataAddress]]<-AZ;
+}
+
+INSTRUCTION	"ADD %$1"		%10000
+{
+	DECLARE tmp[16];
+
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
+}
+
+INSTRUCTION	"SUB %$1"		%10001
+{
+	DECLARE tmp[16];
+
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS NOCARRY(15) { AX - tmp } -> AZ;
+}
+
+INSTRUCTION	"AND %$1"		%10010
+{
+	RAM[[DataAddress]] & AX -> AZ;
+}
+
+INSTRUCTION	"OR %$1"		%10011
+{
+	RAM[[DataAddress]] | AX-> AZ;
+}
+
+INSTRUCTION	"ADC %$1"		%10100
+{
+	DECLARE tmp[16];
+
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS CARRY(15) { (tmp + AX) + C } -> AZ;
+}
+
+INSTRUCTION	"SBC %$1"		%10101
+{
+	DECLARE tmp[16];
+
+	RAM[[DataAddress]]->tmp;
+	AFFECT C AS NOCARRY(15) { (AX - tmp)-(~C) } -> AZ;
+}
+
+INSTRUCTION	"ADDinC %$1"		%10110
+{
+	DECLARE tmp[16];
+
+	RAM[[DataAddress]]->tmp;
+	IF ~C
+	{
+		AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
+	}
+}
+
+INSTRUCTION	"MOV AZ,%$1"		%10111
+{
+	AZ<-RAM[[DataAddress]];
+}
+
+INSTRUCTION	"MOV DAC0,%$1"		%11000
+{
+	CALL SetDAC(0,RAM[[DataAddress]]);
+}
+
+INSTRUCTION	"MOV DAC1,%$1"		%11001
+{
+	CALL SetDAC(1,RAM[[DataAddress]]);
+}
+
+INSTRUCTION	"MOV DAC2,%$1"		%11010
+{
+	CALL SetDAC(2,RAM[[DataAddress]]);
+}
+
+INSTRUCTION	"MOV DAC12,%$1"	%11011
+{
+	CALL SetDAC(3,RAM[[DataAddress]]);
+}
+
+INSTRUCTION	"NOPA %$1"		%11100
+{
+}
+
+INSTRUCTION	"MOV PC,%$1"		%11101
+{
+	PC<-RAM[[DataAddress]];
+}
+
+INSTRUCTION	"NOPR"			%11110
+{
+
+}
+
+
+INSTRUCTION	"INTRUDE"		%11111
+{
+	# We know there are 3 status bits to indicate INTRUDE operation
+	#We really need to implement the interface this time, since host code is relying on it
+
+	# TODO
+}
+
+
+
