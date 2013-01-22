@@ -189,7 +189,9 @@ INSTRUCTION	"MOV %$1,MZ0"		%00000
 
 INSTRUCTION	"MOV %$1,MZ1"		%00001
 {
-	RAM[[DataAddress]]<-MZ1;
+	RAM[[DataAddress]]<-MZ1;		## Also clears MAC result registers
+	MZ0<-0;
+	MZ1<-0;
 }
 
 INSTRUCTION	"MOV MX,%$1"		%00010
@@ -205,15 +207,18 @@ INSTRUCTION	"MOV MY,%$1"		%00011
 	# Multiplier is 16x16 which would generate a 32bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
 	DECLARE xExt[32];
 	DECLARE yExt[32];
-	DECLARE result[32];
+	DECLARE result[32]	ALIAS	upper[16]:lower[16];
+
+	upper<-MZ1;
+	lower<-MZ0;
 
 	xExt<-$0000000000++MX;
 	yExt<-$0000000000++MY;
 
-	result<-xExt * yExt;
+	result<-result + (xExt * yExt);
 
-	result[0..15]->MZ0;
-	result[16..31]->MZ1;
+	lower->MZ0;
+	upper->MZ1;
 }
 
 INSTRUCTION	"MOV %$1,CMPR"		%00100
