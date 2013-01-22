@@ -320,6 +320,17 @@ uint8_t GetPortB(uint16_t port)
 		case ESS_FL1:
 			switch (port)
 			{
+				case 0xE0:
+					switch (ADPSelect)
+					{
+					case 5:
+						return PotYValue;
+					case 6:
+						return PotXValue;
+					}
+					return 0xFF;
+				case 0xA0:
+					return (0xFFFF^joyPadState)>>8;
 				case 0x0007:
 				case 0x0014:
 					return ASIC_ReadFL1(port,doShowPortStuff);
@@ -372,15 +383,19 @@ void SetPortB(uint16_t port,uint8_t byte)
 		case ESS_FL1:
 			switch (port)
 			{
-				case 0x0014:
-					DSP_STATUS=byte;
+			case 0xE0:
+				ADPSelect=byte;			//5 = vertical , 6 = horizontal		(reading port after some delay returns -128+127 ?)
+				break;
+
+			case 0x0014:
+				DSP_STATUS=byte;
 #if ENABLE_DEBUG
-					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
+				CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
 #endif
-					break;
-				default:
-					ASIC_WriteFL1(port,byte,doShowPortStuff);
-					break;
+				break;
+			default:
+				ASIC_WriteFL1(port,byte,doShowPortStuff);
+				break;
 			}
 			break;
 	}

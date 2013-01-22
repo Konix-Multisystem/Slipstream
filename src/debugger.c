@@ -16,7 +16,7 @@
 #include "memory.h"
 
 int doDebug=0;
-int doShowPortStuff=1;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -283,6 +283,9 @@ void DebugWPort(uint16_t port)
 				case 0x0012:
 					CONSOLE_OUTPUT("INTRA - Intrude Address Register (reportedly 12 bits)\n");
 					break;
+				case 0x00E0:
+					CONSOLE_OUTPUT("CONTROLL_P - Potentiometer selector\n");
+					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
 					exit(-1);
@@ -366,6 +369,12 @@ void DebugRPort(uint16_t port)
 		case ESS_FL1:
 			switch (port)
 			{
+				case 0x00E0:
+					CONSOLE_OUTPUT("CONTROLL_P - Potentiometer read value\n");
+					break;
+				case 0x00A0:
+					CONSOLE_OUTPUT("IP_PORT - joystick button states?\n");
+					break;
 				case 0x0007:
 					CONSOLE_OUTPUT("INTACK - Acknowledge interrupts on read\n");
 					break;
