@@ -452,7 +452,7 @@ void TickBlitterFL1()
 #if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
-			CONSOLE_OUTPUT("CMD %02X  (LINE -%s)(MODE? -%s)(XXX -%s)(DSTUP -%s)(SRCUP -%s)(PARD - %s)(COLST - %s)(RUN - %s)\n",
+			CONSOLE_OUTPUT("CMD %02X  (LINE -%s)(MODE? -%s)(XXX -%s)(DSTUP -%s)(SRCUP -%s)(PARD - %s)(COLST - %s)(RUN - %s) | ",
 				BLT_OUTER_CMD,
 				(BLT_OUTER_CMD&0x80)?"1":"0",
 				(BLT_OUTER_CMD&0x40)?"1":"0",
@@ -464,15 +464,15 @@ void TickBlitterFL1()
 				(BLT_OUTER_CMD&0x01)?"1":"0"
 				);
 
-			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
-			CONSOLE_OUTPUT("Src Flags : %01X\n",((BLT_OUTER_SRC_FLAGS&0xF0)>>4));
-			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
-			CONSOLE_OUTPUT("Dst Flags : %01X\n",((BLT_OUTER_DST_FLAGS&0xF0)>>4));
-			CONSOLE_OUTPUT("MODE : %02X\n",BLT_OUTER_MODE);
-			CONSOLE_OUTPUT("CPLG : %02X\n",BLT_OUTER_CPLG);
-			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
-			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
-			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+			CONSOLE_OUTPUT("Src Address : %05X | ",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Src Flags : %01X | ",((BLT_OUTER_SRC_FLAGS&0xF0)>>4));
+			CONSOLE_OUTPUT("Dst Address : %05X | ",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Dst Flags : %01X | ",((BLT_OUTER_DST_FLAGS&0xF0)>>4));
+			CONSOLE_OUTPUT("MODE : %02X | ",BLT_OUTER_MODE);
+			CONSOLE_OUTPUT("CPLG : %02X | ",BLT_OUTER_CPLG);
+			CONSOLE_OUTPUT("Outer Cnt : %02X | ",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Inner Count : %02X | ",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Step : %02X | ",BLT_INNER_STEP);
 			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
 		}
 #endif
@@ -480,6 +480,12 @@ void TickBlitterFL1()
 		// Getting closer to the correct layout of the blitter command structure - now there is really just confusion over 1 or 2 bits
 		//Think the blitter cmd breaks down as follows :
 		//						RUN | COLST | PARD | SRCUP | DSTUP | xx | mode? (hires/nibble=1) | line
+
+		if (BLT_OUTER_CPLG&07)
+		{
+			CONSOLE_OUTPUT("wrn - unknown Compare bits\n");
+		}
+		BLT_OUTER_CPLG=(BLT_OUTER_CPLG&0xF0)|(BLT_OUTER_CPLG&0x08?0x01:0x00);					// LOG combinations appear to be the same, 
 
 		switch (BLT_OUTER_CMD&0xE0)
 		{
@@ -497,6 +503,10 @@ void TickBlitterFL1()
 				BLT_OUTER_CMD=0x20 | (BLT_OUTER_CMD&0x1F);
 				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
 				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
+				if (BLT_OUTER_CPLG&0x01)
+				{
+					BLT_OUTER_SRC_FLAGS|=0x10;
+				}
 				BLT_OUTER_MODE=0x20;
 				if (BLT_INNER_CNT==0)
 				{
@@ -506,6 +516,7 @@ void TickBlitterFL1()
 				break;
 			case 0x60:
 				// Used when doing Mode 4
+				CONSOLE_OUTPUT("MODE 4 DRAW\n");
 				if (BLT_OUTER_MODE!=0x04)
 				{
 					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x60 %d)\n",BLT_OUTER_MODE&0xFB);
@@ -1676,7 +1687,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 					palIndex=PeekByte(wrapOffset);			// We should now have a screen byte - if bit 7 is set, it should be treated as 2 nibbles - note upper nibble will have range 8-15 due to bit
 					if (palIndex&0x80)
 					{
-						if (((hClock-120)/2)&1)
+						if (((hClock-120))&1)
 						{
 							// MSB nibble
 							palIndex>>=4;
