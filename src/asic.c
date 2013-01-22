@@ -452,7 +452,17 @@ void TickBlitterFL1()
 #if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
 		{
-			CONSOLE_OUTPUT("CMD %02X  (PARD - %s)\n",BLT_OUTER_CMD&0xFB,(BLT_OUTER_CMD&0x04)?"yes":"no");
+			CONSOLE_OUTPUT("CMD %02X  (LINE -%s)(MODE? -%s)(XXX -%s)(DSTUP -%s)(SRCUP -%s)(PARD - %s)(COLST - %s)(RUN - %s)\n",
+				BLT_OUTER_CMD,
+				(BLT_OUTER_CMD&0x80)?"1":"0",
+				(BLT_OUTER_CMD&0x40)?"1":"0",
+				(BLT_OUTER_CMD&0x20)?"1":"0",
+				(BLT_OUTER_CMD&0x10)?"1":"0",
+				(BLT_OUTER_CMD&0x08)?"1":"0",
+				(BLT_OUTER_CMD&0x04)?"1":"0",
+				(BLT_OUTER_CMD&0x02)?"1":"0",
+				(BLT_OUTER_CMD&0x01)?"1":"0"
+				);
 
 			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
 			CONSOLE_OUTPUT("Src Flags : %01X\n",((BLT_OUTER_SRC_FLAGS&0xF0)>>4));
@@ -467,21 +477,24 @@ void TickBlitterFL1()
 		}
 #endif
 
-		// Unlike other blitters, for now we hardwire a set of known blitter operations
-		switch (BLT_OUTER_CMD&0xFB)			// 0x04 is definately still PARD
+		// Getting closer to the correct layout of the blitter command structure - now there is really just confusion over 1 or 2 bits
+		//Think the blitter cmd breaks down as follows :
+		//						RUN | COLST | PARD | SRCUP | DSTUP | xx | mode? (hires/nibble=1) | line
+
+		switch (BLT_OUTER_CMD&0xE0)
 		{
 			default:
-				CONSOLE_OUTPUT("wrn - Unknown BLTCMD\n");
+				CONSOLE_OUTPUT("wrn - Unknown BLTCMD %02X\n",BLT_OUTER_CMD);
 				break;
-			case 0x21:
-			case 0x31:
+
+			case 0x20:
 				// Appears to be block copy
 				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
 				{
-					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits\n");
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x20 %d)\n",BLT_OUTER_MODE&0xFB);
 				}
 
-				BLT_OUTER_CMD=0x31 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_CMD=0x20 | (BLT_OUTER_CMD&0x1F);
 				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
 				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
 				BLT_OUTER_MODE=0x20;
@@ -491,34 +504,17 @@ void TickBlitterFL1()
 				}
 				DoBlit();
 				break;
-			case 0x39:
-			case 0x29:
-				// Appears to be block copy
-				if ((BLT_OUTER_MODE&0x3B)!=0)			// 0x04 = font mode		0x80 Src Sign	0x40 Dst Sign
-				{
-					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits %02X\n",BLT_OUTER_MODE&0xFB);
-				}
-
-				BLT_OUTER_CMD=0x39 | (BLT_OUTER_CMD&0x04);
-				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
-				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
-				BLT_OUTER_MODE=0x20;
-				if (BLT_INNER_CNT==0)
-				{
-					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
-				}
-				DoBlit();
-				break;
-			case 0x71:
+			case 0x60:
 				// Used when doing Mode 4
 				if (BLT_OUTER_MODE!=0x04)
 				{
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x60 %d)\n",BLT_OUTER_MODE&0xFB);
 					CONSOLE_OUTPUT("wrn - 0x71 command but mode not set to known value\n");
 					break;
 				}
 				else
 				{
-					BLT_OUTER_CMD=0x91 | (BLT_OUTER_CMD&0x04);
+					BLT_OUTER_CMD=0x80 | (BLT_OUTER_CMD&0x17);
 					BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
 					BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
 					BLT_OUTER_MODE=0xA4;
@@ -529,14 +525,13 @@ void TickBlitterFL1()
 					DoBlit();
 				}
 				break;
-			case 0x41:
-			case 0x51:
+			case 0x40:
 				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
 				{
-					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x40 %d)\n",BLT_OUTER_MODE&0xFB);
 				}
 				// Appears to be byte fill  -- assume cnts are 8bit not 9
-				BLT_OUTER_CMD=0x11 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_CMD=0x00 | (BLT_OUTER_CMD&0x1F);
 				BLT_OUTER_MODE=0x20;
 				BLT_OUTER_SRC_FLAGS=0;
 				BLT_OUTER_DST_FLAGS=0;
@@ -546,7 +541,8 @@ void TickBlitterFL1()
 				}
 				DoBlit();
 				break;
-			case 0xC1:
+			case 0xA0:
+			case 0xC0:
 				if ((BLT_OUTER_MODE&0x1F)!=0)
 				{
 					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
@@ -554,7 +550,7 @@ void TickBlitterFL1()
 				// Line Drawing
 				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
 				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
-				BLT_OUTER_CMD=0x01 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_CMD=0x01 | (BLT_OUTER_CMD&0x1F);
 				BLT_OUTER_MODE=0x28 | (BLT_OUTER_MODE&0x20?0x10:0x00);
 				if (BLT_INNER_CNT==0)
 				{
@@ -564,23 +560,6 @@ void TickBlitterFL1()
 				break;
 
 		}
-
-/*
-		// TEST
-
-		BLT_OUTER_SRC_FLAGS=BLT_OUTER_MODE;
-
-		BLT_OUTER_MODE=0;				// TEST To see if it should always be a byte copy
-		BLT_OUTER_MODE|=(BLT_OUTER_SRC_FLAGS&0x04)? 0xA5 : 0x00;
-
-		BLT_OUTER_CMD&=(BLT_OUTER_SRC_FLAGS&0x04)? 0x00 : 0xFF;
-		BLT_OUTER_CMD|=(BLT_OUTER_SRC_FLAGS&0x04)? 0x91 : 0x00;
-
-//		BLT_INNER_CNT>>=(BLT_OUTER_SRC_FLAGS&0x04)?1:0;
-
-		BLT_OUTER_SRC_FLAGS=0;//(BLT_OUTER_MODE&0x80) ? 0x40 : 0x00;
-		BLT_OUTER_DST_FLAGS=0;//(BLT_OUTER_MODE&0x40) ? 0x40 : 0x00;
-*/
 
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
