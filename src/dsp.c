@@ -215,7 +215,7 @@ void FL1DSP_SetDAC(uint8_t channels,int16_t value)
 	{
 		static int alternate=0;
 
-		// Not entirely clear - lets round robin
+		// Not entirely clear - lets round robin			--- There is an odd note in the sample playback code about writing low byte pairs, then high byte pairs ... need to work out intention for that!
 		_AudioAddData(alternate,value>>2);			//(14 bit DAC)
 
 		alternate++;
@@ -461,7 +461,7 @@ const char* FL1DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 				negOffs=-1;
 			}
 
-			sprintf(sprintBuffer,"%03X",data);
+			sprintf(sprintBuffer,"%03X (%04X)",data,FL1DSP_PEEK(data));
 			while (*tPtr)
 			{
 				*dPtr++=*tPtr++;
@@ -553,10 +553,10 @@ void TickFL1DSP()
 		{
 
 #if ENABLE_DEBUG
-		if (FL1DSP_DEBUG_PC==0x56)
+/*		if (FL1DSP_DEBUG_PC==0)
 		{
-			//doDSPDisassemble=1;
-		}
+			doDSPDisassemble=0;
+		}*/
 		if (doDSPDisassemble)
 		{
 			FL1DSP_Disassemble(FL1DSP_DEBUG_PC,1);

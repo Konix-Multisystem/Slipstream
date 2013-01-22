@@ -16,6 +16,8 @@
 	void TickFL1DSP();
 	void DSP_RAM_INIT();
 
+	extern int doDSPDisassemble;
+
 	void DSP_TranslateInstruction(uint16_t addr,uint16_t pWord);
 	void DSP_TranslateInstructionFL1(uint16_t addr,uint16_t pWord);
 

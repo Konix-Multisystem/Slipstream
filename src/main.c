@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.2 Preview"
+#define SLIPSTREAM_VERSION	"0.2 Preview 4"
 
 #include <GL/glfw3.h>
 
@@ -469,6 +469,7 @@ int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which
 }
 
 void DSP_RESET(void);
+void FL1DSP_RESET(void);
 void STEP(void);
 void RESET(void);
 void Z80_RESET(void);
@@ -504,13 +505,16 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if (((GetZ80LinearAddress()&0xFFFFF)==0x40704) && !(Z80_HALTED&1))
+	if (((GetZ80LinearAddress()&0xFFFFF)==263940) && !(Z80_HALTED&1))
 	{
+		extern int doShowDMA;
 //		pause=1;
 //		doDebug=1;
 //		debugWatchWrites=1;
 //		debugWatchReads=1;
 //		doShowPortStuff=1;
+//		doDSPDisassemble=1;
+		doShowDMA=1;
 		//doShowBlits=1;
 		//			numClocks=1;
 	}
@@ -650,6 +654,7 @@ void ResetHardware()
 
 	CPU_RESET();
 	DSP_RESET();
+	FL1DSP_RESET();
 
 	MEMORY_INIT();
 	ASIC_INIT();
@@ -697,9 +702,6 @@ int main(int argc,char**argv)
 		if (!pause)
 		{
 			numClocks+=CPU_STEP(doDebug);
-		}
-		if (!pause)
-		{
 			switch (curSystem)
 			{
 				case ESS_MSU:

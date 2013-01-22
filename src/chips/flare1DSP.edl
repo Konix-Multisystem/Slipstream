@@ -43,7 +43,7 @@ DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
 DECLARE INTERNAL	DataAddress[16];
 
-DECLARE PC[16]		ALIAS	%0000100:PC_ACTUAL[9];
+DECLARE PC[16]		ALIAS	%00001:PC_ACTUAL[11];
 DECLARE MZ0[16];
 DECLARE MZ1[16];
 DECLARE MX[16];
@@ -79,6 +79,7 @@ FUNCTION RESET
 {
 	CPU_HOLD<-0;
 	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
+	PC<-0;
 }
 
 ## Looks like dma direction is determined by reading/writing dmd register before transfer.. transfer is always a word?
@@ -291,7 +292,7 @@ INSTRUCTION	"SUB %$1"		%10001
 	DECLARE tmp[16];
 
 	RAM[[DataAddress]]->tmp;
-	AFFECT C AS NOCARRY(15) { AX - tmp } -> AZ;
+	AFFECT C AS CARRY(15) { AX - tmp } -> AZ;
 }
 
 INSTRUCTION	"AND %$1"		%10010
@@ -317,7 +318,7 @@ INSTRUCTION	"SBC %$1"		%10101
 	DECLARE tmp[16];
 
 	RAM[[DataAddress]]->tmp;
-	AFFECT C AS NOCARRY(15) { (AX - tmp)-(~C) } -> AZ;
+	AFFECT C AS CARRY(15) { (AX - tmp)-(C) } -> AZ;
 }
 
 INSTRUCTION	"ADDinC %$1"		%10110
@@ -325,10 +326,15 @@ INSTRUCTION	"ADDinC %$1"		%10110
 	DECLARE tmp[16];
 
 	RAM[[DataAddress]]->tmp;
+	IF C
+	{
+		tmp->AZ;
+	}
 	IF ~C
 	{
 		AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
 	}
+		
 }
 
 INSTRUCTION	"MOV AZ,%$1"		%10111

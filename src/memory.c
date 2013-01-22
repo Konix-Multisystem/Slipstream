@@ -374,7 +374,9 @@ void SetPortB(uint16_t port,uint8_t byte)
 			{
 				case 0x0014:
 					DSP_STATUS=byte;
+#if ENABLE_DEBUG
 					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
+#endif
 					break;
 				default:
 					ASIC_WriteFL1(port,byte,doShowPortStuff);

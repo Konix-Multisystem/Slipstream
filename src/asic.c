@@ -36,6 +36,10 @@ extern unsigned char PALETTE[256*2];
 
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
+void FL1DSP_RESET();
+
+extern uint16_t FL1DSP_PC;
+extern uint16_t DSP_STATUS;
 
 int doShowBlits=1;
 
@@ -463,7 +467,7 @@ void TickBlitterFL1()
 		}
 #endif
 
-		// Unlike other blitters, for now we hardware in a set of known blitter operations
+		// Unlike other blitters, for now we hardwire a set of known blitter operations
 		switch (BLT_OUTER_CMD&0xFB)			// 0x04 is definately still PARD
 		{
 			default:
@@ -474,13 +478,31 @@ void TickBlitterFL1()
 				// Appears to be block copy
 				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
 				{
-					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits");
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits\n");
 				}
 
 				BLT_OUTER_CMD=0x31 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
+				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
 				BLT_OUTER_MODE=0x20;
-				BLT_OUTER_SRC_FLAGS=0;
-				BLT_OUTER_DST_FLAGS=0;
+				if (BLT_INNER_CNT==0)
+				{
+					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
+				}
+				DoBlit();
+				break;
+			case 0x39:
+			case 0x29:
+				// Appears to be block copy
+				if ((BLT_OUTER_MODE&0x3B)!=0)			// 0x04 = font mode		0x80 Src Sign	0x40 Dst Sign
+				{
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits %02X\n",BLT_OUTER_MODE&0xFB);
+				}
+
+				BLT_OUTER_CMD=0x39 | (BLT_OUTER_CMD&0x04);
+				BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
+				BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
+				BLT_OUTER_MODE=0x20;
 				if (BLT_INNER_CNT==0)
 				{
 					BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
@@ -491,15 +513,15 @@ void TickBlitterFL1()
 				// Used when doing Mode 4
 				if (BLT_OUTER_MODE!=0x04)
 				{
-					CONSOLE_OUTPUT("wrn - 0x71 command but mode not set to known value");
+					CONSOLE_OUTPUT("wrn - 0x71 command but mode not set to known value\n");
 					break;
 				}
 				else
 				{
 					BLT_OUTER_CMD=0x91 | (BLT_OUTER_CMD&0x04);
+					BLT_OUTER_SRC_FLAGS=(BLT_OUTER_MODE&0x80)?0x40:0x00;
+					BLT_OUTER_DST_FLAGS=BLT_OUTER_MODE&0x40;
 					BLT_OUTER_MODE=0xA4;
-					BLT_OUTER_SRC_FLAGS=0;
-					BLT_OUTER_DST_FLAGS=0;
 					if (BLT_INNER_CNT==0)
 					{
 						BLT_OUTER_MODE|=0x2;		//Clamp to 8 bit count
@@ -1395,10 +1417,11 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			}
 			break;
 		case 0x0009:			// CMD2 - bit 0 (mode 16/256 colour)
-			ASIC_MODE&=0xDE;
+			ASIC_MODE&=0x6E;
 			ASIC_MODE|=((~byte)&0x01);
 			ASIC_MODE|=((byte&0x08)<<2);
-			if (byte&0xF6)
+			ASIC_MODE|=((byte&0x80)>>1);	
+			if (byte&0x76)
 			{
 				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0xF6);
 			}
@@ -1462,6 +1485,12 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0015:
 			ASIC_PROGADDR>>=8;
 			ASIC_PROGADDR|=byte<<8;
+			if ((DSP_STATUS&1)==0)
+			{
+//				CONSOLE_OUTPUT("PERFORMING RESET : %04X\n",ASIC_PROGADDR);
+				FL1DSP_RESET();
+				FL1DSP_PC=ASIC_PROGADDR|0x800;
+			}
 			break;
 		case 0x0018:
 			ASIC_BLTPC&=0xFFF00;
@@ -1492,7 +1521,9 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			if (ASIC_PALCNT==3)
 			{
 				ASIC_PALCNT=0;
+#if ENABLE_DEBUG
 				CONSOLE_OUTPUT("New Palette Written : %08X\n",ASIC_PALVAL);
+#endif
 				PALETTE[ASIC_PALAW*2+0]=((ASIC_PALVAL&0x3F)>>2)|((ASIC_PALVAL&0x3C00)>>6);
 				PALETTE[ASIC_PALAW*2+1]=ASIC_PALVAL>>(16+2);
 			}
@@ -1631,7 +1662,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		// Quick and dirty video display no contention or bus cycles
 		if (hClock>=120 && hClock<632 && vClock>StartL && vClock<=EndL)
 		{
-			switch (ASIC_MODE&1)
+			switch (ASIC_MODE&0x41)
 			{
 				case 0:			// LoRes (2 nibbles per pixel)
 					wrapOffset=(screenPtr+((vClock-StartL)-1)*128)&0xFFFFFF80;
@@ -1652,6 +1683,32 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 					wrapOffset|=(screenPtr+((hClock-120)/2))&0xFF;
 
 					palIndex = PeekByte(wrapOffset);
+					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
+
+					break;
+
+				default:
+				case 0x40:
+				case 0x41:
+					// Compute byte fetch  ((hclock-120)/2
+					wrapOffset=(screenPtr+((vClock-StartL)-1)*256)&0xFFFFFF00;
+					wrapOffset|=(screenPtr+((hClock-120)/2))&0xFF;
+
+					palIndex=PeekByte(wrapOffset);			// We should now have a screen byte - if bit 7 is set, it should be treated as 2 nibbles - note upper nibble will have range 8-15 due to bit
+					if (palIndex&0x80)
+					{
+						if (((hClock-120)/2)&1)
+						{
+							// MSB nibble
+							palIndex>>=4;
+						}
+						palIndex&=0x0F;
+					}
+					else
+					{
+						palIndex&=0x7F;
+					}
+
 					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
 
 					break;
