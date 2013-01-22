@@ -41,7 +41,7 @@ void FL1DSP_RESET();
 extern uint16_t FL1DSP_PC;
 extern uint16_t DSP_STATUS;
 
-int doShowBlits=1;
+int doShowBlits=0;
 
 // Current ASIC registers
 int hClock=0;
@@ -65,7 +65,7 @@ uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
 uint8_t		ASIC_BLTCMD=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
-uint32_t	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
 uint8_t		ASIC_PROGCNT=0;		// FL1 Only
 uint16_t	ASIC_PROGWRD=0;
@@ -1417,13 +1417,13 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			}
 			break;
 		case 0x0009:			// CMD2 - bit 0 (mode 16/256 colour)
-			ASIC_MODE&=0x6E;
+			ASIC_MODE&=0x9E;
 			ASIC_MODE|=((~byte)&0x01);
 			ASIC_MODE|=((byte&0x08)<<2);
 			ASIC_MODE|=((byte&0x80)>>1);	
 			if (byte&0x76)
 			{
-				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0xF6);
+				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0x76);
 			}
 			break;
 		case 0x000A:
@@ -1438,7 +1438,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_SCROLL|=byte<<8;
 			break;
 		case 0x000D:
-			ASIC_COLHOLD=RGB444_RGB8(((PALETTE[byte*2+1]<<8)|PALETTE[byte*2]));
+			ASIC_COLHOLD=byte;	
 			break;
 		case 0x0010:
 			ASIC_INTRCNT=(~ASIC_INTRCNT)&1;
@@ -1714,7 +1714,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 					break;
 			}
 			curCol=conv(palEntry);
-			if ((ASIC_MODE&0x20) && (curCol==ASIC_COLHOLD))
+			if ((ASIC_MODE&0x20) && (palIndex==ASIC_COLHOLD))
 			{
 				*outputTexture++ = lastCol;
 			}
