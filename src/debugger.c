@@ -286,6 +286,9 @@ void DebugWPort(uint16_t port)
 				case 0x00E0:
 					CONSOLE_OUTPUT("CONTROLL_P - Potentiometer selector\n");
 					break;
+				case 0x00C0:
+					CONSOLE_OUTPUT("CHAIR_P - This is the signal to the chair\n");
+					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
 					exit(-1);

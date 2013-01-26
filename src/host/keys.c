@@ -37,11 +37,14 @@ void kbHandler( GLFWwindow window, int key, int action )		/* At present ignores 
 	keyArray[key*3 + 2]|=(keyArray[key*3+0]==GLFW_RELEASE)&&(keyArray[key*3+1]==GLFW_PRESS);
 }
 
-void KeysIntialise()
+void KeysIntialise(int joystick)
 {
 	glfwSetKeyCallback(kbHandler);
 
-	joystickDetected=glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_PRESENT);
+	if (joystick)
+	{
+		joystickDetected=glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_PRESENT);
+	}
 	if (!joystickDetected)
 	{
 		CONSOLE_OUTPUT("Unable to locate Joystick, using keyboard controls\n - Note Analogue functionality will not work!\n");

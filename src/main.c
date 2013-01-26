@@ -31,6 +31,7 @@ int single=0;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
+int useJoystick=1;
 int use6MhzP88Cpu=1;
 int emulateDSP=1;
 int useRemoteDebugger=0;
@@ -572,6 +573,7 @@ void Usage()
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
+	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
@@ -593,6 +595,11 @@ void ParseCommandLine(int argc,char** argv)
 			if (strcmp(argv[a],"-r")==0)
 			{
 				useRemoteDebugger=1;
+				continue;
+			}
+			if (strcmp(argv[a],"-j")==0)
+			{
+				useJoystick=0;
 				continue;
 			}
 			if (strcmp(argv[a],"-f")==0)
@@ -688,7 +695,7 @@ int main(int argc,char**argv)
 
 	{
 		VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
-		KeysIntialise();
+		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);
 	}
 	//////////////////

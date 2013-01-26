@@ -133,7 +133,7 @@ uint8_t GetByteFL1(uint32_t addr)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x9FFFF)
+	if (addr<0xCFFFF)
 	{
 		return RAM[addr];
 	}
@@ -247,7 +247,7 @@ void SetByteFL1(uint32_t addr,uint8_t byte)
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
 
-	if (addr<0x9FFFF)
+	if (addr<0xCFFFF)
 	{
 		RAM[addr]=byte;
 		return;
