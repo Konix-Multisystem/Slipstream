@@ -494,6 +494,7 @@ void TickBlitterFL1()
 		{
 			default:
 				CONSOLE_OUTPUT("wrn - Unknown BLTCMD %02X\n",BLT_OUTER_CMD);
+				pause=1;
 				break;
 
 			case 0x20:
@@ -555,6 +556,7 @@ void TickBlitterFL1()
 				}
 				DoBlit();
 				break;
+			case 0x80:
 			case 0xA0:
 			case 0xC0:
 				if ((BLT_OUTER_MODE&0x1F)!=0)
@@ -1593,6 +1595,10 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 {
 	switch (port)
 	{
+		case 0x0020:
+			return (ADDRESSGENERATOR_DSTADDRESS>>1)&0xFF;
+		case 0x0021:
+			return (ADDRESSGENERATOR_DSTADDRESS>>9)&0xFF;
 		case 0x0007:		// INTACK
 			VideoInterruptLatch=0;
 			return 0;

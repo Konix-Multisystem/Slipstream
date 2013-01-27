@@ -343,6 +343,8 @@ uint8_t GetPortB(uint16_t port)
 					return (0xFFFF^joyPadState)>>8;
 				case 0x0007:
 				case 0x0014:
+				case 0x0020:
+				case 0x0021:
 					return ASIC_ReadFL1(port,doShowPortStuff);
 			}
 			break;
@@ -643,7 +645,7 @@ void PALETTE_INIT()
 
 void MEMORY_INIT()
 {
-	memset(RAM,0xFF,RAM_SIZE);
+	memset(RAM,0x00,RAM_SIZE);
 
 	numPadRowSelect=0;
 	numPadState=0;

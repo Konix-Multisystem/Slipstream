@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.2 Preview 7"
+#define SLIPSTREAM_VERSION	"0.2 Preview 8"
 
 #include <GL/glfw3.h>
 
@@ -655,7 +655,7 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+1205) /*0x4042A*/) && !(Z80_HALTED&1))
+	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+19680) /*0x4042A*/) && !(Z80_HALTED&1))
 	{
 //		extern int doShowDMA;
 	//	pause=1;

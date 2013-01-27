@@ -381,6 +381,12 @@ void DebugRPort(uint16_t port)
 				case 0x001A:
 					CONSOLE_OUTPUT("BLPC2 - upper byte of blitter address\n");
 					break;
+				case 0x0020:
+					CONSOLE_OUTPUT("STOP_DST_L - x coord of dst register - used in line collisions\n");
+					break;
+				case 0x0021:
+					CONSOLE_OUTPUT("STOP_DST_H - y coord of dst register - used in line collisions\n");
+					break;
 				case 0x0022:
 					CONSOLE_OUTPUT("GP0 - also appears to be controller states!\n");
 					break;
