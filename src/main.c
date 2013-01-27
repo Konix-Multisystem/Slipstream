@@ -180,6 +180,8 @@ void SendStatus(int sock)
 	}
 	strcat(tmp,"REG\n");
 	strcat(tmp,tmp2);
+	sprintf(tmp2,"\nBANK 0\t%08X\nBANK 1\t%08X\nBANK 2\t%08X\nBANK 3\t%08X\n",ASIC_BANK0,ASIC_BANK1,ASIC_BANK2,ASIC_BANK3);
+	strcat(tmp,tmp2);
 	strcat(tmp,"REGEND\n");
 	strcat(tmp,"DIS\n");
 	for (a=0;a<10;a++)
@@ -196,6 +198,153 @@ void SendStatus(int sock)
 		}
 		strcat(tmp,tmp2);
 	}
+	strcat(tmp,"\n");
+	// Add memory dump facility (currently done based on BC,DE,HL,SP)
+	sprintf(tmp2,"[BC %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_BC,
+		Z80_GetByte(Z80_BC+0),
+		Z80_GetByte(Z80_BC+1),
+		Z80_GetByte(Z80_BC+2),
+		Z80_GetByte(Z80_BC+3),
+		Z80_GetByte(Z80_BC+4),
+		Z80_GetByte(Z80_BC+5),
+		Z80_GetByte(Z80_BC+6),
+		Z80_GetByte(Z80_BC+7),
+		Z80_GetByte(Z80_BC+8),
+		Z80_GetByte(Z80_BC+9),
+		Z80_GetByte(Z80_BC+10),
+		Z80_GetByte(Z80_BC+11),
+		Z80_GetByte(Z80_BC+12),
+		Z80_GetByte(Z80_BC+13),
+		Z80_GetByte(Z80_BC+14),
+		Z80_GetByte(Z80_BC+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[BC %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_BC+16,
+		Z80_GetByte(Z80_BC+16+0),
+		Z80_GetByte(Z80_BC+16+1),
+		Z80_GetByte(Z80_BC+16+2),
+		Z80_GetByte(Z80_BC+16+3),
+		Z80_GetByte(Z80_BC+16+4),
+		Z80_GetByte(Z80_BC+16+5),
+		Z80_GetByte(Z80_BC+16+6),
+		Z80_GetByte(Z80_BC+16+7),
+		Z80_GetByte(Z80_BC+16+8),
+		Z80_GetByte(Z80_BC+16+9),
+		Z80_GetByte(Z80_BC+16+10),
+		Z80_GetByte(Z80_BC+16+11),
+		Z80_GetByte(Z80_BC+16+12),
+		Z80_GetByte(Z80_BC+16+13),
+		Z80_GetByte(Z80_BC+16+14),
+		Z80_GetByte(Z80_BC+16+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[DE %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_DE,
+		Z80_GetByte(Z80_DE+0),
+		Z80_GetByte(Z80_DE+1),
+		Z80_GetByte(Z80_DE+2),
+		Z80_GetByte(Z80_DE+3),
+		Z80_GetByte(Z80_DE+4),
+		Z80_GetByte(Z80_DE+5),
+		Z80_GetByte(Z80_DE+6),
+		Z80_GetByte(Z80_DE+7),
+		Z80_GetByte(Z80_DE+8),
+		Z80_GetByte(Z80_DE+9),
+		Z80_GetByte(Z80_DE+10),
+		Z80_GetByte(Z80_DE+11),
+		Z80_GetByte(Z80_DE+12),
+		Z80_GetByte(Z80_DE+13),
+		Z80_GetByte(Z80_DE+14),
+		Z80_GetByte(Z80_DE+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[DE %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_DE+16,
+		Z80_GetByte(Z80_DE+16+0),
+		Z80_GetByte(Z80_DE+16+1),
+		Z80_GetByte(Z80_DE+16+2),
+		Z80_GetByte(Z80_DE+16+3),
+		Z80_GetByte(Z80_DE+16+4),
+		Z80_GetByte(Z80_DE+16+5),
+		Z80_GetByte(Z80_DE+16+6),
+		Z80_GetByte(Z80_DE+16+7),
+		Z80_GetByte(Z80_DE+16+8),
+		Z80_GetByte(Z80_DE+16+9),
+		Z80_GetByte(Z80_DE+16+10),
+		Z80_GetByte(Z80_DE+16+11),
+		Z80_GetByte(Z80_DE+16+12),
+		Z80_GetByte(Z80_DE+16+13),
+		Z80_GetByte(Z80_DE+16+14),
+		Z80_GetByte(Z80_DE+16+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[HL %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_HL,
+		Z80_GetByte(Z80_HL+0),
+		Z80_GetByte(Z80_HL+1),
+		Z80_GetByte(Z80_HL+2),
+		Z80_GetByte(Z80_HL+3),
+		Z80_GetByte(Z80_HL+4),
+		Z80_GetByte(Z80_HL+5),
+		Z80_GetByte(Z80_HL+6),
+		Z80_GetByte(Z80_HL+7),
+		Z80_GetByte(Z80_HL+8),
+		Z80_GetByte(Z80_HL+9),
+		Z80_GetByte(Z80_HL+10),
+		Z80_GetByte(Z80_HL+11),
+		Z80_GetByte(Z80_HL+12),
+		Z80_GetByte(Z80_HL+13),
+		Z80_GetByte(Z80_HL+14),
+		Z80_GetByte(Z80_HL+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[HL %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_HL+16,
+		Z80_GetByte(Z80_HL+16+0),
+		Z80_GetByte(Z80_HL+16+1),
+		Z80_GetByte(Z80_HL+16+2),
+		Z80_GetByte(Z80_HL+16+3),
+		Z80_GetByte(Z80_HL+16+4),
+		Z80_GetByte(Z80_HL+16+5),
+		Z80_GetByte(Z80_HL+16+6),
+		Z80_GetByte(Z80_HL+16+7),
+		Z80_GetByte(Z80_HL+16+8),
+		Z80_GetByte(Z80_HL+16+9),
+		Z80_GetByte(Z80_HL+16+10),
+		Z80_GetByte(Z80_HL+16+11),
+		Z80_GetByte(Z80_HL+16+12),
+		Z80_GetByte(Z80_HL+16+13),
+		Z80_GetByte(Z80_HL+16+14),
+		Z80_GetByte(Z80_HL+16+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[SP %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_SP,
+		Z80_GetByte(Z80_SP+0),
+		Z80_GetByte(Z80_SP+1),
+		Z80_GetByte(Z80_SP+2),
+		Z80_GetByte(Z80_SP+3),
+		Z80_GetByte(Z80_SP+4),
+		Z80_GetByte(Z80_SP+5),
+		Z80_GetByte(Z80_SP+6),
+		Z80_GetByte(Z80_SP+7),
+		Z80_GetByte(Z80_SP+8),
+		Z80_GetByte(Z80_SP+9),
+		Z80_GetByte(Z80_SP+10),
+		Z80_GetByte(Z80_SP+11),
+		Z80_GetByte(Z80_SP+12),
+		Z80_GetByte(Z80_SP+13),
+		Z80_GetByte(Z80_SP+14),
+		Z80_GetByte(Z80_SP+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[SP %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_SP+16,
+		Z80_GetByte(Z80_SP+16+0),
+		Z80_GetByte(Z80_SP+16+1),
+		Z80_GetByte(Z80_SP+16+2),
+		Z80_GetByte(Z80_SP+16+3),
+		Z80_GetByte(Z80_SP+16+4),
+		Z80_GetByte(Z80_SP+16+5),
+		Z80_GetByte(Z80_SP+16+6),
+		Z80_GetByte(Z80_SP+16+7),
+		Z80_GetByte(Z80_SP+16+8),
+		Z80_GetByte(Z80_SP+16+9),
+		Z80_GetByte(Z80_SP+16+10),
+		Z80_GetByte(Z80_SP+16+11),
+		Z80_GetByte(Z80_SP+16+12),
+		Z80_GetByte(Z80_SP+16+13),
+		Z80_GetByte(Z80_SP+16+14),
+		Z80_GetByte(Z80_SP+16+15));
+	strcat(tmp,tmp2);
+
 	strcat(tmp,"DISEND\n");
 	if (remoteDebuggerLog[0]!=0)
 	{
