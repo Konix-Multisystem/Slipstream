@@ -274,6 +274,8 @@ void SetByte(uint32_t addr,uint8_t byte)
 	}
 }
 
+extern uint32_t ASIC_BLTPC;
+
 uint8_t GetPortB(uint16_t port)
 {
 	switch (curSystem)
@@ -320,6 +322,12 @@ uint8_t GetPortB(uint16_t port)
 		case ESS_FL1:
 			switch (port)
 			{
+				case 0x18:
+					return ASIC_BLTPC&0xFF;
+				case 0x19:
+					return (ASIC_BLTPC>>8)&0xFF;
+				case 0x1A:
+					return (ASIC_BLTPC>>16)&0xFF;
 				case 0xE0:
 					switch (ADPSelect)
 					{
@@ -329,6 +337,8 @@ uint8_t GetPortB(uint16_t port)
 						return PotXValue;
 					}
 					return 0xFF;
+				case 0x22:
+					return (0xFFFF^joyPadState)>>10;
 				case 0xA0:
 					return (0xFFFF^joyPadState)>>8;
 				case 0x0007:
@@ -390,7 +400,10 @@ void SetPortB(uint16_t port,uint8_t byte)
 			case 0x0014:
 				DSP_STATUS=byte;
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
+				}
 #endif
 				break;
 			default:

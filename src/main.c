@@ -506,16 +506,16 @@ void DoCPU8086()
 void DoCPUZ80()
 {
 #if ENABLE_DEBUG
-	if (((GetZ80LinearAddress()&0xFFFFF)==263940) && !(Z80_HALTED&1))
+	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+1205) /*0x4042A*/) && !(Z80_HALTED&1))
 	{
-		extern int doShowDMA;
-//		pause=1;
+//		extern int doShowDMA;
+	//	pause=1;
 //		doDebug=1;
 //		debugWatchWrites=1;
 //		debugWatchReads=1;
 //		doShowPortStuff=1;
 //		doDSPDisassemble=1;
-		doShowDMA=1;
+//		doShowDMA=1;
 		//doShowBlits=1;
 		//			numClocks=1;
 	}
@@ -538,6 +538,11 @@ void DoCPUZ80()
 		}
 */
 	Z80_STEP();
+
+/*	if (Z80_GetByte(Z80_PC)==0xDB)
+	{
+		pause=1;
+	}*/
 }
 
 int CPU_STEP(int doDebug)

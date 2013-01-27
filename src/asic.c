@@ -33,6 +33,7 @@
 #endif
 
 extern unsigned char PALETTE[256*2];
+extern int doShowPortStuff;
 
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
@@ -41,7 +42,7 @@ void FL1DSP_RESET();
 extern uint16_t FL1DSP_PC;
 extern uint16_t DSP_STATUS;
 
-int doShowBlits=0;
+int doShowBlits=1;
 
 // Current ASIC registers
 int hClock=0;
@@ -395,6 +396,8 @@ void TickBlitterP88()
 	}
 }
 
+extern int pause;
+
 void TickBlitterFL1()
 {
 	// Flare One blitter seems to be quite different - Going to try some hackery to make it work on a case by case basis for now
@@ -497,7 +500,8 @@ void TickBlitterFL1()
 				// Appears to be block copy
 				if ((BLT_OUTER_MODE&0xFB)!=0)			// 0x04 = font mode
 				{
-					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x20 %d)\n",BLT_OUTER_MODE&0xFB);
+					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x20 %02X)\n",BLT_OUTER_MODE&0xFB);
+					//pause=1;
 				}
 
 				BLT_OUTER_CMD=0x20 | (BLT_OUTER_CMD&0x1F);
@@ -516,7 +520,6 @@ void TickBlitterFL1()
 				break;
 			case 0x60:
 				// Used when doing Mode 4
-				CONSOLE_OUTPUT("MODE 4 DRAW\n");
 				if (BLT_OUTER_MODE!=0x04)
 				{
 					CONSOLE_OUTPUT("wrn - BLTMODE unknown bits (0x60 %d)\n",BLT_OUTER_MODE&0xFB);
@@ -1366,7 +1369,6 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 void FL1DSP_POKE(uint16_t,uint16_t);
 
 extern int useRemoteDebugger;
-extern int pause;
 
 void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 {
@@ -1374,6 +1376,12 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 	{
 		case 0x0003:
 			ASIC_BANK3=byte*16384;
+#if ENABLE_DEBUG
+			if (doShowPortStuff)
+			{
+				CONSOLE_OUTPUT("BANK3 Set to : %05X\n",ASIC_BANK3);
+			}
+#endif
 			break;
 		case 0x0007:			// INTREG
 			ASIC_KINT&=0xFF00;
@@ -1387,7 +1395,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 				CONSOLE_OUTPUT("Unknown CMD1 bits set : %02X\n",byte&0xBB);
 			}
 #if ENABLE_DEBUG
-			CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
+			if (doShowPortStuff)
+			{
+				CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
+			}
 #endif
 
 			ASIC_SCROLL&=0x0000FFFF;
@@ -1395,14 +1406,20 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			{
 				ASIC_SCROLL|=0x00030000;
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("Visible screen is at Bank 3\n");
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("Visible screen is at Bank 3\n");
+				}
 #endif
 			}
 			else
 			{
 				ASIC_SCROLL|=0x00020000;
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("Visible screen is at Bank 2\n");
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("Visible screen is at Bank 2\n");
+				}
 #endif
 			}
 			break;
@@ -1437,7 +1454,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			if (ASIC_INTRCNT==0)
 			{
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+				}
 #endif
 				FL1DSP_POKE(ASIC_INTRA,ASIC_INTRD);
 			}
@@ -1449,7 +1469,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			if (ASIC_INTRCNT==0)
 			{
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("Load DSP Data %04X <- %04X\n",ASIC_INTRA,ASIC_INTRD);
+				}
 #endif
 				FL1DSP_POKE(ASIC_INTRA,ASIC_INTRD);
 				ASIC_INTRA++;		// Post Increment Intrude
@@ -1466,7 +1489,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			if (ASIC_PROGCNT==0)
 			{
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("Load DSP Program %04X <- %04X\n",ASIC_PROGADDR,ASIC_PROGWRD);
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("Load DSP Program %04X <- %04X\n",ASIC_PROGADDR,ASIC_PROGWRD);
+				}
 				DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
 #endif
 				FL1DSP_POKE(0x800+ASIC_PROGADDR,ASIC_PROGWRD);
@@ -1512,7 +1538,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			{
 				ASIC_PALCNT=0;
 #if ENABLE_DEBUG
-				CONSOLE_OUTPUT("New Palette Written : %08X\n",ASIC_PALVAL);
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("New Palette Written : %08X\n",ASIC_PALVAL);
+				}
 #endif
 				PALETTE[ASIC_PALAW*2+0]=((ASIC_PALVAL&0x3F)>>2)|((ASIC_PALVAL&0x3C00)>>6);
 				PALETTE[ASIC_PALAW*2+1]=ASIC_PALVAL>>(16+2);

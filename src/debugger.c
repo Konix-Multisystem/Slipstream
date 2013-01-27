@@ -16,7 +16,7 @@
 #include "memory.h"
 
 int doDebug=0;
-int doShowPortStuff=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -372,6 +372,18 @@ void DebugRPort(uint16_t port)
 		case ESS_FL1:
 			switch (port)
 			{
+				case 0x0018:
+					CONSOLE_OUTPUT("BLPC0 - low byte of Blitter address\n");
+					break;
+				case 0x0019:
+					CONSOLE_OUTPUT("BLPC1 - middle byte of blitter address\n");
+					break;
+				case 0x001A:
+					CONSOLE_OUTPUT("BLPC2 - upper byte of blitter address\n");
+					break;
+				case 0x0022:
+					CONSOLE_OUTPUT("GP0 - also appears to be controller states!\n");
+					break;
 				case 0x00E0:
 					CONSOLE_OUTPUT("CONTROLL_P - Potentiometer read value\n");
 					break;
@@ -384,6 +396,7 @@ void DebugRPort(uint16_t port)
 				case 0x0014:
 					CONSOLE_OUTPUT("RUNST - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
 					break;
+
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN (%04X)- TODO\n",port);
 					exit(-1);
