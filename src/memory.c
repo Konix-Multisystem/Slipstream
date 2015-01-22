@@ -134,18 +134,31 @@ uint8_t GetByteP89(uint32_t addr)	// Memory Map Changed for this machine
 	addr&=0xFFFFF;
 	if (addr<0xC0000)		// RAM (Either 0-7FFFF Expansion Ram & 80000-BFFFF Screen     OR    0-3FFFF Screen 4 & 40000-BFFFF Expansion Ram) - Selectable via MEM
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("GetByte RAM: %05X - %02X\n",addr,RAM[addr]);
+#endif
 		return RAM[addr];
 	}
 	if (addr>=0xC0000 && addr<=0xC01FF)
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("GetByte PAL: %05X - %02X\n",addr,PALETTE[addr-0xC0000]);
+#endif
 		return PALETTE[addr-0xC0000];
 	}
 	if (addr>=0xC1000 && addr<=0xC1FFF)
 	{
-		return ASIC_HostDSPMemReadP89(addr-0xC1000);
+		uint8_t b = ASIC_HostDSPMemReadP89(addr-0xC1000);
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("GetByte DSP: %05X - %02X\n",addr,b);
+#endif
+		return b;
 	}
 	if (addr>=0xFFC00)
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("GetByte ROM: %05X - %02X\n",addr,ROM[addr-0xFFC00]);
+#endif
 		return ROM[addr-0xFFC00];		// Konix BIOS loads here
 	}
 #if ENABLE_DEBUG
@@ -234,16 +247,25 @@ void SetByteP89(uint32_t addr,uint8_t byte)
 	addr&=0xFFFFF;
 	if (addr<0xC0000)
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("SetByte RAM: %05X - %02X\n",addr,byte);
+#endif
 		RAM[addr]=byte;
 		return;
 	}
 	if (addr>=0xC0000 && addr<=0xC01FF)
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("SetByte PAL: %05X - %02X\n",addr,byte);
+#endif
 		PALETTE[addr-0xC0000]=byte;
 		return;
 	}
 	if (addr>=0xC1000 && addr<=0xC1FFF)
 	{
+#if ENABLE_DEBUG
+		CONSOLE_OUTPUT("SetByte DSP: %05X - %02X\n",addr,byte);
+#endif
 		ASIC_HostDSPMemWriteP89(addr-0xC1000,byte);
 		return;
 	}

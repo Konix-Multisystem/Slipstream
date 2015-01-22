@@ -232,6 +232,124 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 	}
 }
 
+void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -- need to go back and check!
+{
+	if (ASIC_BLTCMD & 1)
+	{
+	// Step one, make the blitter "free"
+#if ENABLE_DEBUG_BLITTER
+	if (doShowBlits)
+	{
+		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+			ASIC_BLTCMD&0x02?1:0,
+			ASIC_BLTCMD&0x04?1:0,
+			ASIC_BLTCMD&0x08?1:0,
+			ASIC_BLTCMD&0x10?1:0,
+			ASIC_BLTCMD&0x20?1:0,
+			ASIC_BLTCMD&0x40?1:0,
+			ASIC_BLTCMD&0x80?1:0);
+	}
+#endif
+
+		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of P89 version!!
+		ASIC_BLTCMD=0;
+
+		do
+		{
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0);
+		}
+
+		if (BLT_OUTER_CMD&0x02)
+		{
+			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
+			exit(1);
+		}
+
+
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
+		}
+#endif
+		BLT_OUTER_SRC=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_SRC_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_SRC|=(BLT_OUTER_SRC_FLAGS&0xF)<<16;
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_DST=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		BLT_OUTER_DST|=GetByte(ASIC_BLTPC)<<8;
+		ASIC_BLTPC++;
+		BLT_OUTER_DST_FLAGS=GetByte(ASIC_BLTPC);
+		BLT_OUTER_DST|=(BLT_OUTER_DST_FLAGS&0xF)<<16;
+		ASIC_BLTPC++;
+		
+
+		BLT_OUTER_CPLG=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_OUTER_MODE=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+
+		BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Comp Logic : %02X\n",BLT_OUTER_CPLG);
+			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
+			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+			CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+		}
+#endif
+		DoBlit();
+		
+		ASIC_BLTPC++;		// skip segment address
+		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
+		ASIC_BLTPC++;
+		}
+		while (BLT_OUTER_CMD&1);
+
+//		exit(1);
+
+	}
+}
+
+
+
 void TickBlitterP88()
 {
 	if (ASIC_BLTCMD & 1)
@@ -1342,7 +1460,7 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0042:
 			ASIC_BLTPC&=0x0FFFF;
-			ASIC_BLTPC|=(byte&0xF)<<16;
+			ASIC_BLTPC|=(byte&0xF)<<16;		// note ENbits in upper nibble - not used yet!
 			break;
 		case 0x0043:
 			ASIC_BLTCMD=byte;
@@ -1859,6 +1977,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{
+			CONSOLE_OUTPUT("Attempt interrupt\n");
 			DoScreenInterrupt();		
 		}
 
@@ -1959,7 +2078,7 @@ void TickAsicMSU(int cycles)
 
 void TickAsicP89(int cycles)
 {
-	TickBlitterMSU();
+	TickBlitterP89();
 	TickAsic(cycles,ConvPaletteMSU,0);
 }
 

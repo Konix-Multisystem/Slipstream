@@ -96,7 +96,7 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("ACK - interrupt acknowledge\n");
 					break;
 				case 0x0018:
-					CONSOLE_OUTPUT("MODE - screen mode\n");
+					CONSOLE_OUTPUT("MODE - screen mode  [CVHBEGMM]  MM - 0 low, 1 medium, 2 high, 3 unused - \n");
 					break;
 				case 0x001A:
 					CONSOLE_OUTPUT("BORDL - border colour\n");
@@ -117,16 +117,16 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("ENDH - screen line end\n");
 					break;
 				case 0x0026:
-					CONSOLE_OUTPUT("MEM - memory configuration\n");
+					CONSOLE_OUTPUT("MEM - memory configuration  [00000sMM] - s Swap Screen and DRAM addresses - MM Memory at EXP address\n");
 					break;
 				case 0x0028:
 					CONSOLE_OUTPUT("GPR - General Purpose Register\n");
 					break;
 				case 0x002A:
-					CONSOLE_OUTPUT("DIAG - diagnostics\n");
+					CONSOLE_OUTPUT("DIAG - diagnostics [000x00NP] - P set for LPEN=HVCounters - N set for NTSC - x screen mode immediate\n");
 					break;
 				case 0x002C:
-					CONSOLE_OUTPUT("DIS - disable interupts\n");
+					CONSOLE_OUTPUT("DIS - disable interupts [000FAAAV] - F disable floppy interrupt - A disable analogue interrupts - V disable video interrupts\n");
 					break;
 				case 0x002E:
 					CONSOLE_OUTPUT("JOYO - joystick outputs\n");
@@ -144,7 +144,7 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("BLTCMD\n");
 					break;
 				case 0x0044:
-					CONSOLE_OUTPUT("BLTCON - blitter control\n");
+					CONSOLE_OUTPUT("BLTCON - blitter control [00000rRI] r - Abort blit after collision - R resume blit after collision - I disable blit stop on interrupt\n");
 					break;
 				case 0x0048:
 					CONSOLE_OUTPUT("FRC - floppy read control\n");
@@ -154,7 +154,7 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("DRVC - floppy drive control\n");
 					break;
 				default:
-					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN %04X- TODO\n",port);
 					exit(-1);
 					break;
 			}
