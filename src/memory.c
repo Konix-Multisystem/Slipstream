@@ -458,7 +458,7 @@ void SetPortB(uint16_t port,uint8_t byte)
 			}
 			break;
 		case ESS_P89:
-			ASIC_WriteP88(port,byte,doShowPortStuff);
+			ASIC_WriteP89(port,byte,doShowPortStuff);
 			break;
 		case ESS_P88:
 			switch (port)

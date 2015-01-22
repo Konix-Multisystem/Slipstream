@@ -158,6 +158,7 @@ void DebugWPort(uint16_t port)
 					exit(-1);
 					break;
 			}
+			break;
 
 		case ESS_P88:
 
