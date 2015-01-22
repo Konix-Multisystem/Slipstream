@@ -11,8 +11,11 @@
 #define MAIN_WINDOW		0
 
 extern unsigned char *videoMemory[MAX_WINDOWS];
+extern int windowWidth[MAX_WINDOWS];
+extern int windowHeight[MAX_WINDOWS];
 
-void VideoInitialise(int width,int height,const char* name);
+void VideoInitialise();
+void VideoCreate(int width,int height,const char* name);
 void VideoUpdate();
 void VideoKill();
 void VideoWait();

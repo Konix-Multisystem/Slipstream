@@ -6,7 +6,7 @@
 
 #define SLIPSTREAM_VERSION	"0.2 Preview 8"
 
-#include <GL/glfw3.h>
+#include <GLFW/glfw3.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -848,7 +848,8 @@ int main(int argc,char**argv)
 #endif
 
 	{
-		VideoInitialise(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
+		VideoInitialise();
+		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
 		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);
 	}
@@ -951,9 +952,9 @@ int main(int argc,char**argv)
 				}
 				VideoUpdate();
 
-				if (CheckKey(GLFW_KEY_ESC))
+				if (CheckKey(GLFW_KEY_ESCAPE))
 				{
-					ClearKey(GLFW_KEY_ESC);
+					ClearKey(GLFW_KEY_ESCAPE);
 					break;
 				}
 				if (CheckKey(GLFW_KEY_END))

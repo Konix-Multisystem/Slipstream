@@ -6,9 +6,11 @@
 
 #include <stdio.h>
 
-#include <GL/glfw3.h>
+#include <GLFW/glfw3.h>
 
 #include "logfile.h"
+
+extern GLFWwindow *windows[MAX_WINDOWS];
 
 unsigned char keyArray[512*3];
 int joystickDetected=0;
@@ -30,7 +32,7 @@ void ClearKey(int key)
 	keyArray[key*3+2]=0;
 }
 
-void kbHandler( GLFWwindow window, int key, int action )		/* At present ignores which window, will add per window keys later */
+void kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )		/* At present ignores which window, will add per window keys later */
 {
 	keyArray[key*3 + 0]=keyArray[key*3+1];
 	keyArray[key*3 + 1]=action;
@@ -39,11 +41,11 @@ void kbHandler( GLFWwindow window, int key, int action )		/* At present ignores 
 
 void KeysIntialise(int joystick)
 {
-	glfwSetKeyCallback(kbHandler);
+	glfwSetKeyCallback(windows[MAIN_WINDOW],kbHandler);
 
 	if (joystick)
 	{
-		joystickDetected=glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_PRESENT);
+		joystickDetected=glfwJoystickPresent(GLFW_JOYSTICK_1);
 	}
 	if (!joystickDetected)
 	{
@@ -51,16 +53,19 @@ void KeysIntialise(int joystick)
 	}
 	else
 	{
+/*
 		CONSOLE_OUTPUT("Joystick has %d axis and %d buttons\n - Currently button/axis mappings are based on 360 controller -\nApologies if your joystick does not work correctly!\n",
-			glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_AXES),glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_BUTTONS));
+			glfwGetJoystickAxes(GLFW_JOYSTICK_1,GLFW_AXES),glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_BUTTONS));*/
 	}
 }
 
 
 void JoystickPoll()
 {
+/*
 	glfwGetJoystickAxes(GLFW_JOYSTICK_1,joystickAxis,8);
 	glfwGetJoystickButtons(GLFW_JOYSTICK_1, joystickButtons, 16);
+*/
 }
 
 float JoystickAxis(int axis)

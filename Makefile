@@ -1,7 +1,7 @@
 all: slipstream
 
-GLHEADERS=-I../glfw-3/include
-GLLIBS= -L../glfw-3/lib -lglfw3 -lglu32 -lopengl32 -lgdi32
+GLHEADERS=-I../glfw-3.0.4/include 
+GLLIBS= -L../glfw-3.0.4/lib-mingw -lglfw3 -lglu32 -lopengl32 -lgdi32
 EDL=../edl/bin/edl.exe
 
 COMPILER=gcc

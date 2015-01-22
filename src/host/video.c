@@ -4,7 +4,7 @@
 
 */
 
-#include <GL/glfw3.h>
+#include <GLFW/glfw3.h>
 #include <GL/glext.h>
 
 #include <malloc.h>
@@ -17,13 +17,15 @@
 #include "video.h"
 
 unsigned char *videoMemory[MAX_WINDOWS];
-GLFWwindow windows[MAX_WINDOWS];
+GLFWwindow *windows[MAX_WINDOWS];
 GLint videoTexture[MAX_WINDOWS];
 int windowWidth[MAX_WINDOWS];
 int windowHeight[MAX_WINDOWS];
 const char* fpsWindowName;
 double	atStart,now,remain;
 float initialRatio;
+
+int maxWindow=-1;
 
 void ShowScreen(int windowNum,int w,int h)
 {
@@ -81,7 +83,7 @@ void setupGL(int windowNum,int w, int h)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void VideoSizeHandler(GLFWwindow window,int xs,int ys)
+void VideoSizeHandler(GLFWwindow *window,int xs,int ys)
 {
 	int offsx=0,offsy=0;
 	glfwMakeContextCurrent(window);
@@ -100,43 +102,60 @@ void VideoSizeHandler(GLFWwindow window,int xs,int ys)
 	glViewport(offsx, offsy, xs, ys);
 }
 
-int VideoCloseHandler(GLFWwindow window)
+void VideoCloseHandler(GLFWwindow *window)
 {
 	exit(0);
 }
 
-void VideoInitialise(int width,int height,const char* name)
+void VideoInitialise()
 {
 	/// Initialize GLFW 
 	glfwInit(); 
 
-	windowWidth[MAIN_WINDOW]=width;
-	windowHeight[MAIN_WINDOW]=height;
+	maxWindow=0;
+	
+	glfwSwapInterval(0);			// Disable VSYNC
+	
+	atStart=glfwGetTime();
+}
+
+void VideoCreate(int width,int height,const char* name)
+{
+	windowWidth[maxWindow]=width;
+	windowHeight[maxWindow]=height;
 
 	// Open invaders OpenGL window 
-	fpsWindowName=name;
-	if( !(windows[MAIN_WINDOW]=glfwCreateWindow( width, height*2, GLFW_WINDOWED,name,NULL)) ) 
+	if (maxWindow==0)
+	{
+		fpsWindowName=name;
+	}
+	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,NULL,NULL)) ) 
 	{ 
-		int glError = glfwGetError();
-		CONSOLE_OUTPUT("GLFW Create Window - %s - %d",glfwErrorString(glError),glError);
+/*		int glError = glfwGetError();
+		CONSOLE_OUTPUT("GLFW Create Window - %s - %d",glfwErrorString(glError),glError);*/
 		glfwTerminate(); 
 		exit(1);
 	} 
 
-	glfwSetWindowPos(windows[MAIN_WINDOW],300,300);
+	glfwSetWindowPos(windows[maxWindow],300,300);
 	
-	glfwMakeContextCurrent(windows[MAIN_WINDOW]);
-	setupGL(MAIN_WINDOW,width,height);
+	glfwMakeContextCurrent(windows[maxWindow]);
+	setupGL(maxWindow,width,height);
 
-	glfwSwapInterval(0);			// Disable VSYNC
-
-	atStart=glfwGetTime();
-
-	glfwSetWindowSizeCallback(VideoSizeHandler);
-	glfwSetWindowCloseCallback(VideoCloseHandler);
-	glViewport(0, 0, width, height*2);
+	if (maxWindow==0)
+	{
+		glfwSetWindowSizeCallback(windows[maxWindow],VideoSizeHandler);
+		glfwSetWindowCloseCallback(windows[maxWindow],VideoCloseHandler);
+		glViewport(0, 0, width, height*2);
+	}
+	else
+	{
+		glViewport(0, 0, width, height);
+	}
 
 	initialRatio=width/(height*2.0f);
+
+	maxWindow++;
 }
 
 void VideoKill()
@@ -145,10 +164,13 @@ void VideoKill()
 
 void VideoUpdate()
 {
-	glfwMakeContextCurrent(windows[MAIN_WINDOW]);
-	ShowScreen(MAIN_WINDOW,windowWidth[MAIN_WINDOW],windowHeight[MAIN_WINDOW]);
-	glfwSwapBuffers(windows[MAIN_WINDOW]);
-				
+	int a;
+	for (a=0;a<maxWindow;a++)
+	{
+		glfwMakeContextCurrent(windows[a]);
+		ShowScreen(a,windowWidth[a],windowHeight[a]);
+		glfwSwapBuffers(windows[a]);
+	}			
 	glfwPollEvents();
 }
 
