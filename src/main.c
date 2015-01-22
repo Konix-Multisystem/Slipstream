@@ -836,7 +836,11 @@ int main(int argc,char**argv)
 	CreateRemoteServer();
 #endif
 
-	ParseCommandLine(argc,argv);
+//	ParseCommandLine(argc,argv);
+
+	curSystem=ESS_P88;
+
+	LoadBinary("roms/bios.bin",0x100000-(16*1024));
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
