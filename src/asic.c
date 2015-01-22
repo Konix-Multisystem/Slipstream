@@ -1255,6 +1255,8 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 	}
 }
+void TERMINAL_OUTPUT(uint8_t byte);
+uint8_t terminalWrote=0;
 
 void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 {
@@ -1357,6 +1359,15 @@ void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_BLTCON=byte;
 			if (byte!=0)
 				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)\n");
+			break;
+		case 0x0071:
+			// Serial Port Control Register (Devkit)
+			CONSOLE_OUTPUT("Serial Port Control : %02X\n",byte);
+			break;
+		case 0x0073:
+			// Serial Port Data
+			TERMINAL_OUTPUT(byte);
+			terminalWrote=byte;
 			break;
 		default:
 #if ENABLE_DEBUG
@@ -1567,6 +1578,9 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+uint8_t GetTermKey();
+uint8_t HasTermKey();
+
 uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 {
 	switch (port)
@@ -1579,6 +1593,22 @@ uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 			return vClock&0xFF;
 		case 0x0003:
 			return (vClock>>8)&0xFF;
+		case 0x0071:
+			// Serial Port Control Register (Devkit) (bit 0 - CTR , bit 2 - CTS)
+			{
+				uint8_t ret=0x04 + (HasTermKey()||terminalWrote?1:0);	// Fake always ready for send
+				terminalWrote=0;
+				return ret;
+			}
+			break;
+		case 0x0073:
+			// Serial Port Data
+			{
+				uint8_t t = GetTermKey();
+				CONSOLE_OUTPUT("FROM TERMINAL : READ %d\n",t);
+				return t;
+			}
+			break;
 		default:
 #if ENABLE_DEBUG
 			if (warnIgnore)

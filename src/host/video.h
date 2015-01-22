@@ -9,6 +9,7 @@
 
 #define MAX_WINDOWS		(8)
 #define MAIN_WINDOW		0
+#define TERMINAL_WINDOW		1
 
 extern unsigned char *videoMemory[MAX_WINDOWS];
 extern int windowWidth[MAX_WINDOWS];

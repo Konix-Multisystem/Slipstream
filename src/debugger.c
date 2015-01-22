@@ -16,7 +16,7 @@
 #include "memory.h"
 
 int doDebug=0;
-int doShowPortStuff=1;
+int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
@@ -140,6 +140,12 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x0063:
 					CONSOLE_OUTPUT("CTRL - Control Register (not sure which one yet though)\n");
+					break;
+				case 0x0071:
+					CONSOLE_OUTPUT("SERC - Serial Control\n");
+					break;
+				case 0x0073:
+					CONSOLE_OUTPUT("SERD - Serial Data\n");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
@@ -339,6 +345,12 @@ void DebugRPort(uint16_t port)
 					break;
 				case 0x0063:
 					CONSOLE_OUTPUT("CTRL - Control Register (not sure which one yet though)\n");
+					break;
+				case 0x0071:
+					CONSOLE_OUTPUT("SERC - Serial Control\n");
+					break;
+				case 0x0073:
+					CONSOLE_OUTPUT("SERD - Serial Data\n");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");

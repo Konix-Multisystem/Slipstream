@@ -812,6 +812,7 @@ void ResetHardware()
 {
 	numClocks=0;
 	memset(videoMemory[MAIN_WINDOW],0,WIDTH*HEIGHT*sizeof(unsigned int));
+	memset(videoMemory[TERMINAL_WINDOW],0,640*480*sizeof(unsigned int));
 
 	CPU_RESET();
 	DSP_RESET();
@@ -826,8 +827,8 @@ void ResetHardware()
 
 int main(int argc,char**argv)
 {
-
 	videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(WIDTH*HEIGHT*sizeof(unsigned int));
+	videoMemory[TERMINAL_WINDOW] = (unsigned char*)malloc(640*480*sizeof(unsigned int));
 
 	ResetHardware();
 		
@@ -850,6 +851,7 @@ int main(int argc,char**argv)
 	{
 		VideoInitialise();
 		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
+		VideoCreate(640,480,"Terminal Emulation");
 		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);
 	}

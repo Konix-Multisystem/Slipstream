@@ -8,6 +8,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include "video.h"
 #include "logfile.h"
 
 extern GLFWwindow *windows[MAX_WINDOWS];
@@ -38,10 +39,14 @@ void kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )		/*
 	keyArray[key*3 + 1]=action;
 	keyArray[key*3 + 2]|=(keyArray[key*3+0]==GLFW_RELEASE)&&(keyArray[key*3+1]==GLFW_PRESS);
 }
+void termHandler( GLFWwindow* window, int key, int scan, int action, int mod );
+void termCharHandler( GLFWwindow* window, unsigned int key);
 
 void KeysIntialise(int joystick)
 {
 	glfwSetKeyCallback(windows[MAIN_WINDOW],kbHandler);
+	glfwSetCharCallback(windows[TERMINAL_WINDOW],termCharHandler);
+	glfwSetKeyCallback(windows[TERMINAL_WINDOW],termHandler);
 
 	if (joystick)
 	{

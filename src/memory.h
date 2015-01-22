@@ -3,7 +3,7 @@
 
 #define SEGTOPHYS(seg,off)	( ((seg)<<4) + (off) )				// Convert Segment,offset pair to physical address
 
-#define RAM_SIZE	(832*1024)			// Right lets get a bit more serious with available ram. (Ill make the assumption for now it extends from segment 0x0000 -> 0xC000
+#define RAM_SIZE	(1024/*832*/*1024)			// Right lets get a bit more serious with available ram. (Ill make the assumption for now it extends from segment 0x0000 -> 0xC000
                                                         // which is 768k - hardware chips reside above this point (with the bios assumed to reside are E000) - NB: Memory map differs for earlier models!
 							// Upgraded due to Flare One (to be honest a lot of the space is unused, but this keeps the mapping simpler)
 extern unsigned char RAM[RAM_SIZE];							

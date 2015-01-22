@@ -114,7 +114,7 @@ uint8_t GetByteP88(uint32_t addr)
 	{
 		return RAM[addr];
 	}
-	if (addr>=0x80000 && addr<0xC0000)		// Expansion RAM 0
+	if (addr>=0x80000 && addr<=0xFFFFF)//addr<0xC0000)		// Expansion RAM 0
 	{
 		return RAM[addr];
 	}
@@ -222,7 +222,7 @@ void SetByteP88(uint32_t addr,uint8_t byte)
 		RAM[addr]=byte;
 		return;
 	}
-	if (addr>=0x80000 && addr<0xC0000)		// Expansion RAM 0
+	if (addr>=0x80000 && addr<=0xFFFFF)//addr<0xC0000)		// Expansion RAM 0
 	{
 		RAM[addr]=byte;
 		return;
@@ -306,10 +306,6 @@ uint8_t GetPortB(uint16_t port)
 			}
 			break;
 		case ESS_P88:
-			if (port<=3)
-			{
-				return ASIC_ReadP88(port,doShowPortStuff);
-			}
 			if (port==0x40)
 			{
 				return (0xFFFF ^ joyPadState)>>8;
@@ -317,6 +313,10 @@ uint8_t GetPortB(uint16_t port)
 			if (port==0x50)
 			{
 				return (0xFFFF ^ joyPadState)&0xFF;
+			}
+			if (port<=3 || port==0x71 || port==0x73)
+			{
+				return ASIC_ReadP88(port,doShowPortStuff);
 			}
 			break;
 		case ESS_FL1:
@@ -381,7 +381,7 @@ void SetPortB(uint16_t port,uint8_t byte)
 		case ESS_P88:
 			switch (port)
 			{
-				case 0xC0:
+			case 0xC0:
 				ADPSelect=byte;
 				break;
 			case 0xE0:
@@ -459,7 +459,7 @@ uint16_t GetPortW(uint16_t port)
 			}
 			break;
 		case ESS_P88:
-			if (port<=3)
+			if (port<=3 || port==0x71 || port==0x73)
 			{
 				return (ASIC_ReadP88(port+1,doShowPortStuff)<<8)|ASIC_ReadP88(port,doShowPortStuff);
 			}
