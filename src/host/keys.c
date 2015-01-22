@@ -45,9 +45,10 @@ void termCharHandler( GLFWwindow* window, unsigned int key);
 void KeysIntialise(int joystick)
 {
 	glfwSetKeyCallback(windows[MAIN_WINDOW],kbHandler);
+#if TERMINAL
 	glfwSetCharCallback(windows[TERMINAL_WINDOW],termCharHandler);
 	glfwSetKeyCallback(windows[TERMINAL_WINDOW],termHandler);
-
+#endif
 	if (joystick)
 	{
 		joystickDetected=glfwJoystickPresent(GLFW_JOYSTICK_1);

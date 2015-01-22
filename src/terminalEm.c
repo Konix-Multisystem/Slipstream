@@ -51,6 +51,7 @@ void PrintAt(unsigned char* buffer,unsigned int width,unsigned char r,unsigned c
 
 void TERMINAL_OUTPUT(uint8_t byte)
 {
+#if TERMINAL
 	static int cPosX=0,cPosY=0;
 
 	switch (byte)
@@ -81,6 +82,7 @@ void TERMINAL_OUTPUT(uint8_t byte)
 		memset(videoMemory[TERMINAL_WINDOW]+4*windowWidth[TERMINAL_WINDOW]*(windowHeight[TERMINAL_WINDOW]-8),0,8*4*windowWidth[TERMINAL_WINDOW]);
 		cPosY--;
 	}
+#endif
 }
 
 uint8_t keyBuffer[256];

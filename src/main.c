@@ -890,7 +890,9 @@ int main(int argc,char**argv)
 	{
 		VideoInitialise();
 		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
+#if TERMINAL
 		VideoCreate(640,480,"Terminal Emulation");
+#endif
 		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);
 	}
