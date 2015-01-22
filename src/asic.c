@@ -2079,7 +2079,7 @@ void TickAsicMSU(int cycles)
 void TickAsicP89(int cycles)
 {
 	TickBlitterP89();
-	TickAsic(cycles,ConvPaletteMSU,0);
+	TickAsic(cycles,ConvPaletteP88,0);
 }
 
 void TickAsicP88(int cycles)
