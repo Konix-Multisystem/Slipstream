@@ -11,6 +11,8 @@
 	uint8_t ASIC_HostDSPMemReadMSU(uint16_t address);
 	void ASIC_HostDSPMemWriteP88(uint16_t address,uint8_t byte);
 	uint8_t ASIC_HostDSPMemReadP88(uint16_t address);
+	void ASIC_HostDSPMemWriteP89(uint16_t address,uint8_t byte);
+	uint8_t ASIC_HostDSPMemReadP89(uint16_t address);
 
 	void TickDSP();
 	void TickFL1DSP();

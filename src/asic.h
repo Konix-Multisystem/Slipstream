@@ -24,13 +24,16 @@
 
 	void TickAsicMSU(int cycles);
 	void TickAsicP88(int cycles);
+	void TickAsicP89(int cycles);
 	void TickAsicFL1(int cycles);
 
 	void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore);
 	void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore);
+	void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore);
 	void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore);
 
 	uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore);
+	uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore);
 	uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore);
 
 	extern uint32_t		ASIC_BANK0;

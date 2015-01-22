@@ -172,6 +172,11 @@ void SendStatus(int sock)
 			sprintf(tmp,"%s:P88%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERS8086(tmp2);
 			break;
+		case ESS_P89:
+			address=SEGTOPHYS(CS,IP)&0xFFFFF;
+			sprintf(tmp,"%s:P88%05X\n",pause?"Paused":"Runnin",address);
+			FETCH_REGISTERS8086(tmp2);
+			break;
 		case ESS_FL1:
 			address=GetZ80LinearAddress()&0xFFFFF;
 			sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
@@ -190,6 +195,7 @@ void SendStatus(int sock)
 		{
 			case ESS_MSU:
 			case ESS_P88:
+			case ESS_P89:
 				address+=FETCH_DISASSEMBLE8086(address,tmp2);
 				break;
 			case ESS_FL1:
@@ -590,6 +596,34 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 	return 0;
 }
 
+int LoadRom(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
+{
+	unsigned int expectedSize=0;
+	FILE* inFile = fopen(fname,"rb");
+	fseek(inFile,0,SEEK_END);
+	expectedSize=ftell(inFile);
+	fseek(inFile,0,SEEK_SET);
+
+	while (expectedSize)
+	{
+		uint8_t data;
+
+		// Read a byte
+		if (1!=fread(&data,1,1,inFile))
+		{
+			CONSOLE_OUTPUT("Failed to read from %s\n",fname);
+			return 1;
+		}
+		ROM[address]=data;
+		address++;
+		expectedSize--;
+	}
+
+	fclose(inFile);
+
+	return 0;
+}
+
 int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -704,6 +738,7 @@ int CPU_STEP(int doDebug)
 				DoCPU8086();
 				return CYCLES;			// Assuming clock speed same as hardware chips
 			case ESS_P88:
+			case ESS_P89:
 				DoCPU8086();
 				if (use6MhzP88Cpu)
 					return CYCLES*2;		// 6Mhz
@@ -838,9 +873,9 @@ int main(int argc,char**argv)
 
 //	ParseCommandLine(argc,argv);
 
-	curSystem=ESS_P88;
+	curSystem=ESS_P89;
 
-	LoadBinary("roms/bios.bin",0x100000-(16*1024));
+	LoadRom("roms/konixBios.bin",0);
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
@@ -864,6 +899,15 @@ int main(int argc,char**argv)
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
 //	doDebug=1;
+		extern int doShowDMA;
+	//	pause=1;
+		doDebug=1;
+		debugWatchWrites=1;
+		debugWatchReads=1;
+		doShowPortStuff=1;
+		doDSPDisassemble=1;
+		doShowDMA=1;
+		doShowBlits=1;
 
 	while (1==1)
 	{
@@ -877,6 +921,9 @@ int main(int argc,char**argv)
 					break;
 				case ESS_P88:
 					TickAsicP88(numClocks);
+					break;
+				case ESS_P89:
+					TickAsicP89(numClocks);
 					break;
 				case ESS_FL1:
 					TickAsicFL1(numClocks);

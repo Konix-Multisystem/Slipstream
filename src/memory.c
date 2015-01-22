@@ -19,6 +19,7 @@
 #include "asic.h"
 #include "dsp.h"
 
+unsigned char ROM[ROM_SIZE];							
 unsigned char RAM[RAM_SIZE];							
 unsigned char PALETTE[256*2];			
 
@@ -112,7 +113,7 @@ uint8_t GetByteP88(uint32_t addr)
 	addr&=0xFFFFF;
 	if (addr<0x40000)
 	{
-		return RAM[addr];
+		return RAM[addr];		// Always Screen
 	}
 	if (addr>=0x80000 && addr<=0xFFFFF)//addr<0xC0000)		// Expansion RAM 0
 	{
@@ -121,6 +122,31 @@ uint8_t GetByteP88(uint32_t addr)
 	if (addr>=0x41000 && addr<=0x41FFF)
 	{
 		return ASIC_HostDSPMemReadP88(addr-0x41000);
+	}
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
+#endif
+	return 0xAA;
+}
+
+uint8_t GetByteP89(uint32_t addr)	// Memory Map Changed for this machine
+{
+	addr&=0xFFFFF;
+	if (addr<0xC0000)		// RAM (Either 0-7FFFF Expansion Ram & 80000-BFFFF Screen     OR    0-3FFFF Screen 4 & 40000-BFFFF Expansion Ram) - Selectable via MEM
+	{
+		return RAM[addr];
+	}
+	if (addr>=0xC0000 && addr<=0xC01FF)
+	{
+		return PALETTE[addr-0xC0000];
+	}
+	if (addr>=0xC1000 && addr<=0xC1FFF)
+	{
+		return ASIC_HostDSPMemReadP89(addr-0xC1000);
+	}
+	if (addr>=0xFFC00)
+	{
+		return ROM[addr-0xFFC00];		// Konix BIOS loads here
 	}
 #if ENABLE_DEBUG
 	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
@@ -150,6 +176,8 @@ uint8_t GetByte(uint32_t addr)
 	{
 		case ESS_MSU:
 			return GetByteMSU(addr);
+		case ESS_P89:
+			return GetByteP89(addr);
 		case ESS_P88:
 			retVal=GetByteP88(addr);
 #if ENABLE_DEBUG
@@ -194,6 +222,29 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
 	if (addr>=0xC1000 && addr<=0xC1FFF)
 	{
 		ASIC_HostDSPMemWriteMSU(addr-0xC1000,byte);
+		return;
+	}
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
+#endif
+}
+
+void SetByteP89(uint32_t addr,uint8_t byte)
+{
+	addr&=0xFFFFF;
+	if (addr<0xC0000)
+	{
+		RAM[addr]=byte;
+		return;
+	}
+	if (addr>=0xC0000 && addr<=0xC01FF)
+	{
+		PALETTE[addr-0xC0000]=byte;
+		return;
+	}
+	if (addr>=0xC1000 && addr<=0xC1FFF)
+	{
+		ASIC_HostDSPMemWriteP89(addr-0xC1000,byte);
 		return;
 	}
 #if ENABLE_DEBUG
@@ -265,6 +316,9 @@ void SetByte(uint32_t addr,uint8_t byte)
 		case ESS_MSU:
 			SetByteMSU(addr,byte);
 			break;
+		case ESS_P89:
+			SetByteP89(addr,byte);
+			break;
 		case ESS_P88:
 			SetByteP88(addr,byte);
 			break;
@@ -304,6 +358,9 @@ uint8_t GetPortB(uint16_t port)
 						return 0xFF;
 				}
 			}
+			break;
+		case ESS_P89:
+			return ASIC_ReadP89(port,doShowPortStuff);
 			break;
 		case ESS_P88:
 			if (port==0x40)
@@ -377,6 +434,9 @@ void SetPortB(uint16_t port,uint8_t byte)
 				ASIC_WriteMSU(port,byte,doShowPortStuff);
 				break;
 			}
+			break;
+		case ESS_P89:
+			ASIC_WriteP88(port,byte,doShowPortStuff);
 			break;
 		case ESS_P88:
 			switch (port)
@@ -458,6 +518,8 @@ uint16_t GetPortW(uint16_t port)
 				return 0xFFFF ^ joyPadState;
 			}
 			break;
+		case ESS_P89:
+			return (ASIC_ReadP89(port+1,doShowPortStuff)<<8)|ASIC_ReadP89(port,doShowPortStuff);
 		case ESS_P88:
 			if (port<=3 || port==0x71 || port==0x73)
 			{
@@ -482,6 +544,10 @@ void SetPortW(uint16_t port,uint16_t word)
 			{
 				ADPSelect=word&0xFF;
 			}
+			break;
+		case ESS_P89:
+			ASIC_WriteP89(port,word&0xFF,doShowPortStuff);
+			ASIC_WriteP89(port+1,word>>8,doShowPortStuff);
 			break;
 		case ESS_P88:
 			ASIC_WriteP88(port,word&0xFF,doShowPortStuff);
@@ -666,6 +732,8 @@ void VECTORS_INIT()
 	int a;
 	switch (curSystem)
 	{
+		case ESS_P89:
+			break;
 		case ESS_MSU:
 		case ESS_P88:
 			// Also pre-fill vector table at $0000 to point to an IRET instruction at $400 (suspect the bios is supposed to safely setup this area before booting a program)

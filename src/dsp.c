@@ -1004,6 +1004,107 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 	return DSP_PEEK_BYTE(addr);
 }
 
+void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
+{
+	if (addr>=0x400 && addr<0x600 )
+	{
+#if ENABLE_DEBUG
+		if (addr&1)
+		{
+			if (doShowHostDSPWrites)
+			{
+				uint16_t pWord = DSP_PEEK_BYTE((addr+0x400)-1) | (byte<<8);
+				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
+				DSP_TranslateInstruction(addr-1,pWord);
+			}
+		}
+#endif
+		DSP_POKE_BYTE(addr+0x400,byte);
+	}
+	else
+	{
+		if (addr>=0x280 && addr<0x300)
+		{
+#if ENABLE_DEBUG
+			if (addr&1)
+			{
+				if (doShowHostDSPWrites)
+				{
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
+					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
+				}
+			}
+#endif
+			DSP_POKE_BYTE(addr,byte);
+		}
+		if (addr>=0x200 && addr<0x280)
+		{
+#if ENABLE_DEBUG
+			if (addr&1)
+			{
+				if (doShowHostDSPWrites)
+				{
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
+					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
+				}
+			}
+#endif
+			// Don't preform write (this is rom space)
+		}
+		if (addr<0x200)
+		{
+#if ENABLE_DEBUG
+			if (addr&1)
+			{
+				if (doShowHostDSPWrites)
+				{
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
+					CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+				}
+			}
+#endif
+		}
+		if (addr>=0x300 && addr<0x400)
+		{
+#if ENABLE_DEBUG
+			if (addr&1)
+			{
+				if (doShowHostDSPWrites)
+				{
+					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
+					CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+				}
+			}
+#endif
+			DSP_POKE_BYTE(addr,byte);
+		}
+		if (addr>=0x600)
+		{
+#if ENABLE_DEBUG
+			if (doShowHostDSPWrites)
+			{
+				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
+			}
+#endif
+			if (addr==0x600)
+			{
+				DSP_STATUS&=0xFF00;
+				DSP_STATUS|=byte;
+				return;
+			}
+			if (addr==0x601)
+			{
+				DSP_STATUS&=0x00FF;
+				DSP_STATUS|=byte<<8;
+				return;
+			}
+			DSP_POKE_BYTE(addr,byte);
+		}
+	}
+}
+
+
+
 void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 {
 	if (addr>=0x400 && addr<0x600 )
@@ -1102,6 +1203,53 @@ void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
 		}
 	}
 }
+
+uint8_t ASIC_HostDSPMemReadP89(uint16_t addr)
+{
+	if (addr>=0x400 && addr<0x600)
+	{
+#if ENABLE_DEBUG
+		if (doShowHostDSPReads)
+		{
+			CONSOLE_OUTPUT("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
+		}
+#endif
+		return DSP_PEEK_BYTE(addr+0x400);
+	}
+	else
+	{
+		if (addr<0x400)
+		{
+#if ENABLE_DEBUG
+			if (doShowHostDSPReads)
+			{
+				CONSOLE_OUTPUT("Host DSP Data Read (Normal Map) : %04X\n",addr);
+			}
+#endif
+			return DSP_PEEK_BYTE(addr);
+		}
+		else
+		{
+#if ENABLE_DEBUG
+			if (doShowHostDSPReads)
+			{
+				CONSOLE_OUTPUT("Host DSP Data Read (Unknown (600 status!)) : %04X\n",addr);
+			}
+#endif
+		}
+	}
+	if (addr==0x600)
+	{
+		return DSP_STATUS&0XFF;
+	}
+	if (addr==0x601)
+	{
+		return DSP_STATUS>>8;
+	}
+
+	return DSP_PEEK_BYTE(addr);
+}
+
 
 uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 {

@@ -55,6 +55,110 @@ void DebugWPort(uint16_t port)
 #if ENABLE_DEBUG
 	switch (curSystem)
 	{
+		case ESS_P89:
+
+			switch (port)
+			{
+				case 0x0000:
+					CONSOLE_OUTPUT("INTL - Vertical line interrupt location\n");
+					break;
+				case 0x0001:
+					CONSOLE_OUTPUT("INTH - Vertical line interrupt location\n");
+					break;
+				case 0x0004:
+					CONSOLE_OUTPUT("STARTL - screen line start\n");
+					break;
+				case 0x0005:
+					CONSOLE_OUTPUT("STARTH - screen line start\n");
+					break;
+				case 0x0008:
+					CONSOLE_OUTPUT("HCNTL - Horizontal Counter (diagnostic)\n");
+					break;
+				case 0x0009:
+					CONSOLE_OUTPUT("HCNTH - Horizontal Counter (diagnostic)\n");
+					break;
+				case 0x000C:
+					CONSOLE_OUTPUT("VCNTL - Vertical Counter (diagnostic)\n");
+					break;
+				case 0x000D:
+					CONSOLE_OUTPUT("VCNTH - Vertical Counter (diagnostic)\n");
+					break;
+				case 0x0010:
+					CONSOLE_OUTPUT("SCROLL1 - TL pixel address LSB\n");
+					break;
+				case 0x0012:
+					CONSOLE_OUTPUT("SCROLL2 - TL pixel address middle byte\n");
+					break;
+				case 0x0014:
+					CONSOLE_OUTPUT("SCROLL3 - TL pixel address MSB\n");
+					break;
+				case 0x0016:
+					CONSOLE_OUTPUT("ACK - interrupt acknowledge\n");
+					break;
+				case 0x0018:
+					CONSOLE_OUTPUT("MODE - screen mode\n");
+					break;
+				case 0x001A:
+					CONSOLE_OUTPUT("BORDL - border colour\n");
+					break;
+				case 0x001B:
+					CONSOLE_OUTPUT("BORDH - border colour\n");
+					break;
+				case 0x001E:
+					CONSOLE_OUTPUT("PMASK - palette mask\n");
+					break;
+				case 0x0020:
+					CONSOLE_OUTPUT("INDEX - palette index\n");
+					break;
+				case 0x0022:
+					CONSOLE_OUTPUT("ENDL - screen line end\n");
+					break;
+				case 0x0023:
+					CONSOLE_OUTPUT("ENDH - screen line end\n");
+					break;
+				case 0x0026:
+					CONSOLE_OUTPUT("MEM - memory configuration\n");
+					break;
+				case 0x0028:
+					CONSOLE_OUTPUT("GPR - General Purpose Register\n");
+					break;
+				case 0x002A:
+					CONSOLE_OUTPUT("DIAG - diagnostics\n");
+					break;
+				case 0x002C:
+					CONSOLE_OUTPUT("DIS - disable interupts\n");
+					break;
+				case 0x002E:
+					CONSOLE_OUTPUT("JOYO - joystick outputs\n");
+					break;
+				case 0x0040:
+					CONSOLE_OUTPUT("BLPROG0\n");
+					break;
+				case 0x0041:
+					CONSOLE_OUTPUT("BLPROG1\n");
+					break;
+				case 0x0042:
+					CONSOLE_OUTPUT("BLPROG2\n");
+					break;
+				case 0x0043:
+					CONSOLE_OUTPUT("BLTCMD\n");
+					break;
+				case 0x0044:
+					CONSOLE_OUTPUT("BLTCON - blitter control\n");
+					break;
+				case 0x0048:
+					CONSOLE_OUTPUT("FRC - floppy read control\n");
+					break;
+					// The below 4 ports are from the development kit <-> PC interface  | Chip Z8536 - Zilog CIO counter/timer parallel IO Unit
+				case 0x0080:
+					CONSOLE_OUTPUT("DRVC - floppy drive control\n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
+
 		case ESS_P88:
 
 			switch (port)
@@ -312,6 +416,56 @@ void DebugRPort(uint16_t port)
 #if ENABLE_DEBUG
 	switch (curSystem)
 	{
+		case ESS_P89:
+
+			switch (port)
+			{
+				case 0x0000:
+					CONSOLE_OUTPUT("HLPL - Horizontal scanline position low byte\n");
+					break;
+				case 0x0001:
+					CONSOLE_OUTPUT("HLPH - Horizontal scanline position hi byte\n");
+					break;
+				case 0x0002:
+					CONSOLE_OUTPUT("VLPL - Vertical scanline position low byte\n");
+					break;
+				case 0x0003:
+					CONSOLE_OUTPUT("VLPH - Vertical scanline position hi byte\n");
+					break;
+				case 0x0008:
+					CONSOLE_OUTPUT("JOYI - Joystick Inputs\n");
+					break;
+				case 0x0009:
+					CONSOLE_OUTPUT("JOYI - Joystick Inputs\n");
+					break;
+				case 0x000C:
+					CONSOLE_OUTPUT("STAT - Machine Status\n");
+					break;
+				case 0x0040:
+					CONSOLE_OUTPUT("BLTDST0 - Blitter Destination Address 0\n");
+					break;
+				case 0x0042:
+					CONSOLE_OUTPUT("BLTDST1 - Blitter Destination Address 1\n");
+					break;
+				case 0x0044:
+					CONSOLE_OUTPUT("BLTSRC0 - Blitter Source Address 0\n");
+					break;
+				case 0x0046:
+					CONSOLE_OUTPUT("BLTSRC1 - Blitter Source Address 1\n");
+					break;
+				case 0x0048:
+					CONSOLE_OUTPUT("FSTAT - Floppy Read Status\n");
+					break;
+				case 0x0080:
+					CONSOLE_OUTPUT("DSTAT - Drive Status\n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
+					exit(-1);
+					break;
+			}
+
+			break;
 		case ESS_P88:
 
 			switch (port)

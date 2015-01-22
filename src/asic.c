@@ -1255,6 +1255,120 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 	}
 }
+
+void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0000:
+			ASIC_KINT&=0xFF00;
+			ASIC_KINT|=byte;
+			break;
+		case 0x0001:
+			ASIC_KINT&=0x00FF;
+			ASIC_KINT|=(byte<<8);
+			break;
+		case 0x0004:
+			ASIC_STARTL=byte;
+			break;
+		case 0x0005:
+			ASIC_STARTH=byte;
+			break;
+		case 0x0010:
+			ASIC_SCROLL&=0x00FFFF00;
+			ASIC_SCROLL|=byte;
+			break;
+		case 0x0012:
+			ASIC_SCROLL&=0x00FF00FF;
+			ASIC_SCROLL|=(byte<<8);
+			break;
+		case 0x0014:
+			ASIC_SCROLL&=0x0000FFFF;
+			ASIC_SCROLL|=(byte<<16);
+			break;
+		case 0x0016:
+			// Clear video interrupt for now
+			VideoInterruptLatch=0;
+			break;
+		case 0x0018:
+			ASIC_MODE=byte;
+			break;
+		case 0x001A:
+			ASIC_BORD&=0xFF00;
+			ASIC_BORD|=byte;
+			break;
+		case 0x001B:
+			ASIC_BORD&=0x00FF;
+			ASIC_BORD|=(byte<<8);
+			break;
+		case 0x001E:
+			ASIC_PMASK=byte;
+			if (byte!=0)
+				CONSOLE_OUTPUT("Warning PMASK!=0 - likely to be an emulation mismatch\n");
+			break;
+		case 0x0020:
+			ASIC_INDEX=byte;
+			if (byte!=0)
+				CONSOLE_OUTPUT("Warning INDEX!=0 - likely to be an emulation mismatch\n");
+			break;
+		case 0x0022:
+			ASIC_ENDL=byte;
+			break;
+		case 0x0023:
+			ASIC_ENDH=byte;
+			break;
+		case 0x0026:
+			ASIC_MEM=byte;
+			if (byte!=0)
+				CONSOLE_OUTPUT("Warning MEM!=0 - (mem banking not implemented)\n");
+			break;
+		case 0x002A:
+			ASIC_DIAG=byte;
+			if (byte!=0)
+				CONSOLE_OUTPUT("Warning DIAG!=0 - (Diagnostics not implemented)\n");
+			break;
+		case 0x002C:
+			ASIC_DIS=byte;
+			if (byte&0xFE)
+				CONSOLE_OUTPUT("Warning unhandled DIS bits set (%02X)- (Other intterupts not implemented)\n",byte);
+			break;
+		case 0x0040:
+			ASIC_BLTPC&=0xFFF00;
+			ASIC_BLTPC|=byte;
+			break;
+		case 0x0041:
+			ASIC_BLTPC&=0xF00FF;
+			ASIC_BLTPC|=byte<<8;
+			break;
+		case 0x0042:
+			ASIC_BLTPC&=0x0FFFF;
+			ASIC_BLTPC|=(byte&0xF)<<16;
+			break;
+		case 0x0043:
+			ASIC_BLTCMD=byte;
+			break;
+		case 0x0044:
+			ASIC_BLTCON=byte;
+			if (byte!=0)
+				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)\n");
+			break;
+		case 0x0048:
+			CONSOLE_OUTPUT("Floppy Read Control : %02X\n",byte);
+			break;
+		case 0x0080:
+			CONSOLE_OUTPUT("Floppy Drive Control : %02X\n",byte);
+			break;
+		default:
+#if ENABLE_DEBUG
+			if (warnIgnore)
+			{
+				CONSOLE_OUTPUT("ASIC WRITE IGNORE %04X<-%02X - TODO?\n",port,byte);
+			}
+#endif
+			break;
+	}
+}
+
 void TERMINAL_OUTPUT(uint8_t byte);
 uint8_t terminalWrote=0;
 
@@ -1578,8 +1692,41 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
+{
+	switch (port)
+	{
+		case 0x0000:				// HLPL		--- TODO.. only when DIAG bit 0 set!
+			return hClock&0xFF;
+		case 0x0001:				// HLPH
+			return (hClock>>8)&0xFF;
+		case 0x0002:				// VLPL
+			return vClock&0xFF;
+		case 0x0003:
+			return (vClock>>8)&0xFF;
+		case 0x0048:
+			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
+			return 0;		
+		case 0x0080:
+			CONSOLE_OUTPUT("Read from Floppy Drive Status\n");
+			return 0;		
+		default:
+#if ENABLE_DEBUG
+			if (warnIgnore)
+			{
+				CONSOLE_OUTPUT("ASIC READ IGNORE %04X - TODO?\n",port);
+			}
+#endif
+			break;
+	}
+	return 0xAA;
+}
+
+
+
 uint8_t GetTermKey();
 uint8_t HasTermKey();
+
 
 uint8_t ASIC_ReadP88(uint16_t port,int warnIgnore)
 {
@@ -1673,6 +1820,7 @@ void DoScreenInterrupt()
 	switch (curSystem)
 	{
 		case ESS_MSU:
+		case ESS_P89:
 		case ESS_P88:
 			INTERRUPT(0x21);
 			break;
@@ -1804,6 +1952,12 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 }
 
 void TickAsicMSU(int cycles)
+{
+	TickBlitterMSU();
+	TickAsic(cycles,ConvPaletteMSU,0);
+}
+
+void TickAsicP89(int cycles)
 {
 	TickBlitterMSU();
 	TickAsic(cycles,ConvPaletteMSU,0);
