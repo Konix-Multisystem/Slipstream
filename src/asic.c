@@ -1139,21 +1139,47 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 
 		if (BLT_OUTER_CMD&0x04)
 		{
-			BLT_INNER_CNT=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
+			if (curSystem==ESS_P89)		// This might apply to MSU version too (and would make more sense)
+			{
+				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
 
-			BLT_INNER_STEP=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
+				BLT_OUTER_MODE=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
 
-			BLT_INNER_PAT=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
-	
+				BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+			}
+			else
+			{
+				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+			}
 #if ENABLE_DEBUG_BLITTER
 			if (doShowBlits)
 			{
-				CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
-				CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
-				CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+				if (curSystem==ESS_P89)
+				{
+					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+					CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
+					CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+					CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+				}
+				else
+				{
+					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+					CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+					CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+				}
 			}
 #endif
 
@@ -1222,21 +1248,48 @@ void DoBlitOuter()
 
 		if (BLT_OUTER_CMD&0x04)
 		{
-			BLT_INNER_CNT=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
+			if (curSystem==ESS_P89)		// This might apply to MSU version too (and would make more sense)
+			{
+				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
 
-			BLT_INNER_STEP=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
+				BLT_OUTER_MODE=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
 
-			BLT_INNER_PAT=GetByte(ASIC_BLTPC);
-			ASIC_BLTPC++;
-	
+				BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+			}
+			else
+			{
+				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_STEP=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+
+				BLT_INNER_PAT=GetByte(ASIC_BLTPC);
+				ASIC_BLTPC++;
+			}
+
 #if ENABLE_DEBUG_BLITTER
 			if (doShowBlits)
 			{
-				CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
-				CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
-				CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+				if (curSystem==ESS_P89)
+				{
+					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+					CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
+					CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+					CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+				}
+				else
+				{
+					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
+					CONSOLE_OUTPUT("Step : %02X\n",BLT_INNER_STEP);
+					CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
+				}
 			}
 #endif
 
