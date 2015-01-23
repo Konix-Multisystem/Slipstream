@@ -65,6 +65,7 @@ uint8_t		ASIC_DIAG=0;
 uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
 uint8_t		ASIC_BLTCMD=0;
+uint8_t		ASIC_BLTENH=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
@@ -97,6 +98,7 @@ uint8_t BLT_OUTER_CNT;
 uint16_t BLT_INNER_CNT;
 uint8_t BLT_INNER_STEP;
 uint8_t BLT_INNER_PAT;
+uint8_t	BLT_ENH;				// upper 3 bits representing the enhancment to the step function : ENSTP8 ENSTPS ENSTEP  (89 and possibly MSU)
 
 uint32_t ADDRESSGENERATOR_SRCADDRESS;			// 21 bit  - LSB = nibble
 uint32_t ADDRESSGENERATOR_DSTADDRESS;			// 21 bit  - LSB = nibble
@@ -252,7 +254,9 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 #endif
 
 		BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of P89 version!!
+		BLT_ENH=ASIC_BLTENH;
 		ASIC_BLTCMD=0;
+		ASIC_BLTENH=0;
 
 		do
 		{
@@ -267,6 +271,10 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 				BLT_OUTER_CMD&0x20?1:0,
 				BLT_OUTER_CMD&0x40?1:0,
 				BLT_OUTER_CMD&0x80?1:0);
+			CONSOLE_OUTPUT("Enhanced Step : ENSTEP (%d), ENSTP8 (%d), ENSTPS (%d)\n",
+				BLT_ENH&0x20?1:0,
+				BLT_ENH&0x40?1:0,
+				BLT_ENH&0x80?1:0);
 		}
 
 		if (BLT_OUTER_CMD&0x02)
@@ -326,8 +334,18 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 		if (doShowBlits)
 		{
 			CONSOLE_OUTPUT("Src Address : %05X\n",BLT_OUTER_SRC&0xFFFFF);
+			CONSOLE_OUTPUT("Outer Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+				BLT_OUTER_SRC_FLAGS&0x10?1:0,
+				BLT_OUTER_SRC_FLAGS&0x20?1:0,
+				BLT_OUTER_SRC_FLAGS&0x40?1:0,
+				BLT_OUTER_SRC_FLAGS&0x80?1:0);
 			CONSOLE_OUTPUT("Outer Cnt : %02X\n",BLT_OUTER_CNT);
 			CONSOLE_OUTPUT("Dst Address : %05X\n",BLT_OUTER_DST&0xFFFFF);
+			CONSOLE_OUTPUT("Outer Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+				BLT_OUTER_DST_FLAGS&0x10?1:0,
+				BLT_OUTER_DST_FLAGS&0x20?1:0,
+				BLT_OUTER_DST_FLAGS&0x40?1:0,
+				BLT_OUTER_DST_FLAGS&0x80?1:0);
 			CONSOLE_OUTPUT("Comp Logic : %02X\n",BLT_OUTER_CPLG);
 			CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
 			CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
@@ -337,7 +355,8 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 #endif
 		DoBlit();
 		
-		ASIC_BLTPC++;		// skip segment address
+		BLT_ENH=GetByte(ASIC_BLTPC)&0xE0;
+		ASIC_BLTPC++;
 		BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
 		ASIC_BLTPC++;
 		}
@@ -870,7 +889,7 @@ void AddressGeneratorDestinationStep(int32_t step)
 		ADDRESSGENERATOR_DSTADDRESS+=step;
 	}
 
-	BLTDDBG("DSTADDR %06X\n",ADDRESSGENERATOR_DSTADDRESS);
+	BLTDDBG("DSTADDR %06X (X,Y) (%d,%d)\n",ADDRESSGENERATOR_DSTADDRESS,ADDRESSGENERATOR_DSTADDRESS&0xFF,(ADDRESSGENERATOR_DSTADDRESS&0x1FF00)>>8);
 }
 
 void AddressGeneratorDestinationLineStep(int32_t step)
@@ -1459,6 +1478,7 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_BLTPC|=byte<<8;
 			break;
 		case 0x0042:
+			ASIC_BLTENH=byte&0xE0;
 			ASIC_BLTPC&=0x0FFFF;
 			ASIC_BLTPC|=(byte&0xF)<<16;		// note ENbits in upper nibble - not used yet!
 			break;
