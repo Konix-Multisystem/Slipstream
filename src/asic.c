@@ -1137,6 +1137,16 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 		if (outerCnt==0)
 			break;
 
+		if (BLT_OUTER_CMD&0x10)				//DSTUP
+		{
+			AddressGeneratorDestinationStep(step);			// Should never reach here in line mode!
+		}
+
+		if (BLT_OUTER_CMD&0x08)
+		{
+			AddressGeneratorSourceStep(step);
+		}
+
 		if (BLT_OUTER_CMD&0x04)
 		{
 			if (curSystem==ESS_P89)		// This might apply to MSU version too (and would make more sense)
@@ -1192,15 +1202,6 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 			DATAPATH_PATDATA=BLT_INNER_PAT;
 		}
 
-		if (BLT_OUTER_CMD&0x10)				//DSTUP
-		{
-			AddressGeneratorDestinationStep(step);			// Should never reach here in line mode!
-		}
-
-		if (BLT_OUTER_CMD&0x08)
-		{
-			AddressGeneratorSourceStep(step);
-		}
 	}
 }
 
@@ -1245,6 +1246,16 @@ void DoBlitOuter()
 		outerCnt--;
 		if (outerCnt==0)
 			break;
+
+		if (BLT_OUTER_CMD&0x10)				//DSTUP
+		{
+			AddressGeneratorDestinationStep(step);			// ?? Does step just apply, or should it be multiplied by pixel width?
+		}
+
+		if (BLT_OUTER_CMD&0x08)
+		{
+			AddressGeneratorSourceStep(step);
+		}
 
 		if (BLT_OUTER_CMD&0x04)
 		{
@@ -1313,15 +1324,6 @@ void DoBlitOuter()
 			DATAPATH_PATDATA=BLT_INNER_PAT;
 		}
 
-		if (BLT_OUTER_CMD&0x10)				//DSTUP
-		{
-			AddressGeneratorDestinationStep(step);			// ?? Does step just apply, or should it be multiplied by pixel width?
-		}
-
-		if (BLT_OUTER_CMD&0x08)
-		{
-			AddressGeneratorSourceStep(step);
-		}
 	}
 }
 
