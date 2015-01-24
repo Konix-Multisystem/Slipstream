@@ -969,8 +969,11 @@ int main(int argc,char**argv)
 		}
 		if (masterClock>=WIDTH*HEIGHT || pause)
 		{
-			void ShowEddyDebug();		// Show P89 Floppy Controller Information
-			ShowEddyDebug();
+			if (curSystem==ESS_P89)
+			{
+				void ShowEddyDebug();		// Show P89 Floppy Controller Information
+				ShowEddyDebug();
+			}
 
 			if (masterClock>=WIDTH*HEIGHT)
 			{
