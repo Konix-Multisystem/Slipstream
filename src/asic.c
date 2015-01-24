@@ -10,9 +10,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <conio.h>
 #include <stdint.h>
 #include <string.h>
+
+#if OS_WINDOWS
+#include <conio.h>
+#endif
 
 #include "system.h"
 #include "logfile.h"

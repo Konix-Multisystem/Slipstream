@@ -16,7 +16,7 @@
 
 FILE* logFile=NULL;
 
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 extern int useRemoteDebugger;
 
 char remoteDebuggerLog[1024*1024]={0};
@@ -28,7 +28,7 @@ void CONSOLE_OUTPUT(char* fmt,...)
 {
 	va_list args;
 
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 	if (useRemoteDebugger)
 	{
 		char tmpForLog[32768];

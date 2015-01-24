@@ -38,7 +38,7 @@ int useRemoteDebugger=0;
 
 char lastRomLoaded[1024];
 
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 
 #include <winsock2.h>
 
@@ -688,7 +688,7 @@ void DoCPU8086()
 
 void DoCPUZ80()
 {
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+19680) /*0x4042A*/) && !(Z80_HALTED&1))
 	{
 		extern int doShowDMA;
@@ -698,7 +698,7 @@ void DoCPUZ80()
 //		debugWatchReads=1;
 //		doShowPortStuff=1;
 //		doDSPDisassemble=1;
-		doShowDMA=1;
+//		doShowDMA=1;
 		//doShowBlits=1;
 		//			numClocks=1;
 	}
@@ -867,7 +867,7 @@ int main(int argc,char**argv)
 
 	ResetHardware();
 		
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 	CreateRemoteServer();
 #endif
 
@@ -888,7 +888,7 @@ int main(int argc,char**argv)
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 	if (useRemoteDebugger)
 	{
 //		printf("Running in headless mode - CTRL-C to quit\n");
@@ -960,7 +960,7 @@ int main(int argc,char**argv)
 			{
 				masterClock-=WIDTH*HEIGHT;
 			}
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 			if (useRemoteDebugger)
 			{
 				if (remoteCommand!=ERC_None)
@@ -1037,7 +1037,7 @@ int main(int argc,char**argv)
 		}
 	}
 
-#if ENABLE_DEBUG
+#if ENABLE_REMOTE_DEBUG
 	CloseRemoteServer();
 #endif
 

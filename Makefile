@@ -1,10 +1,30 @@
 all: slipstream
 
-GLHEADERS=-I../glfw-3.0.4/include 
-GLLIBS= -L../glfw-3.0.4/lib-mingw -lglfw3 -lglu32 -lopengl32 -lgdi32
-EDL=../edl/bin/edl.exe
-
 COMPILER=gcc
+
+ifeq ($(OS),Windows_NT)
+	OS_WINDOWS=1
+else
+	OS_WINDOWS=0
+endif
+
+ifeq ($(OS_WINDOWS),1)
+	ENABLE_REMOTE_DEBUG=1
+	AL_INCLUDE=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
+	AL_LIBS=/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
+	EDL=../edl/bin/edl.exe
+	GLHEADERS=-I../glfw-3.0.4/include 
+	GLLIBS= -L../glfw-3.0.4/lib-mingw -lglfw3 -lglu32 -lopengl32 -lgdi32
+	EXTRA_LIBS=-lws2_32
+else
+	ENABLE_REMOTE_DEBUG=0
+	AL_INCLUDE=
+	AL_LIBS=
+	EDL=../EDL/bin/edl
+	GLHEADERS=
+	GLLIBS=-lglfw3 -lX11 -lXxf86vm -lXrandr -lXi -lrt -lm -lXcursor -lopenal -lGL
+	EXTRA_LIBS=
+endif
 
 ENABLE_DEBUG=1
 ENABLE_GPROF=0
@@ -15,8 +35,8 @@ ifeq ($(DISABLE_AUDIO),1)
 ALHEADERS=
 ALLIBS=
 else
-ALHEADERS=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
-ALLIBS= /c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
+ALHEADERS=
+ALLIBS= 
 endif
 
 ifeq ($(ENABLE_GPROF),1)
@@ -33,7 +53,7 @@ SYM_OPTS=$(PROF_OPTS)
 DISASSM=-n
 endif
 
-COMPILE=-c -O3 -Wall -Werror $(SYM_OPTS) -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
+COMPILE=-c -O3 -Wall -Werror $(SYM_OPTS) -DOS_WINDOWS=$(OS_WINDOWS) -DENABLE_REMOTE_DEBUG=$(ENABLE_REMOTE_DEBUG) -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
 
 clean:
 	$(RM) -rf out/*
@@ -109,5 +129,5 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
 slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread $(EXTRA_LIBS) -o slipstream.exe
 

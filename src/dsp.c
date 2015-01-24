@@ -8,9 +8,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <conio.h>
 #include <stdint.h>
 #include <string.h>
+
+#if OS_WINDOWS
+#include <conio.h>
+#endif
 
 #include "logfile.h"
 #include "dsp.h"
@@ -342,13 +345,6 @@ const char* DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 		else
 		{
 			char *tPtr=sprintBuffer;
-			int negOffs=1;
-			if (*sPtr=='-')
-			{
-				sPtr++;
-				negOffs=-1;
-			}
-
 			sprintf(sprintBuffer,"%s",DSP_LookupAddress(data));
 			while (*tPtr)
 			{
@@ -458,13 +454,6 @@ const char* FL1DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
 		else
 		{
 			char *tPtr=sprintBuffer;
-			int negOffs=1;
-			if (*sPtr=='-')
-			{
-				sPtr++;
-				negOffs=-1;
-			}
-
 			sprintf(sprintBuffer,"%03X (%04X)",data,FL1DSP_PEEK(data));
 			while (*tPtr)
 			{
