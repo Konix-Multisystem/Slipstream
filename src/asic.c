@@ -46,7 +46,7 @@ void FL1DSP_RESET();
 extern uint16_t FL1DSP_PC;
 extern uint16_t DSP_STATUS;
 
-int doShowBlits=1;
+int doShowBlits=0;
 
 // Current ASIC registers
 int hClock=0;

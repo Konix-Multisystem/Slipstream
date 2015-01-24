@@ -35,8 +35,8 @@ void FL1DSP_POKE_BYTE(uint16_t,uint8_t);
 uint8_t FL1DSP_PEEK_BYTE(uint16_t);
 
 int doDSPDisassemble=0;
-int doShowHostDSPWrites=1;
-int doShowHostDSPReads=1;
+int doShowHostDSPWrites=0;
+int doShowHostDSPReads=0;
 int doShowDMA=0;
 
 uint16_t DSP_DMAGetWord(uint32_t addr)

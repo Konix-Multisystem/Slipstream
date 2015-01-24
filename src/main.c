@@ -683,10 +683,10 @@ void DoCPU8086()
 #if ENABLE_DEBUG
 		if (SEGTOPHYS(CS,IP)==0)//0x80120)//(0x80ECF))
 		{
-			doDebug=1;
-			debugWatchWrites=1;
-			debugWatchReads=1;
-			doShowBlits=1;
+//			doDebug=1;
+//			debugWatchWrites=1;
+//			debugWatchReads=1;
+//			doShowBlits=1;
 //			numClocks=1;
 		}
 #endif
@@ -928,8 +928,8 @@ int main(int argc,char**argv)
 	/*	extern int doShowDMA;
 		doDebug=1;
 		debugWatchWrites=1;
-		debugWatchReads=1;*/
-		doShowPortStuff=1;
+		debugWatchReads=1;
+		doShowPortStuff=1;*/
 //		doDSPDisassemble=1;
 //		doDebug=1;
 /*		doShowDMA=1;
