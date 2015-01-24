@@ -761,6 +761,7 @@ void Usage()
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
+	CONSOLE_OUTPUT("-K boot production konix bios\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
@@ -800,6 +801,12 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				emulateDSP=0;
 				continue;
+			}
+			if (strcmp(argv[a],"-K")==0)
+			{
+				curSystem=ESS_P89;
+				LoadRom("roms/konixBios.bin",0);
+				return;
 			}
 			if (strcmp(argv[a],"-b")==0)
 			{
@@ -871,11 +878,7 @@ int main(int argc,char**argv)
 	CreateRemoteServer();
 #endif
 
-//	ParseCommandLine(argc,argv);
-
-	curSystem=ESS_P89;
-
-	LoadRom("roms/konixBios.bin",0);
+	ParseCommandLine(argc,argv);
 
 // Poke Rom To test results of no floppy
 /*	ROM[0x8F]=0x90;
