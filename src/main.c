@@ -691,14 +691,14 @@ void DoCPUZ80()
 #if ENABLE_DEBUG
 	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+19680) /*0x4042A*/) && !(Z80_HALTED&1))
 	{
-//		extern int doShowDMA;
+		extern int doShowDMA;
 	//	pause=1;
 //		doDebug=1;
 //		debugWatchWrites=1;
 //		debugWatchReads=1;
 //		doShowPortStuff=1;
 //		doDSPDisassemble=1;
-//		doShowDMA=1;
+		doShowDMA=1;
 		//doShowBlits=1;
 		//			numClocks=1;
 	}
@@ -877,6 +877,15 @@ int main(int argc,char**argv)
 
 	LoadRom("roms/konixBios.bin",0);
 
+// Poke Rom To test results of no floppy
+/*	ROM[0x8F]=0x90;
+	ROM[0x90]=0x90;
+	ROM[0xAE]=0x90;
+	ROM[0xAF]=0x90;
+	ROM[0xB0]=0x90;
+	ROM[0xB1]=0x90;
+	ROM[0xB2]=0x90;*/
+
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
 #if ENABLE_DEBUG
@@ -901,15 +910,16 @@ int main(int argc,char**argv)
 //	doDebugTrapWriteAt=0x088DAA;
 //	debugWatchWrites=1;
 //	doDebug=1;
-		extern int doShowDMA;
 	//	pause=1;
+	/*	extern int doShowDMA;
 		doDebug=1;
 		debugWatchWrites=1;
 		debugWatchReads=1;
-		doShowPortStuff=1;
+		doShowPortStuff=1;*/
 		doDSPDisassemble=1;
-		doShowDMA=1;
-		doShowBlits=1;
+		doDebug=1;
+/*		doShowDMA=1;
+		doShowBlits=1;*/
 
 	while (1==1)
 	{
