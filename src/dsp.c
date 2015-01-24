@@ -253,6 +253,10 @@ void DSP_DUMP_REGISTERS()
 	CONSOLE_OUTPUT("X  = %04X\n",DSP_PEEK(0x14C));
 	CONSOLE_OUTPUT("AZ = %04X\n",DSP_PEEK(0x14D));
 	CONSOLE_OUTPUT("DMD= %04X\n",DSP_PEEK(0x144));
+	uint32_t dma0=DSP_PEEK(0x142);
+	uint32_t dma1=DSP_PEEK(0x143);
+	CONSOLE_OUTPUT("DMA0= %04X\n",dma0);
+	CONSOLE_OUTPUT("DMA1= %04X    (HOLD=%d)(RW=%d)(BW=%d)(DMA ADDR=%06X)\n",dma1,(dma1&0x800)>>11,(dma1&0x400)>>10,(dma1&0x200)>>9,((dma1&0xF)<<16)|(dma0));
 	CONSOLE_OUTPUT("--------\n");
 }
 
@@ -1083,7 +1087,7 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 #if ENABLE_DEBUG
 			if (doShowHostDSPWrites)
 			{
-				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X<-%02X\n",addr,byte);
 			}
 #endif
 			if (addr==0x600)

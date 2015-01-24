@@ -69,6 +69,9 @@ uint8_t		ASIC_BLTENH=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
+
+uint8_t		ASIC_FDC=0xFF;				// P89 Floppy Disk Controller
+
 uint8_t		ASIC_PROGCNT=0;		// FL1 Only
 uint16_t	ASIC_PROGWRD=0;
 uint16_t	ASIC_PROGADDR=0;
@@ -110,7 +113,14 @@ uint16_t DATAPATH_DATAOUT;
 
 uint16_t BLT_INNER_CUR_CNT;
 
+// EDDY - Floppy Disk Controller - P89
+int8_t EDDY_Track=78;				// head position 
+int8_t EDDY_Side=0;
+uint32_t EDDY_BitPos=0;				// ~bit position on track
+int8_t EDDY_Index=0;
 
+#define INDEX_PULSE_FREQ	((WIDTH*HEIGHT*50)/300)		// Approximate
+#define INDEX_PULSE_WIDTH	(((WIDTH*HEIGHT*50)/300)/8000)		// Approximate
 
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
@@ -1549,6 +1559,22 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 			CONSOLE_OUTPUT("Floppy Read Control : %02X\n",byte);
 			break;
 		case 0x0080:
+			// SIDE | WRITE | STEP | DIR | MOTOR | DS1 | DS0 | 0
+			if ( ((ASIC_FDC&0x20)==0x20) && ((byte&0x20)==0) )
+			{	
+				// Step request
+				EDDY_Track+= (byte&0x10)?-1 : 1;
+				if (EDDY_Track<0)
+				{
+					EDDY_Track=0;
+				}
+				if (EDDY_Track>79)
+				{
+					EDDY_Track=79;
+				}
+				EDDY_Side=(byte&0x80)>>7;
+			}
+			ASIC_FDC=byte;
 			CONSOLE_OUTPUT("Floppy Drive Control : %02X\n",byte);
 			break;
 		default:
@@ -1897,6 +1923,10 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 			return vClock&0xFF;
 		case 0x0003:
 			return (vClock>>8)&0xFF;
+		case 0x000C:
+			// STAT - 0IJJJ9PN	- Index | Joystick16-18 | 9Mhz CPU mode | (Light) Pen input received | Ntsc mode
+			
+			return (EDDY_Index<<6);
 		case 0x0048:
 			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
 			return 0;		
@@ -2151,10 +2181,31 @@ void TickAsicMSU(int cycles)
 	TickAsic(cycles,ConvPaletteMSU,0);
 }
 
+void PrintAt(unsigned char* buffer,unsigned int width,unsigned char r,unsigned char g,unsigned char b,unsigned int x,unsigned int y,const char *msg,...);
+
 void TickAsicP89(int cycles)
 {
 	TickBlitterP89();
 	TickAsic(cycles,ConvPaletteP88,0);
+
+	if ( (ASIC_FDC&0x08)==0 )	// Motor On
+	{
+		EDDY_BitPos+=cycles;
+		EDDY_Index=0;
+		if (EDDY_BitPos>=INDEX_PULSE_FREQ)
+		{
+			EDDY_BitPos=0;
+		}
+		if (EDDY_BitPos<INDEX_PULSE_WIDTH)
+		{
+			EDDY_Index=1;
+		}
+	}
+}
+
+void ShowEddyDebug()
+{
+	PrintAt(videoMemory[MAIN_WINDOW],windowWidth[MAIN_WINDOW],255,255,255,1,1,"Floppy Status : FDC (%02X) : Track %d : Side %d : BitPos %d : Index %d\n",ASIC_FDC,EDDY_Track,EDDY_Side,EDDY_BitPos,EDDY_Index);
 }
 
 void TickAsicP88(int cycles)
@@ -2205,6 +2256,8 @@ void ASIC_INIT()
 	ASIC_PALVAL=0;
 	ASIC_PALCNT=0;
 	ASIC_PALMASK=0xFF;
+
+	ASIC_FDC=0xFF;
 
 	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
 	ASIC_BANK1=0;
