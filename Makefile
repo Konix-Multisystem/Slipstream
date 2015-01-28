@@ -19,10 +19,10 @@ ifeq ($(OS_WINDOWS),1)
 else
 	ENABLE_REMOTE_DEBUG=0
 	AL_INCLUDE=
-	AL_LIBS=
+	AL_LIBS=-lopenal 
 	EDL=../EDL/bin/edl
 	GLHEADERS=
-	GLLIBS=-lglfw3 -lX11 -lXxf86vm -lXrandr -lXi -lrt -lm -lXcursor -lopenal -lGL
+	GLLIBS=-lglfw3 -lX11 -lXxf86vm -lXrandr -lXi -lrt -lm -lXcursor -lGL
 	EXTRA_LIBS=
 endif
 
@@ -53,7 +53,7 @@ SYM_OPTS=$(PROF_OPTS)
 DISASSM=-n
 endif
 
-COMPILE=-c -O3 -Wall -Werror $(SYM_OPTS) -DOS_WINDOWS=$(OS_WINDOWS) -DENABLE_REMOTE_DEBUG=$(ENABLE_REMOTE_DEBUG) -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(ALHEADERS)
+COMPILE=-c -O3 -Wall -Werror $(SYM_OPTS) -DOS_WINDOWS=$(OS_WINDOWS) -DENABLE_REMOTE_DEBUG=$(ENABLE_REMOTE_DEBUG) -DDISABLE_DSP=$(DISABLE_DSP) -DDISABLE_AUDIO=$(DISABLE_AUDIO) -DENABLE_DEBUG=$(ENABLE_DEBUG) -Isrc/ -Isrc/host/ $(GLHEADERS) $(AL_INCLUDE)
 
 clean:
 	$(RM) -rf out/*
@@ -129,5 +129,5 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
 slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(ALLIBS) $(GLLIBS) -lpthread $(EXTRA_LIBS) -o slipstream.exe
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(AL_LIBS) $(GLLIBS) -lpthread $(EXTRA_LIBS) -o slipstream.exe
 

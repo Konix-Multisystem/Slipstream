@@ -691,7 +691,7 @@ void DoCPUZ80()
 #if ENABLE_REMOTE_DEBUG
 	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+19680) /*0x4042A*/) && !(Z80_HALTED&1))
 	{
-		extern int doShowDMA;
+		//extern int doShowDMA;
 	//	pause=1;
 //		doDebug=1;
 //		debugWatchWrites=1;
