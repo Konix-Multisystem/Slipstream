@@ -37,6 +37,7 @@
 
 extern unsigned char PALETTE[256*2];
 extern int doShowPortStuff;
+extern int doDebug;
 
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
@@ -74,6 +75,7 @@ uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
 
 uint8_t		ASIC_FDC=0xFF;				// P89 Floppy Disk Controller
+uint32_t	ASIC_FRC=0x00000000;			// P89 Floppy Disk Controller
 
 uint8_t		ASIC_PROGCNT=0;		// FL1 Only
 uint16_t	ASIC_PROGWRD=0;
@@ -121,6 +123,7 @@ int8_t EDDY_Track=78;				// head position
 int8_t EDDY_Side=0;
 uint32_t EDDY_BitPos=0;				// ~bit position on track
 int8_t EDDY_Index=0;
+uint16_t EDDY_State=0;				// (Just Bits 12-14 for now -- 000 IDLE 001 Waiting Index 111 Freq Locking 010 Waiting AMark 110 AMark 111 Reading Sector Data
 
 #define INDEX_PULSE_FREQ	((WIDTH*HEIGHT*50)/300)		// Approximate
 #define INDEX_PULSE_WIDTH	(((WIDTH*HEIGHT*50)/300)/8000)		// Approximate
@@ -1556,16 +1559,32 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0044:
 			ASIC_BLTCON=byte;
 			if (byte!=0)
-				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)\n");
+				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)  (%02X)\n",byte);
 			break;
 		case 0x0048:
 			CONSOLE_OUTPUT("Floppy Read Control : %02X\n",byte);
+			ASIC_FRC&=0xFF00;
+			ASIC_FRC|=byte;
+			break;
+		case 0x0049:
+			ASIC_FRC&=0x00FF;
+			ASIC_FRC|=byte<<8;
+			if (ASIC_FRC&1)
+			{
+				EDDY_State=0x6000;
+#if ENABLE_DEBUG
+				CONSOLE_OUTPUT("Begin Floppy DMA @%06X\n",(ASIC_FRC&0xFFE0)<<4);
+#endif
+			}
 			break;
 		case 0x0080:
 			// SIDE | WRITE | STEP | DIR | MOTOR | DS1 | DS0 | 0
 			if ( ((ASIC_FDC&0x20)==0x20) && ((byte&0x20)==0) )
 			{	
 				// Step request
+#if ENABLE_DEBUG
+				CONSOLE_OUTPUT("Stepping Head : %d\n",(byte&0x10)?-1:1);
+#endif
 				EDDY_Track+= (byte&0x10)?-1 : 1;
 				if (EDDY_Track<0)
 				{
@@ -1575,10 +1594,12 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 				{
 					EDDY_Track=79;
 				}
-				EDDY_Side=(byte&0x80)>>7;
 			}
+			EDDY_Side=((byte&0x80)>>7)?0:1;
 			ASIC_FDC=byte;
-			CONSOLE_OUTPUT("Floppy Drive Control : %02X\n",byte);
+#if ENABLE_DEBUG
+			CONSOLE_OUTPUT("Floppy Drive Control : Track %d : Side %d : %02X\n",EDDY_Track,EDDY_Side,byte);
+#endif
 			break;
 		default:
 #if ENABLE_DEBUG
@@ -1914,6 +1935,8 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 	}
 }
 
+extern uint16_t joyPadState;
+
 uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 {
 	switch (port)
@@ -1926,16 +1949,23 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 			return vClock&0xFF;
 		case 0x0003:
 			return (vClock>>8)&0xFF;
+		case 0x0008:
+			CONSOLE_OUTPUT("Reading Joy : %04X\n",joyPadState);
+			return (0xFFFF^joyPadState)&0xFF;
+		case 0x0009:
+			return (0xFFFF^joyPadState)>>8;
 		case 0x000C:
 			// STAT - 0IJJJ9PN	- Index | Joystick16-18 | 9Mhz CPU mode | (Light) Pen input received | Ntsc mode
-			
-			return (EDDY_Index<<6);
+			return (EDDY_Index<<6)|((joyPadState&0xE0)>>2);
 		case 0x0048:
 			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
-			return 0;		
+			return EDDY_State&0xFF;
+		case 0x0049:
+			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
+			return (EDDY_State>>8)&0xFF;
 		case 0x0080:
-			CONSOLE_OUTPUT("Read from Floppy Drive Status\n");
-			return 0;		
+			CONSOLE_OUTPUT("Read from Floppy Drive Status Status %d\n",(EDDY_Track==0)?2:3);
+			return (EDDY_Track==0)?2:3;		// Status inverted for Track 0 
 		default:
 #if ENABLE_DEBUG
 			if (warnIgnore)
@@ -2185,11 +2215,29 @@ void TickAsicMSU(int cycles)
 
 void PrintAt(unsigned char* buffer,unsigned int width,unsigned char r,unsigned char g,unsigned char b,unsigned int x,unsigned int y,const char *msg,...);
 
+extern uint8_t DISK_IMAGE[5632*2*80];
+
 void TickAsicP89(int cycles)
 {
 	TickBlitterP89();
 	TickAsic(cycles,ConvPaletteP88,0);
 
+	if ( EDDY_State!=0 )	// Floppy Read
+	{
+		// For now, read the whole sector and clear the status
+		int a;
+
+		for (a=0;a<5632;a++)
+		{
+			SetByte(((ASIC_FRC&0xFFE0)<<4)+a,DISK_IMAGE[EDDY_Track*5632*2 + EDDY_Side*5632 + a]);
+		}
+
+		ASIC_FRC&=0xFFFE;
+		EDDY_State=0;
+/*		if (EDDY_Track==25 && EDDY_Side==1)
+			doDebug=1;*/
+		
+	}
 	if ( (ASIC_FDC&0x08)==0 )	// Motor On
 	{
 		EDDY_BitPos+=cycles;

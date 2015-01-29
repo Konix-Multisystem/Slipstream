@@ -624,6 +624,19 @@ int LoadRom(const char* fname,uint32_t address)					// Load an MSU file which wi
 	return 0;
 }
 
+uint8_t DISK_IMAGE[5632*2*80];
+
+int LoadDisk(const char* fname)				// Load P89 Disk -- Pure Sector Dump
+{
+	FILE* inFile = fopen(fname,"rb");
+
+	fread(DISK_IMAGE,1,5632*2*80,inFile);
+
+	fclose(inFile);
+
+	return 0;
+}
+
 int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -915,12 +928,14 @@ int main(int argc,char**argv)
 	/*	extern int doShowDMA;
 		doDebug=1;
 		debugWatchWrites=1;
-		debugWatchReads=1;
-		doShowPortStuff=1;*/
-		doDSPDisassemble=1;
-		doDebug=1;
+		debugWatchReads=1;*/
+		doShowPortStuff=1;
+//		doDSPDisassemble=1;
+//		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
+
+	LoadDisk("LN2_1.DSK");
 
 	while (1==1)
 	{
