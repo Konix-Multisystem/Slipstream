@@ -2085,7 +2085,6 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{
-			CONSOLE_OUTPUT("Attempt interrupt\n");
 			DoScreenInterrupt();		
 		}
 

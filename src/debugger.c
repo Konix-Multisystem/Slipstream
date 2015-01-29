@@ -149,7 +149,6 @@ void DebugWPort(uint16_t port)
 				case 0x0048:
 					CONSOLE_OUTPUT("FRC - floppy read control\n");
 					break;
-					// The below 4 ports are from the development kit <-> PC interface  | Chip Z8536 - Zilog CIO counter/timer parallel IO Unit
 				case 0x0080:
 					CONSOLE_OUTPUT("DRVC - floppy drive control\n");
 					break;

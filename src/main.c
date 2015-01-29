@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.2 Preview 8"
+#define SLIPSTREAM_VERSION	"0.3 Preview 1"
 
 #include <GLFW/glfw3.h>
 
@@ -880,14 +880,12 @@ int main(int argc,char**argv)
 
 	ParseCommandLine(argc,argv);
 
-// Poke Rom To test results of no floppy
-/*	ROM[0x8F]=0x90;
-	ROM[0x90]=0x90;
-	ROM[0xAE]=0x90;
+// Poke Rom To  Skip floppy security  test results of no floppy
+/*	ROM[0xAE]=0x90;
 	ROM[0xAF]=0x90;
-	ROM[0xB0]=0x90;
-	ROM[0xB1]=0x90;
-	ROM[0xB2]=0x90;*/
+	ROM[0xB0]=0x90;*/
+	ROM[0xB1]=0xEB;
+/*	ROM[0xB2]=0x90;*/
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 

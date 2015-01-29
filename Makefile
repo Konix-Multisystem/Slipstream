@@ -9,7 +9,7 @@ else
 endif
 
 ifeq ($(OS_WINDOWS),1)
-	ENABLE_REMOTE_DEBUG=1
+	ENABLE_REMOTE_DEBUG=0
 	AL_INCLUDE=-I/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\include
 	AL_LIBS=/c/program\ files\ \(x86\)\OpenAL\ 1.1\ SDK\libs\Win32\Openal32.lib
 	EDL=../edl/bin/edl.exe
@@ -62,28 +62,28 @@ clean:
 
 out/i8086.lls: src/chips/i8086.edl
 	mkdir -p out
-	$(EDL) $(DISASSM) -t -O2 src/chips/i8086.edl >out/i8086.lls
+	$(EDL) $(DISASSM) -t -O3 src/chips/i8086.edl >out/i8086.lls
 
 out/i8086.lls.s: out/i8086.lls
 	llc -O3 out/i8086.lls
 
 out/slipDSP.lls: src/chips/slipDSP.edl
 	mkdir -p out
-	$(EDL) $(DISASSM) -O2 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
+	$(EDL) $(DISASSM) -O3 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
 
 out/slipDSP.lls.s: out/slipDSP.lls
 	llc -O3 out/slipDSP.lls
 
 out/flare1DSP.lls: src/chips/flare1DSP.edl
 	mkdir -p out
-	$(EDL) $(DISASSM) -O2 -s FL1DSP_ src/chips/flare1DSP.edl >out/flare1DSP.lls
+	$(EDL) $(DISASSM) -O3 -s FL1DSP_ src/chips/flare1DSP.edl >out/flare1DSP.lls
 
 out/flare1DSP.lls.s: out/flare1DSP.lls
 	llc -O3 out/flare1DSP.lls
 
 out/z80.lls: src/chips/z80.edl
 	mkdir -p out
-	$(EDL) $(DISASSM) -O2 -s Z80_ src/chips/z80.edl >out/z80.lls
+	$(EDL) $(DISASSM) -O3 -s Z80_ src/chips/z80.edl >out/z80.lls
 
 out/z80.lls.s: out/z80.lls
 	llc -O3 out/z80.lls
