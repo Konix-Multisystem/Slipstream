@@ -295,8 +295,7 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 
 		if (BLT_OUTER_CMD&0x02)
 		{
-			CONSOLE_OUTPUT("Unsupported BLT CMD type\n");
-			exit(1);
+			CONSOLE_OUTPUT("Unsupported BLT CMD type -- COLLISION STOP -- \n");
 		}
 
 
@@ -1025,7 +1024,7 @@ void AddressGeneratorDestinationUpdate()
 	AddressGeneratorDestinationStep(increment);
 }
 
-void DoBlitInner()
+int DoBlitInner()
 {
 	BLTDDBG("InnerCnt : %03X\n",BLT_INNER_CUR_CNT);
 	do
@@ -1044,6 +1043,12 @@ void DoBlitInner()
 		if (DoDataPath())			// If it returns true the write is inhibited
 		{
 			// TODO - check for collision stop
+			if (BLT_OUTER_CMD&0x02)
+			{
+				CONSOLE_OUTPUT("COLLSTOP\n");
+				return 1;
+			//	doDebug=1;
+			}
 		}
 		else
 		{
@@ -1056,6 +1061,8 @@ void DoBlitInner()
 		BLT_INNER_CUR_CNT&=0x1FF;
 
 	}while (BLT_INNER_CUR_CNT);
+
+	return 0;
 }
 
 void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16 bit modes and maybe wrong in 4 bit modes too
@@ -1108,6 +1115,10 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 			if (DoDataPath())			// If it returns true the write is inhibited
 			{
 				// TODO - check for collision stop
+				if (BLT_OUTER_CMD&0x02)
+				{
+					CONSOLE_OUTPUT("LineMode - ColStop Inhibit! - TODO");
+				}
 			}
 			else
 			{
@@ -1257,7 +1268,8 @@ void DoBlitOuter()
 		}
 
 		BLT_INNER_CUR_CNT=innerCnt;
-		DoBlitInner();
+		if (DoBlitInner()==1)
+			return;
 
 		outerCnt--;
 		if (outerCnt==0)
@@ -1957,6 +1969,30 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 		case 0x000C:
 			// STAT - 0IJJJ9PN	- Index | Joystick16-18 | 9Mhz CPU mode | (Light) Pen input received | Ntsc mode
 			return (EDDY_Index<<6)|((joyPadState&0xE0)>>2);
+		case 0x0040:
+			// BLT DST ADDRESS 0-15
+			return (ADDRESSGENERATOR_DSTADDRESS>>1)&0xFF;
+		case 0x0041:
+			// BLT DST ADDRESS 0-15
+			return (ADDRESSGENERATOR_DSTADDRESS>>9)&0xFF;
+		case 0x0042:
+			// todo Istop CStop inner cnt
+			return ((ADDRESSGENERATOR_DSTADDRESS>>17)&0x000F)|((ADDRESSGENERATOR_DSTADDRESS&1)<<4);
+		case 0x0043:
+			// todo Istop CStop inner cnt
+			return 0;//((ADDRESSGENERATOR_DSTADDRESS>>17)&0x000F)|((ADDRESSGENERATOR_DSTADDRESS&1)<<4);
+		case 0x0044:
+			// BLT SRC ADDRESS 0-15
+			return (ADDRESSGENERATOR_SRCADDRESS>>1)&0xFF;
+		case 0x0045:
+			// BLT SRC ADDRESS 0-15
+			return (ADDRESSGENERATOR_SRCADDRESS>>9)&0xFF;
+		case 0x0046:
+			// todo outer cnt
+			return ((ADDRESSGENERATOR_SRCADDRESS>>17)&0x000F)|((ADDRESSGENERATOR_SRCADDRESS&1)<<4);
+		case 0x0047:
+			// todo outer cnt
+			return 0;//((ADDRESSGENERATOR_SRCADDRESS>>17)&0x000F)|((ADDRESSGENERATOR_SRCADDRESS&1)<<4);
 		case 0x0048:
 			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
 			return EDDY_State&0xFF;
