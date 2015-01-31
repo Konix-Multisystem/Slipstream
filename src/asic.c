@@ -995,10 +995,10 @@ void AddressGeneratorDestinationRead()
 			}
 			break;
 		case 0x20:				//8 bits  (256 pixel)
-			DATAPATH_DSTDATA=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1);
+			DATAPATH_DSTDATA=GetByte(ADDRESSGENERATOR_DSTADDRESS>>1);
 			break;
 		case 0x60:				//16 bits (N/A)  - Not sure if this should read both (since destination is only 8 bits!!!
-			DATAPATH_DSTDATA=(GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)<<8)|GetByte((ADDRESSGENERATOR_SRCADDRESS>>1)+1);
+			DATAPATH_DSTDATA=(GetByte(ADDRESSGENERATOR_DSTADDRESS>>1)<<8)|GetByte((ADDRESSGENERATOR_DSTADDRESS>>1)+1);
 			break;
 	}
 	BLTDDBG("DSTREAD %02X\n",DATAPATH_DSTDATA);
