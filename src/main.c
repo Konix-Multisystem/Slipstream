@@ -628,13 +628,17 @@ uint8_t DISK_IMAGE[5632*2*80];
 
 int LoadDisk(const char* fname)				// Load P89 Disk -- Pure Sector Dump
 {
+	int ret=0;
 	FILE* inFile = fopen(fname,"rb");
 
-	fread(DISK_IMAGE,1,5632*2*80,inFile);
+	if (5632*2*80!=fread(DISK_IMAGE,1,5632*2*80,inFile))
+	{
+		ret=1;
+	}
 
 	fclose(inFile);
 
-	return 0;
+	return ret;
 }
 
 int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
