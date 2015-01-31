@@ -870,9 +870,9 @@ int DoDataPath()
 
 void AddressGeneratorSourceStep(int32_t step)
 {
-	BLTDDBG("SRCADDR %06X (%d)\n",ADDRESSGENERATOR_SRCADDRESS,step);
 	if (BLT_OUTER_SRC_FLAGS&0x40)				// SSIGN
 		step*=-1;
+	BLTDDBG("SRCADDR %06X (%d)\n",ADDRESSGENERATOR_SRCADDRESS,step);
 	if (BLT_OUTER_SRC_FLAGS&0x20)						// SWRAP
 	{
 		uint32_t tmp = ADDRESSGENERATOR_SRCADDRESS&0xFFFE0000;		// 64K WRAP
@@ -889,9 +889,9 @@ void AddressGeneratorSourceStep(int32_t step)
 
 void AddressGeneratorDestinationStep(int32_t step)
 {
-	BLTDDBG("DSTADDR %06X (%d)\n",ADDRESSGENERATOR_DSTADDRESS,step);
 	if (BLT_OUTER_DST_FLAGS&0x40)				// DSIGN
 		step*=-1;
+	BLTDDBG("DSTADDR %06X (%d)\n",ADDRESSGENERATOR_DSTADDRESS,step);
 	if (BLT_OUTER_DST_FLAGS&0x20)						// DWRAP
 	{
 		uint32_t tmp = ADDRESSGENERATOR_DSTADDRESS&0xFFFE0000;		// 64K WRAP
@@ -904,7 +904,7 @@ void AddressGeneratorDestinationStep(int32_t step)
 		ADDRESSGENERATOR_DSTADDRESS+=step;
 	}
 
-	BLTDDBG("DSTADDR %06X (X,Y) (%d,%d)\n",ADDRESSGENERATOR_DSTADDRESS,ADDRESSGENERATOR_DSTADDRESS&0xFF,(ADDRESSGENERATOR_DSTADDRESS&0x1FF00)>>8);
+	BLTDDBG("DSTADDR %06X (X,Y) (%d,%d)\n",ADDRESSGENERATOR_DSTADDRESS,(ADDRESSGENERATOR_DSTADDRESS>>1)&0xFF,(ADDRESSGENERATOR_DSTADDRESS&0x1FE00)>>9);
 }
 
 void AddressGeneratorDestinationLineStep(int32_t step)
@@ -932,15 +932,32 @@ void AddressGeneratorSourceRead()
 	{
 		case 0x00:				//4 bits  (256 pixel)
 		case 0x40:				//4 bits  (512 pixel)
-			if (ADDRESSGENERATOR_SRCADDRESS&1)			// ODD address LSNibble
+			if (curSystem==ESS_P89)
 			{
-				DATAPATH_SRCDATA&=0xFFF0;
-				DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF;
+				// TODO-- why ??
+				if (ADDRESSGENERATOR_SRCADDRESS&1)			// ODD address LSNibble
+				{
+					DATAPATH_SRCDATA&=0xFFF0;
+					DATAPATH_SRCDATA|=(GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)>>4)&0xF;
+				}
+				else
+				{
+					DATAPATH_SRCDATA&=0xFFF0;
+					DATAPATH_SRCDATA|=(GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)>>0)&0xF;
+				}
 			}
 			else
 			{
-				DATAPATH_SRCDATA&=0xFF0F;
-				DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF0;
+				if (ADDRESSGENERATOR_SRCADDRESS&1)			// ODD address LSNibble
+				{
+					DATAPATH_SRCDATA&=0xFFF0;
+					DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF;
+				}
+				else
+				{
+					DATAPATH_SRCDATA&=0xFF0F;
+					DATAPATH_SRCDATA|=GetByte(ADDRESSGENERATOR_SRCADDRESS>>1)&0xF0;
+				}
 			}
 			increment=1;
 			break;
@@ -966,7 +983,7 @@ void AddressGeneratorDestinationRead()
 	{
 		case 0x00:				//4 bits  (256 pixel)
 		case 0x40:				//4 bits  (512 pixel)
-			if (ADDRESSGENERATOR_DSTADDRESS&1)			// ODD address LSNibble
+			if (ADDRESSGENERATOR_DSTADDRESS&1)			// ODD address LSNibble		-- this could well be wrong!
 			{
 				DATAPATH_DSTDATA&=0xF0;
 				DATAPATH_DSTDATA|=GetByte(ADDRESSGENERATOR_DSTADDRESS>>1)&0xF;
@@ -1235,19 +1252,29 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 void DoBlitOuter()
 {
 	uint8_t outerCnt = BLT_OUTER_CNT;
+	uint16_t step;
+	uint16_t innerCnt;
 
-	uint16_t step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
-	uint16_t innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
-
-	switch (BLT_OUTER_MODE&0x60)
+	if (curSystem==ESS_P89)
 	{
-		case 0x00:
-		case 0x40:
-			innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
-			break;
-		case 0x20:
-		case 0x60:
-			break;
+		step = (BLT_INNER_STEP<<1)|((BLT_OUTER_MODE>>1)&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+		innerCnt = ((BLT_OUTER_MODE&0x1)<<8) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+	}
+	else
+	{
+		step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+		innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+
+		switch (BLT_OUTER_MODE&0x60)
+		{
+			case 0x00:
+			case 0x40:
+				innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
+				break;
+			case 0x20:
+			case 0x60:
+				break;
+		}
 	}
 
 	//Not clear if reloaded for between blocks (but for now assume it is)
@@ -1332,18 +1359,27 @@ void DoBlitOuter()
 			}
 #endif
 
-			step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
-			innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
 
-			switch (BLT_OUTER_MODE&0x60)
+			if (curSystem==ESS_P89)
 			{
-				case 0x00:
-				case 0x40:
-					innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
-					break;
-				case 0x20:
-				case 0x60:
-					break;
+				step = (BLT_INNER_STEP<<1)|((BLT_OUTER_MODE>>1)&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+				innerCnt = ((BLT_OUTER_MODE&0x1)<<8) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+			}
+			else
+			{
+				step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
+				innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
+
+				switch (BLT_OUTER_MODE&0x60)
+				{
+					case 0x00:
+					case 0x40:
+						innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd -- Investigate Camels
+						break;
+					case 0x20:
+					case 0x60:
+						break;
+				}
 			}
 
 			//Not clear if reloaded for between blocks (but for now assume it is)
