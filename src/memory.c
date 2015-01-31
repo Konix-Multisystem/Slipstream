@@ -608,6 +608,8 @@ void SetPortW(uint16_t port,uint16_t word)
 #endif
 }
 
+uint32_t joy89state;
+
 void TickKeyboard()
 {
 	int a;
@@ -619,6 +621,18 @@ void TickKeyboard()
 	if (JoystickPresent())
 	{
 		keyToJoy=keyToJoy_JY;
+	}
+
+	for (a=0;a<19;a++)
+	{
+		if (KeyDown(GLFW_KEY_A+a))
+		{
+			joy89state|=(1<<a);
+		}
+		else
+		{
+			joy89state&=~(1<<a);
+		}
 	}
 
 	for (a=0;a<16;a++)

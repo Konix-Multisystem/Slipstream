@@ -1948,6 +1948,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 }
 
 extern uint16_t joyPadState;
+extern uint32_t joy89state;
 
 uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 {
@@ -1962,13 +1963,12 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 		case 0x0003:
 			return (vClock>>8)&0xFF;
 		case 0x0008:
-			CONSOLE_OUTPUT("Reading Joy : %04X\n",joyPadState);
-			return (0xFFFF^joyPadState)&0xFF;
+			return (joy89state)&0xFF;
 		case 0x0009:
-			return (0xFFFF^joyPadState)>>8;
+			return ((joy89state)>>8)&0xFF;
 		case 0x000C:
 			// STAT - 0IJJJ9PN	- Index | Joystick16-18 | 9Mhz CPU mode | (Light) Pen input received | Ntsc mode
-			return (EDDY_Index<<6)|((joyPadState&0xE0)>>2);
+			return (EDDY_Index<<6)|(((joy89state)&0x70000)>>13);
 		case 0x0040:
 			// BLT DST ADDRESS 0-15
 			return (ADDRESSGENERATOR_DSTADDRESS>>1)&0xFF;
