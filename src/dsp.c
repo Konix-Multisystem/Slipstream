@@ -498,7 +498,7 @@ int FL1DSP_Disassemble(unsigned int address,int registers)
 
 #endif
 
-#define RATE_ADJUST	(1)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
+#define RATE_ADJUST	(0)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
 
 extern int emulateDSP;
 

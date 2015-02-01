@@ -625,7 +625,7 @@ void TickKeyboard()
 
 	for (a=0;a<19;a++)
 	{
-		if (KeyDown(GLFW_KEY_A+a))
+		if (KeyDown(GLFW_KEY_A+a))		// K-fire m-right n-left p-down o-up r-start
 		{
 			joy89state|=(1<<a);
 		}
