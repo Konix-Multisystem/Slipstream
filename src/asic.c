@@ -1059,12 +1059,9 @@ int DoBlitInner()
 
 		if (DoDataPath())			// If it returns true the write is inhibited
 		{
-			// TODO - check for collision stop
 			if (BLT_OUTER_CMD&0x02)
 			{
-				CONSOLE_OUTPUT("COLLSTOP\n");
 				return 1;
-			//	doDebug=1;
 			}
 		}
 		else
@@ -1606,11 +1603,13 @@ void ASIC_WriteP89(uint16_t port,uint8_t byte,int warnIgnore)
 			break;
 		case 0x0044:
 			ASIC_BLTCON=byte;
-			if (byte!=0)
+			if ((byte&2)!=0)
 				CONSOLE_OUTPUT("Warning BLTCON!=0 - (Blitter control not implemented)  (%02X)\n",byte);
 			break;
 		case 0x0048:
+#if ENABLE_DEBUG
 			CONSOLE_OUTPUT("Floppy Read Control : %02X\n",byte);
+#endif
 			ASIC_FRC&=0xFF00;
 			ASIC_FRC|=byte;
 			break;
@@ -2030,13 +2029,19 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 			// todo outer cnt
 			return 0;//((ADDRESSGENERATOR_SRCADDRESS>>17)&0x000F)|((ADDRESSGENERATOR_SRCADDRESS&1)<<4);
 		case 0x0048:
+#if ENABLE_DEBUG
 			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
+#endif
 			return EDDY_State&0xFF;
 		case 0x0049:
+#if ENABLE_DEBUG
 			CONSOLE_OUTPUT("Read from Floppy Read Status\n");
+#endif
 			return (EDDY_State>>8)&0xFF;
 		case 0x0080:
+#if ENABLE_DEBUG
 			CONSOLE_OUTPUT("Read from Floppy Drive Status Status %d\n",(EDDY_Track==0)?2:3);
+#endif
 			return (EDDY_Track==0)?2:3;		// Status inverted for Track 0 
 		default:
 #if ENABLE_DEBUG

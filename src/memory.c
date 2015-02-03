@@ -617,6 +617,9 @@ void TickKeyboard()
 						0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
 	static const int keyToJoy_JY[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
 						0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
+
+	static const int knxKeyToJoy_KB[19]={	0,0,GLFW_KEY_R,GLFW_KEY_E,GLFW_KEY_W,GLFW_KEY_Q,GLFW_KEY_F,GLFW_KEY_D,GLFW_KEY_S,GLFW_KEY_A,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN,GLFW_KEY_C,GLFW_KEY_ENTER,GLFW_KEY_V};
+
 	const int* keyToJoy=keyToJoy_KB;
 	if (JoystickPresent())
 	{
@@ -625,7 +628,7 @@ void TickKeyboard()
 
 	for (a=0;a<19;a++)
 	{
-		if (KeyDown(GLFW_KEY_A+a))		// K-fire m-right n-left p-down o-up r-start
+		if (KeyDown(knxKeyToJoy_KB[a]))
 		{
 			joy89state|=(1<<a);
 		}

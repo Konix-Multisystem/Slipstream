@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.3 Preview 1"
+#define SLIPSTREAM_VERSION	"0.3 Preview 2"
 
 #include <GLFW/glfw3.h>
 
@@ -779,6 +779,7 @@ void Usage()
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
 	CONSOLE_OUTPUT("-K boot production konix bios\n");
+	CONSOLE_OUTPUT("-D [floppy] load [floppy]\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
@@ -823,7 +824,7 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_P89;
 				LoadRom("roms/konixBios.bin",0);
-				return;
+				continue;
 			}
 			if (strcmp(argv[a],"-b")==0)
 			{
@@ -850,6 +851,20 @@ void ParseCommandLine(int argc,char** argv)
 					Z80_PC=1024;
 					curSystem=ESS_FL1;
 
+					return;
+				}
+				else
+				{
+					return Usage();
+				}
+				a+=1;
+				continue;
+			}
+			if (strcmp(argv[a],"-D")==0)
+			{
+				if ((a+1)<argc)
+				{
+					LoadDisk(argv[a+1]);
 					return;
 				}
 				else
@@ -898,11 +913,14 @@ int main(int argc,char**argv)
 	ParseCommandLine(argc,argv);
 
 // Poke Rom To  Skip floppy security  test results of no floppy
+	if (curSystem==ESS_P89)
+	{
 /*	ROM[0xAE]=0x90;
 	ROM[0xAF]=0x90;
 	ROM[0xB0]=0x90;*/
 	ROM[0xB1]=0xEB;
 /*	ROM[0xB2]=0x90;*/
+	}
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
@@ -938,8 +956,6 @@ int main(int argc,char**argv)
 //		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
-
-	LoadDisk("LN2_1.DSK");
 
 	while (1==1)
 	{
@@ -1036,6 +1052,7 @@ int main(int argc,char**argv)
 			}
 #endif
 			{
+				SetByte(0x010022,5);		// Infinite lives LN2
 				TickKeyboard();
 				if (JoystickPresent())
 				{
@@ -1053,6 +1070,58 @@ int main(int argc,char**argv)
 					pause=0;
 					ClearKey(GLFW_KEY_END);
 				}
+
+
+/*		-- Find infinite lives poke LN2
+				if (CheckKey(GLFW_KEY_B))
+				{
+					static int find=5;
+					static int memlist[32768],memlist2[32768];
+					static int* mem1=memlist;
+					static int* mem2=memlist2;
+					static int* memt;
+					static int memcnt=0,memcnt2=0;
+					static int* mcnt=&memcnt;
+					static int* mcnt2=&memcnt2;
+					int a;
+					printf("---find---%d,%d\n",memcnt,memcnt2);
+					for (a=0;a<0xC0000;a++)
+					{
+						if (GetByte(a)==find)
+						{
+							if (find==5)
+							{
+								mem1[(*mcnt)++]=a;
+								printf("Address : %06X\n",a);
+							}
+							else
+							{
+								int b;
+								for (b=0;b<*mcnt;b++)
+								{
+									if (mem1[b]==a)
+									{
+										mem2[(*mcnt2)++]=a;
+										printf("Address : %06X\n",a);
+									}
+								}
+							}
+						}
+					}
+					if (find!=5)
+					{
+						memt=mem1;
+						mem1=mem2;
+						mem2=memt;
+						memt=mcnt;
+						mcnt=mcnt2;
+						mcnt2=memt;
+						*mcnt2=0;
+					}
+					find--;
+					ClearKey(GLFW_KEY_B);
+				}*/
+
 #if !ENABLE_DEBUG
 				VideoWait();
 #endif
