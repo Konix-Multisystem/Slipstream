@@ -8,6 +8,38 @@ extern int debugWatchWrites;
 extern int debugWatchReads;
 extern int doShowBlits;
 
+extern uint8_t *MSU_DIS_[256];				// FROM EDL
+extern uint32_t MSU_DIS_max_;				// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_DECINC_MOD[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_DECINC_MOD;		// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_OP_MOD_IMM[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_OP_MOD_IMM;		// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_SH1_MOD[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_SH1_MOD;		// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_SHV_MOD[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_SHV_MOD;		// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_SOP_MOD[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_SOP_MOD;		// FROM EDL
+extern uint8_t *MSU_DIS_TABLE_OP_MOD[256];		// FROM EDL
+extern uint32_t MSU_DIS_max_TABLE_OP_MOD;		// FROM EDL
+
+extern uint16_t	MSU_AX;					// FROM EDL
+extern uint16_t	MSU_BX;					// FROM EDL
+extern uint16_t	MSU_CX;					// FROM EDL
+extern uint16_t	MSU_DX;					// FROM EDL
+extern uint16_t	MSU_SP;					// FROM EDL
+extern uint16_t	MSU_BP;					// FROM EDL
+extern uint16_t	MSU_SI;					// FROM EDL
+extern uint16_t	MSU_DI;					// FROM EDL
+extern uint16_t	MSU_CS;					// FROM EDL
+extern uint16_t	MSU_DS;					// FROM EDL
+extern uint16_t	MSU_ES;					// FROM EDL
+extern uint16_t	MSU_SS;					// FROM EDL
+extern uint16_t	MSU_IP;					// FROM EDL
+extern uint16_t MSU_FLAGS;				// FROM EDL
+extern uint16_t	MSU_PC;					// FROM EDL
+extern uint16_t MSU_CYCLES;				// FROM EDL
+
 extern uint8_t *DIS_[256];				// FROM EDL
 extern uint32_t DIS_max_;				// FROM EDL
 extern uint8_t *DIS_TABLE_DECINC_MOD[256];		// FROM EDL
@@ -81,6 +113,7 @@ uint8_t PeekByte(uint32_t addr);
 void DebugWPort(uint16_t port);
 void DebugRPort(uint16_t port);
 
+int Disassemble80386(unsigned int address,int registers);
 int Disassemble8086(unsigned int address,int registers);
 int DisassembleZ80(unsigned int address,int registers);
 

@@ -1266,6 +1266,17 @@ int Disassemble8086(unsigned int address,int registers)
 	return res;
 }
 
+int Disassemble80386(unsigned int address,int registers)
+{
+	int res;
+	char tmp[2048];
+	res=DoDisassemble8086(address,registers,tmp);
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT(tmp);
+	CONSOLE_OUTPUT("--------\n");
+	return res;
+}
+
 int FETCH_DISASSEMBLE8086(unsigned int address,char* tmp)
 {
 	return DoDisassemble8086(address,0,tmp);
@@ -1479,6 +1490,29 @@ uint32_t missing(uint32_t opcode)
 	for (a=0;a<7;a++)
 	{
 		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-2));
+	}
+	CONSOLE_OUTPUT("\n");
+	exit(-1);
+}
+
+uint32_t MSU_missing(uint32_t opcode)
+{
+	int a;
+	CONSOLE_OUTPUT("IP : %04X:%04X\n",MSU_CS,MSU_IP);
+	CONSOLE_OUTPUT("Next 7 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_IP)+a));
+	}
+	CONSOLE_OUTPUT("\nNext 7-1 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_IP)+a-1));
+	}
+	CONSOLE_OUTPUT("\nNext 7-2 Bytes : ");
+	for (a=0;a<7;a++)
+	{
+		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_IP)+a-2));
 	}
 	CONSOLE_OUTPUT("\n");
 	exit(-1);

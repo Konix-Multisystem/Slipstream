@@ -759,12 +759,15 @@ void DSP_RESET(void);
 void FL1DSP_RESET(void);
 void STEP(void);
 void RESET(void);
+void MSU_STEP(void);
+void MSU_RESET(void);
 void Z80_RESET(void);
 void Z80_STEP(void);
 
 void CPU_RESET()
 {
 	RESET();
+	MSU_RESET();
 	Z80_RESET();
 }
 
@@ -783,23 +786,10 @@ void DoCPU8086()
 #if ENABLE_DEBUG
 	if (doDebug)
 	{
-		Disassemble8086(SEGTOPHYS(CS,IP),1);
+		Disassemble80386(SEGTOPHYS(CS,IP),1);
 	}
 #endif
 	STEP();
-}
-
-void GoDebug()
-{
-	extern int doShowDMA;
-	pause=1;
-//	doDebug=1;
-	debugWatchWrites=1;
-	debugWatchReads=1;
-	doShowPortStuff=1;
-//	doDSPDisassemble=1;
-	doShowDMA=1;
-	doShowBlits=1;
 }
 
 void DoCPUZ80()
@@ -849,7 +839,7 @@ int CPU_STEP(int doDebug)
 		switch (curSystem)
 		{
 			case ESS_MSU:
-				DoCPU8086();
+				DoCPU80386sx();
 				return CYCLES;			// Assuming clock speed same as hardware chips
 			case ESS_P88:
 			case ESS_P89:
@@ -876,6 +866,7 @@ void Usage()
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
 	CONSOLE_OUTPUT("-K boot production konix bios\n");
+	CONSOLE_OUTPUT("-M load MSU bios\n");
 	CONSOLE_OUTPUT("-D [floppy] load [floppy]\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
@@ -939,6 +930,12 @@ void ParseCommandLine(int argc,char** argv)
 				curSystem=ESS_P89;
 				LoadRom("roms/konixBios.bin",0);
 				continue;
+			}
+			if (strcmp(argv[a],"-M")==0)
+			{
+				curSystem=ESS_MSU;
+				LoadRom("roms/MSUBios.bin",0);
+				return;
 			}
 			if (strcmp(argv[a],"-b")==0)
 			{
@@ -1084,7 +1081,7 @@ int main(int argc,char**argv)
 		debugWatchReads=1;
 		doShowPortStuff=1;*/
 //		doDSPDisassemble=1;
-//		doDebug=1;
+		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
 	while (1==1)

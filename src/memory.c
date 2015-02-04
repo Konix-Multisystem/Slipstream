@@ -93,8 +93,8 @@ void Z80_SetPort(uint16_t addr,uint8_t byte)
 
 uint8_t GetByteMSU(uint32_t addr)
 {
-	addr&=0xFFFFF;
-	if (addr<RAM_SIZE)
+//	addr&=0xFFFFF;
+	if (addr<0xC0000)
 	{
 		return RAM[addr];
 	}
@@ -104,7 +104,8 @@ uint8_t GetByteMSU(uint32_t addr)
 	}
 	if (addr>=0xE0000)
 	{
-		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
+		return ROM[((addr&0xFFFF)|0xF0000)-0xE0000];
+//		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
 	}
 #if ENABLE_DEBUG
 	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
@@ -238,7 +239,7 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
 		}
 	}
 #endif
-	if (addr<RAM_SIZE)
+	if (addr<0xC0000)
 	{
 		RAM[addr]=byte;
 		return;
@@ -675,6 +676,36 @@ void SetPortW(uint16_t port,uint16_t word)
 		DebugWPort(port);
 	}
 #endif
+}
+
+uint8_t MSU_GetByte(uint32_t addr)
+{
+	return GetByte(addr);
+}
+
+void MSU_SetByte(uint32_t addr,uint8_t byte)
+{
+	SetByte(addr,byte);
+}
+
+uint16_t MSU_GetPortW(uint16_t port)
+{
+	return GetPortW(port);
+}
+
+uint8_t MSU_GetPortB(uint16_t port)
+{
+	return GetPortB(port);
+}
+
+void MSU_SetPortW(uint16_t port,uint16_t word)
+{
+	return SetPortW(port,word);
+}
+
+void MSU_SetPortB(uint16_t port,uint8_t byte)
+{
+	return SetPortB(port,byte);
 }
 
 uint32_t joy89state;

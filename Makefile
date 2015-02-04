@@ -67,6 +67,13 @@ out/i8086.lls: src/chips/i8086.edl
 out/i8086.lls.s: out/i8086.lls
 	llc -O3 out/i8086.lls
 
+out/i80386sx.lls: src/chips/i80386sx.edl
+	mkdir -p out
+	$(EDL) $(DISASSM) -t -O0 -s MSU_ src/chips/i80386sx.edl >out/i80386sx.lls
+
+out/i80386sx.lls.s: out/i80386sx.lls
+	llc -O0 out/i80386sx.lls
+
 out/slipDSP.lls: src/chips/slipDSP.edl
 	mkdir -p out
 	$(EDL) $(DISASSM) -O3 -s DSP_ src/chips/slipDSP.edl >out/slipDSP.lls
@@ -139,6 +146,6 @@ out/fdisk.o: src/fdisk.c src/system.h src/host/logfile.h src/fdisk.h
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/fdisk.c -o out/fdisk.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o out/fdisk.o out/flare1Blitter.lls.s
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/flare1Blitter.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o out/fdisk.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/i80386sx.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o out/fdisk.o out/flare1Blitter.lls.s
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/i80386sx.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/flare1Blitter.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o out/fdisk.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
 
