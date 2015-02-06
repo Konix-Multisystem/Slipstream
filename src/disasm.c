@@ -136,6 +136,7 @@ enum OperandMode
 	OM_MODRM,				// Indicates prescence of MODRM byte
 	OM_Precision66,				// (S or D)Precision is decided by 0x66 prefix
 	OM_Precision66F3F2,			// Precision is decided by 0x66,0xF3,0xF2 prefix  (PS/PD/SS/SD)
+	OM_Cd,					// reg field is control register
 	OM_Eb,					// byte Memory from MODRM
 	OM_Ep,					// FAR Ptr
 	OM_Ev,					// 16/32/64 Memory from MODRM
@@ -165,6 +166,7 @@ enum OperandMode
 	OM_M,					// must be memory 16/32 (reg reg disallowed) hide PTR from MODRM
 	OM_Mp,					// must be memory (FAR Ptr) from MODRM
 	OM_Mf,					// must be memory (FWORD Ptr) from MODRM
+	OM_Rd,					// rm field is 32 bit gpr
 	OM_Sw,					// 16 bit Segment register from MODRM
 	OM_DX,					// DX
 	OM_Yb,					// BYTE PTR ES:[EDI]
@@ -908,7 +910,7 @@ const Table _2byte[NUM_OPS]=	{
 					{25, OF_None, { OM_Illegal } },							  	//0x0F1F
 					{25, OF_None, { OM_Illegal } },								//0x0F20
 					{25, OF_None, { OM_Illegal } },								//0x0F21
-					{25, OF_None, { OM_Illegal } },								//0x0F22
+					{28, OF_None, { OM_MODRM, OM_Cd, OM_Rd, OM_NoOperands } },				//0x0F22
 					{25, OF_None, { OM_Illegal } },								//0x0F23
 					{25, OF_None, { OM_Illegal } },							  	//0x0F24
 					{25, OF_None, { OM_Illegal } },							  	//0x0F25
@@ -1211,6 +1213,17 @@ const char reg32[8][4]=	{
 						"EBP",
 						"ESI",
 						"EDI"
+					};
+
+const char regCr[8][4]=	{
+						"CR0",
+						"CR1",
+						"CR2",
+						"CR3",
+						"CR4",
+						"ERR",
+						"ERR",
+						"ERR"
 					};
 
 const char segReg[8][3]={
@@ -1650,6 +1663,11 @@ void ExtractR(int size,int r)
 	}
 }
 
+void ExtractCR(int r)
+{
+	AddToOutput(regCr[r]);
+}
+
 void ExtractMOD(int seg,int rsize,int psize,int msize,int m,int rm,InStream* stream)
 {
 	switch (m)
@@ -1718,6 +1736,9 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 				m=(MODRM&0xC0)>>6;
 				r=(MODRM&0x38)>>3;
 				rm=(MODRM&0x07)>>0;
+				break;
+			case OM_Cd:
+				ExtractCR(r);
 				break;
 			case OM_Eb:
 				ExtractMOD(seg,0,0,mSize,m,rm,stream);
@@ -1812,6 +1833,9 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 					return;
 				}
 				ExtractMOD(seg,1,18,1,m,rm,stream);
+				break;
+			case OM_Rd:
+				ExtractR(2,r);
 				break;
 			case OM_Sw:
 				ExtractSR(r);

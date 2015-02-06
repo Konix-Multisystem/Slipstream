@@ -7,6 +7,7 @@
 #
 #
 # Known issues	- Not every instruction is implemented
+#		- All cycles counts are WRONG!!
 #		- Trap is not implemented
 #		- Real mode ONLY
 #		- Most exceptions are not implemented
@@ -64,6 +65,10 @@ DECLARE	EFLAGS[32]	ALIAS	%00000000000000:VM[1]:RF[1]:%0:NT[1]:IOPL[2]:OF[1]:DF[1
 ############ Internal CPU state registers - should match hardware
 
 DECLARE CR0[32]		ALIAS	%0000000000000000000000000000000:CR_PE[1];
+DECLARE CR1[32];
+DECLARE CR2[32];
+DECLARE CR3[32];
+DECLARE CR4[32];
 
 ############ Internal CPU state registers - doesn't match hardware
 
@@ -756,6 +761,30 @@ FUNCTION INTERNAL	SetLongRegister		reg[3],val[32]		## Because we can't look up a
 	IF reg==%111
 	{
 		val->EDI;
+	}
+}
+
+FUNCTION INTERNAL	SetControlRegister		reg[3],val[32]		## Because we can't look up arbitrary mappings in EDL at moment
+{
+	IF reg==%000
+	{
+		val->CR0;
+	}
+	IF reg==%001
+	{
+		val->CR1;
+	}
+	IF reg==%010
+	{
+		val->CR2;
+	}
+	IF reg==%011
+	{
+		val->CR3;
+	}
+	IF reg==%100
+	{
+		val->CR4;
 	}
 }
 
@@ -2570,12 +2599,12 @@ INSTRUCTION	"MOV #MODregRM#"	%100010:direc[1]:word[1]
 #	}
 #}
 #
-###### MOD nnn R/M instructions (sign word extension - opcode in following byte)
-##
+##### MOD nnn R/M instructions (sign word extension - opcode in following byte)
 #
-#MAPPING signwordModOp[3]
-#{
-#	%000	"ADD"	$0;
+
+MAPPING signwordModOp[3]
+{
+	%000	"ADD"	$0;
 #	%001	"OR"	$4;
 #	%010	"ADC"	$1;
 #	%011	"SBB"	$6;
@@ -2583,55 +2612,60 @@ INSTRUCTION	"MOV #MODregRM#"	%100010:direc[1]:word[1]
 #	%101	"SUB"	$2;
 #	%110	"XOR"	$5;
 ##	%111	"CMP"			#Handle seperately due to timing/operation difference
-#}
-#
-#MAPPING signword[2]
-#{
-#	%00	""	%00;
-#	%01	""	%01;
-## 10 illegal
-#	%11	""	%11;
-#}
-#
-#INSTRUCTION	"#TABLE4#"	%100000:signword
-#{
-#	DECLARE IR[10]	ALIAS	signOp[1]:wordOp[1]:opcode[8];
-#
-#	signOp<-signword[1..1];
-#	wordOp<-signword[0..0];
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_OP_MOD_IMM IR;
-#}
-#
-#INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:signwordModOp:rm[3]
-#{
-#	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
-#	4+CYCLES->CYCLES;
-#
-#	IF wordOp
-#	{
-#		IF signOp
-#		{
-#			$0000++CALL GetImmediateByte()->IMM;
-#		}
-#		IF ~signOp
-#		{
-#			CALL GetImmediateWord()->IMM;
-#		}
-#
-#		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoOperationWord(signwordModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),IMM));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL GetImmediateByte()->IMMLO;
-#		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoOperationByte(signwordModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),IMMLO));
-#	}
-#}
-#
+}
+
+MAPPING signword[2]
+{
+	%00	""	%00;
+	%01	""	%01;
+# 10 illegal
+	%11	""	%11;
+}
+
+INSTRUCTION	"#TABLE4#"	%100000:signword
+{
+	DECLARE IR[10]	ALIAS	signOp[1]:wordOp[1]:opcode[8];
+
+	signOp<-signword[1..1];
+	wordOp<-signword[0..0];
+	CALL RM_GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_OP_MOD_IMM IR;
+}
+
+INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:signwordModOp:rm[3]
+{
+	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
+	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
+	4+CYCLES->CYCLES;
+
+	IF wordOp
+	{
+		IF rSize
+		{
+			DEBUG_TRACE "TABLE_OP_MOD_IMM long";
+			CALL missing(0);
+		}
+		IF signOp
+		{
+			$0000++CALL RM_GetImmediateByte()->IMM;
+		}
+		IF ~signOp
+		{
+			CALL RM_GetImmediateWord()->IMM;
+		}
+
+		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoOperationWord(signwordModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),IMM));
+	}
+	IF ~wordOp
+	{
+		CALL RM_GetImmediateByte()->IMMLO;
+		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoOperationByte(signwordModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),IMMLO));
+	}
+}
+
 #INSTRUCTION	TABLE_OP_MOD_IMM	"CMP #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:%111:rm[3]		# CMP seperated out due to cycle count and no storage
 #{
 #	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
@@ -3313,7 +3347,7 @@ FUNCTION INTERNAL 	Do0F01	mod[2],reg[3],rm[3]
 	2+CYCLES->CYCLES;
 }
 
-INSTRUCTION	FTABLE	""	%00000001
+INSTRUCTION	FTABLE	"Do0F01"	%00000001
 {
 	# Could be a few different instructions based on modrm byte that follows
 	DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
@@ -3322,4 +3356,25 @@ INSTRUCTION	FTABLE	""	%00000001
 		
 	CALL Do0F01(mod,reg,rm);
 }
+
+INSTRUCTION	FTABLE	"MOV CRx"	%00100010
+{
+	# Could be a few different instructions based on modrm byte that follows
+	DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
+
+	mrm<-CALL RM_GetImmediateByte();
+	
+	IF reg<5
+	{
+		CALL SetControlRegister(reg,CALL GetLongRegister(rm));
+	}
+	IF reg>=5
+	{
+		DEBUG_TRACE "Illegal CR register",reg;
+		CALL missing(0);
+	}	
+
+	4+CYCLES->CYCLES;
+}
+
 

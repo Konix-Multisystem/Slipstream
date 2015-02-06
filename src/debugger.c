@@ -661,7 +661,7 @@ void DUMP_REGISTERS8086()
 
 void FETCH_REGISTERS80386(char* tmp)
 {
-	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
+	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nCR0= %08X\n--------\n",
 			MSU_EFLAGS&0x800 ? "1" : "0",
 			MSU_EFLAGS&0x400 ? "1" : "0",
 			MSU_EFLAGS&0x200 ? "1" : "0",
@@ -674,7 +674,7 @@ void FETCH_REGISTERS80386(char* tmp)
 			MSU_EFLAGS&0x004 ? "1" : "0",
 			MSU_EFLAGS&0x002 ? "1" : "0",
 			MSU_EFLAGS&0x001 ? "1" : "0",
-			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS);
+			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_CR0);
 }
 
 

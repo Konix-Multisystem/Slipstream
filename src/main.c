@@ -795,7 +795,7 @@ void DoCPU8086()
 void DoCPU80386sx()
 {
 #if ENABLE_DEBUG
-	if (SEGTOPHYS(MSU_CS,MSU_EIP)==0xF0056)
+	if (SEGTOPHYS(MSU_CS,MSU_EIP)==0xF0073)
 	{
 		doDebug=1;
 	}

@@ -31,6 +31,7 @@ extern uint32_t	MSU_ESP;				// FROM EDL
 extern uint32_t	MSU_EBP;				// FROM EDL
 extern uint32_t	MSU_ESI;				// FROM EDL
 extern uint32_t	MSU_EDI;				// FROM EDL
+extern uint32_t	MSU_CR0;				// FROM EDL
 extern uint16_t	MSU_CS;					// FROM EDL
 extern uint16_t	MSU_DS;					// FROM EDL
 extern uint16_t	MSU_ES;					// FROM EDL
