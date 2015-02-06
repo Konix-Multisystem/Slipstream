@@ -792,6 +792,22 @@ void DoCPU8086()
 	STEP();
 }
 
+void DoCPU80386sx()
+{
+#if ENABLE_DEBUG
+	if (SEGTOPHYS(MSU_CS,MSU_EIP)==0xF0056)
+	{
+		doDebug=1;
+	}
+	if (doDebug)
+	{
+		Disassemble80386(SEGTOPHYS(MSU_CS,MSU_EIP),1);
+	}
+#endif
+	MSU_STEP();
+}
+
+
 void DoCPUZ80()
 {
 #if ENABLE_REMOTE_DEBUG
@@ -1076,12 +1092,12 @@ int main(int argc,char**argv)
 //	doDebug=1;
 	//	pause=1;
 	/*	extern int doShowDMA;
-		doDebug=1;
+		doDebug=1;*/
 		debugWatchWrites=1;
 		debugWatchReads=1;
-		doShowPortStuff=1;*/
+		doShowPortStuff=1;
 //		doDSPDisassemble=1;
-		doDebug=1;
+//		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
 	while (1==1)

@@ -23,21 +23,20 @@ extern uint32_t MSU_DIS_max_TABLE_SOP_MOD;		// FROM EDL
 extern uint8_t *MSU_DIS_TABLE_OP_MOD[256];		// FROM EDL
 extern uint32_t MSU_DIS_max_TABLE_OP_MOD;		// FROM EDL
 
-extern uint16_t	MSU_AX;					// FROM EDL
-extern uint16_t	MSU_BX;					// FROM EDL
-extern uint16_t	MSU_CX;					// FROM EDL
-extern uint16_t	MSU_DX;					// FROM EDL
-extern uint16_t	MSU_SP;					// FROM EDL
-extern uint16_t	MSU_BP;					// FROM EDL
-extern uint16_t	MSU_SI;					// FROM EDL
-extern uint16_t	MSU_DI;					// FROM EDL
+extern uint32_t	MSU_EAX;				// FROM EDL
+extern uint32_t	MSU_EBX;				// FROM EDL
+extern uint32_t	MSU_ECX;				// FROM EDL
+extern uint32_t	MSU_EDX;				// FROM EDL
+extern uint32_t	MSU_ESP;				// FROM EDL
+extern uint32_t	MSU_EBP;				// FROM EDL
+extern uint32_t	MSU_ESI;				// FROM EDL
+extern uint32_t	MSU_EDI;				// FROM EDL
 extern uint16_t	MSU_CS;					// FROM EDL
 extern uint16_t	MSU_DS;					// FROM EDL
 extern uint16_t	MSU_ES;					// FROM EDL
 extern uint16_t	MSU_SS;					// FROM EDL
-extern uint16_t	MSU_IP;					// FROM EDL
-extern uint16_t MSU_FLAGS;				// FROM EDL
-extern uint16_t	MSU_PC;					// FROM EDL
+extern uint16_t	MSU_EIP;				// FROM EDL
+extern uint16_t MSU_EFLAGS;				// FROM EDL
 extern uint16_t MSU_CYCLES;				// FROM EDL
 
 extern uint8_t *DIS_[256];				// FROM EDL
