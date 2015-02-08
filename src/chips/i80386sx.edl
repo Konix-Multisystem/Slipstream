@@ -70,204 +70,349 @@ DECLARE CR2[32];
 DECLARE CR3[32];
 DECLARE CR4[32];
 
+DECLARE SegBase[[3]][32];
+DECLARE SegLimit[[3]][32];
+
+DECLARE SegCS[3]	ALIAS	%000;
+DECLARE SegDS[3]	ALIAS	%001;
+DECLARE SegES[3]	ALIAS	%010;
+DECLARE SegFS[3]	ALIAS	%011;
+DECLARE SegGS[3]	ALIAS	%100;
+DECLARE SegSS[3]	ALIAS	%101;
+
 ############ Internal CPU state registers - doesn't match hardware
 
 DECLARE INTERNAL GDT[48]	ALIAS	GDT_base[32]:GDT_limit[16];
 DECLARE INTERNAL IDT[48]	ALIAS	IDT_base[32]:IDT_limit[16];
 
-DECLARE INTERNAL cSize[1];
-DECLARE INTERNAL rSize[1];
+DECLARE INTERNAL cSize[1];		## Current Code Page size -- currrently 16bit always
+DECLARE INTERNAL oSize[1];
+DECLARE INTERNAL aSize[1];
 
 DECLARE INTERNAL REPEAT[1];
 DECLARE INTERNAL REPEATZ[1];
 DECLARE INTERNAL SegOveride[1];
 DECLARE INTERNAL SegOverideValue[16];
+DECLARE INTERNAL SegOverideReg[3];
 
 DECLARE INTERNAL interruptPending[1];
 DECLARE INTERNAL interruptVector[8];
 
 DECLARE INTERNAL IRQBlock[1];
 
-DECLARE INTERNAL EXIP[16];		# Exceptions store this value rather than IP
+DECLARE INTERNAL EXIP[32];		# Exceptions store this value rather than IP
+
+############ Debug functions
+
+FUNCTION addr[32] GETPHYSICAL_EIP
+{
+	IF CR_PE
+	{
+		addr<-SegBase[[SegCS]]+EIP;
+	}
+	IF ~CR_PE
+	{
+		DECLARE dummy[4];
+		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
+
+		pageOffset<-CS;
+		physical<-ROL(physical,dummy,%0000,4);
+		addr<-physical+(EIP[0..15]);
+	}
+}
 
 ############ Helper functions
 
-FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
+FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segReg[3],segment[16],offset[32]
 {
-	DECLARE dummy[4];
-	DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
+	IF CR_PE
+	{
+		byte<-CALL GetByte(SegBase[[segReg]]+offset);
+	}
+	IF ~CR_PE
+	{
+		DECLARE dummy[4];
+		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
 
-	pageOffset<-segment;
-	physical<-ROL(physical,dummy,%0000,4);
-	physical<-physical+offset;
-	byte<-CALL GetByte(physical);
+		pageOffset<-segment;
+		physical<-ROL(physical,dummy,%0000,4);
+		physical<-physical+(offset[0..15]);
+		byte<-CALL GetByte(physical);
+	}
 }
 
-FUNCTION INTERNAL	SetByteAtPhysicalAddress	segment[16],offset[16],byte[8]
+FUNCTION INTERNAL	SetByteAtPhysicalAddress	segReg[3],segment[16],offset[32],byte[8]
 {
-	DECLARE dummy[4];
-	DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
+	IF CR_PE
+	{
+		CALL SetByte(SegBase[[segReg]]+offset,byte);
+	}
+	IF ~CR_PE
+	{
+		DECLARE dummy[4];
+		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
 
-	pageOffset<-segment;
-	physical<-ROL(physical,dummy,%0000,4);
-	physical<-physical+offset;
-	CALL SetByte(physical,byte);
+		pageOffset<-segment;
+		physical<-ROL(physical,dummy,%0000,4);
+		physical<-physical+(offset[0..15]);
+		CALL SetByte(physical,byte);
+	}
 }
 
-FUNCTION INTERNAL	StoreWordNoOveride	seg[16],off[16],wrd[16]
+FUNCTION INTERNAL	StoreLongNoOveride	segReg[3],seg[16],off[32],lng[32]
 {
-	CALL SetByteAtPhysicalAddress(seg,off,wrd[0..7]);
-	CALL SetByteAtPhysicalAddress(seg,off+1,wrd[8..15]);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off,lng[0..7]);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off+1,lng[8..15]);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off+2,lng[16..23]);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off+3,lng[24..31]);
 }
 
-FUNCTION INTERNAL	StoreByteNoOveride	seg[16],off[16],byt[8]
+FUNCTION INTERNAL	StoreWordNoOveride	segReg[3],seg[16],off[32],wrd[16]
 {
-	CALL SetByteAtPhysicalAddress(seg,off,byt);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off,wrd[0..7]);
+	CALL SetByteAtPhysicalAddress(segReg,seg,off+1,wrd[8..15]);
 }
 
-FUNCTION INTERNAL	StoreLong	seg[16],off[16],lng[32]
+FUNCTION INTERNAL	StoreByteNoOveride	segReg[3],seg[16],off[32],byt[8]
+{
+	CALL SetByteAtPhysicalAddress(segReg,seg,off,byt);
+}
+
+FUNCTION INTERNAL	StoreLong	segReg[3],seg[16],off[32],lng[32]
 {
 	IF SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off,lng[0..7]);
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off+1,lng[8..15]);
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off+2,lng[16..23]);
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off+3,lng[24..31]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off,lng[0..7]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off+1,lng[8..15]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off+2,lng[16..23]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off+3,lng[24..31]);
 	}
 	IF ~SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(seg,off,lng[0..7]);
-		CALL SetByteAtPhysicalAddress(seg,off+1,lng[8..15]);
-		CALL SetByteAtPhysicalAddress(seg,off+2,lng[16..23]);
-		CALL SetByteAtPhysicalAddress(seg,off+3,lng[24..31]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off,lng[0..7]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off+1,lng[8..15]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off+2,lng[16..23]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off+3,lng[24..31]);
 	}
 }
 
-FUNCTION INTERNAL	StoreWord	seg[16],off[16],wrd[16]
+FUNCTION INTERNAL	StoreWord	segReg[3],seg[16],off[32],wrd[16]
 {
 	IF SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off,wrd[0..7]);
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off+1,wrd[8..15]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off,wrd[0..7]);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off+1,wrd[8..15]);
 	}
 	IF ~SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(seg,off,wrd[0..7]);
-		CALL SetByteAtPhysicalAddress(seg,off+1,wrd[8..15]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off,wrd[0..7]);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off+1,wrd[8..15]);
 	}
 }
 
-FUNCTION INTERNAL	StoreByte	seg[16],off[16],byt[8]
+FUNCTION INTERNAL	StoreByte	segReg[3],seg[16],off[32],byt[8]
 {
 	IF SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(SegOverideValue,off,byt);
+		CALL SetByteAtPhysicalAddress(SegOverideReg,SegOverideValue,off,byt);
 	}
 	IF ~SegOveride
 	{
-		CALL SetByteAtPhysicalAddress(seg,off,byt);
+		CALL SetByteAtPhysicalAddress(segReg,seg,off,byt);
 	}
 }
 
-FUNCTION INTERNAL	wrd[16]		FetchWordNoOveride	seg[16],off[16]
+FUNCTION INTERNAL	wrd[16]		FetchWordNoOveride	segReg[3],seg[16],off[32]
 {
-	CALL GetByteFromPhysicalAddress(seg,off)->wrd[0..7];
-	CALL GetByteFromPhysicalAddress(seg,off+1)->wrd[8..15];
+	CALL GetByteFromPhysicalAddress(segReg,seg,off)->wrd[0..7];
+	CALL GetByteFromPhysicalAddress(segReg,seg,off+1)->wrd[8..15];
 }
 
-FUNCTION INTERNAL	lng[32]		FetchLong		seg[16],off[16]
+FUNCTION INTERNAL	lng[32]		FetchLong		segReg[3],seg[16],off[32]
 {
 	IF SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off)->lng[0..7];
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off+1)->lng[8..15];
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off+2)->lng[16..23];
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off+3)->lng[24..31];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off)->lng[0..7];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off+1)->lng[8..15];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off+2)->lng[16..23];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off+3)->lng[24..31];
 	}
 	IF ~SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(seg,off)->lng[0..7];
-		CALL GetByteFromPhysicalAddress(seg,off+1)->lng[8..15];
-		CALL GetByteFromPhysicalAddress(seg,off+2)->lng[16..23];
-		CALL GetByteFromPhysicalAddress(seg,off+3)->lng[24..31];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off)->lng[0..7];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off+1)->lng[8..15];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off+2)->lng[16..23];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off+3)->lng[24..31];
 	}
 }
 
-FUNCTION INTERNAL	wrd[16]		FetchWord		seg[16],off[16]
+FUNCTION INTERNAL	wrd[16]		FetchWord		segReg[3],seg[16],off[32]
 {
 	IF SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off)->wrd[0..7];
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off+1)->wrd[8..15];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off)->wrd[0..7];
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off+1)->wrd[8..15];
 	}
 	IF ~SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(seg,off)->wrd[0..7];
-		CALL GetByteFromPhysicalAddress(seg,off+1)->wrd[8..15];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off)->wrd[0..7];
+		CALL GetByteFromPhysicalAddress(segReg,seg,off+1)->wrd[8..15];
 	}
 }
 
-FUNCTION INTERNAL	byt[8]		FetchByte		seg[16],off[16]
+FUNCTION INTERNAL	byt[8]		FetchByte		segReg[3],seg[16],off[32]
 {
 	IF SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(SegOverideValue,off)->byt;
+		CALL GetByteFromPhysicalAddress(SegOverideReg,SegOverideValue,off)->byt;
 	}
 	IF ~SegOveride
 	{
-		CALL GetByteFromPhysicalAddress(seg,off)->byt;
+		CALL GetByteFromPhysicalAddress(segReg,seg,off)->byt;
 	}
 }
 
-FUNCTION INTERNAL	byt[8]		FetchByteNoOveride	seg[16],off[16]
+FUNCTION INTERNAL	byt[8]		FetchByteNoOveride	segReg[3],seg[16],off[32]
 {
-	CALL GetByteFromPhysicalAddress(seg,off)->byt;
+	CALL GetByteFromPhysicalAddress(segReg,seg,off)->byt;
 }
 
-#FUNCTION INTERNAL	PushWord	wrd[16]
-#{
-#	SP<-SP - 2;
-#	CALL StoreWordNoOveride(SS,SP,wrd);
-#}
-#
-#FUNCTION INTERNAL	wrd[16]		PopWord
-#{
-#	CALL FetchWordNoOveride(SS,SP)->wrd;
-#	SP<-SP + 2;
-#}
-
-FUNCTION INTERNAL	byt[8]		RM_GetImmediateByte
+FUNCTION INTERNAL	PushWord	wrd[16]
 {
-	CALL GetByteFromPhysicalAddress(CS,EIP) -> byt;
+	ESP<-ESP - 2;
+	CALL StoreWordNoOveride(SegSS,SS,ESP,wrd);
+}
+
+FUNCTION INTERNAL	PushLong	lng[32]
+{
+	ESP<-ESP - 4;
+	CALL StoreLongNoOveride(SegSS,SS,ESP,lng);
+}
+
+FUNCTION INTERNAL	lng[32]		PopLong
+{
+	CALL FetchWordNoOveride(SegSS,SS,ESP)->lng;
+	ESP<-ESP + 4;
+}
+
+FUNCTION INTERNAL	wrd[16]		PopWord
+{
+	CALL FetchWordNoOveride(SegSS,SS,ESP)->wrd;
+	ESP<-ESP + 2;
+}
+
+FUNCTION INTERNAL	byt[8]		GetImmediateByte
+{
+	CALL GetByteFromPhysicalAddress(SegCS,CS,EIP) -> byt;
 	EIP + 1 -> EIP[0..15];
 }
 
-FUNCTION INTERNAL	wrd[16]		RM_GetImmediateWord
+FUNCTION INTERNAL	wrd[16]		GetImmediateWord
 {
-	CALL RM_GetImmediateByte() -> wrd[0..7];
-	CALL RM_GetImmediateByte() -> wrd[8..15];
+	CALL GetImmediateByte() -> wrd[0..7];
+	CALL GetImmediateByte() -> wrd[8..15];
 }
 
-FUNCTION INTERNAL	lng[32]		RM_GetImmediateLong
+FUNCTION INTERNAL	lng[32]		GetImmediateLong
 {
-	CALL RM_GetImmediateWord() -> lng[0..15];
-	CALL RM_GetImmediateWord() -> lng[16..31];
+	CALL GetImmediateWord() -> lng[0..15];
+	CALL GetImmediateWord() -> lng[16..31];
+}
+
+FUNCTION INTERNAL	descriptor[64]	GetIDTEntry	offs[16]
+{
+	CALL GetByte(IDT_base+(offs*8)+0)->descriptor[0..7];
+	CALL GetByte(IDT_base+(offs*8)+1)->descriptor[8..15];
+	CALL GetByte(IDT_base+(offs*8)+2)->descriptor[16..23];
+	CALL GetByte(IDT_base+(offs*8)+3)->descriptor[24..31];
+	CALL GetByte(IDT_base+(offs*8)+4)->descriptor[32..39];
+	CALL GetByte(IDT_base+(offs*8)+5)->descriptor[40..47];
+	CALL GetByte(IDT_base+(offs*8)+6)->descriptor[48..55];
+	CALL GetByte(IDT_base+(offs*8)+7)->descriptor[56..63];
+}
+
+FUNCTION INTERNAL	descriptor[64]	GetGDTEntry	offs[16]
+{
+	CALL GetByte(GDT_base+offs+0)->descriptor[0..7];
+	CALL GetByte(GDT_base+offs+1)->descriptor[8..15];
+	CALL GetByte(GDT_base+offs+2)->descriptor[16..23];
+	CALL GetByte(GDT_base+offs+3)->descriptor[24..31];
+	CALL GetByte(GDT_base+offs+4)->descriptor[32..39];
+	CALL GetByte(GDT_base+offs+5)->descriptor[40..47];
+	CALL GetByte(GDT_base+offs+6)->descriptor[48..55];
+	CALL GetByte(GDT_base+offs+7)->descriptor[56..63];
+}
+
+FUNCTION INTERNAL	SetSegByDescriptor	segReg[3],seg[16],idescriptor[64]
+{
+	DECLARE descriptor[64]	ALIAS	baseHi[8]:Gran[1]:Use[1]:rsrv1[1]:rsrv2[1]:limitHi[4]:present[1]:priv[2]:desBit[1]:exe[1]:dir[1]:rw[1]:accessed[1]:baseLo[24]:limitLo[16];
+	DECLARE	base[32] ALIAS bHi[8]:bLo[24];
+	DECLARE limit[32] ALIAS lHi[12]:lMi[4]:lLo[16];
+
+	descriptor<-idescriptor;
+
+	bHi<-baseHi;
+	bLo<-baseLo;
+	lMi<-limitHi;
+	lLo<-limitLo;
+
+	IF Gran
+	{
+		limit<-limit*4096;
+		limit<-limit|$00000FFF;
+	}
+
+	DEBUG_TRACE BASE 16,base,limit,Gran,Use,present,priv,desBit,exe,dir,rw,accessed;
+
+	SegBase[[segReg]]<-base;
+	SegLimit[[segReg]]<-limit;
+}
+
+FUNCTION INTERNAL 		Exception			vector[8]
+{
+	IF CR_PE
+	{
+		DECLARE idescriptor[64]	ALIAS	offsHi[16]:present[1]:priv[2]:storage[1]:type[4]:%00000000:selector[16]:offsLo[16];
+		DECLARE	offs[32] ALIAS oHi[16]:oLo[16];
+
+		idescriptor<-CALL GetIDTEntry(vector);
+
+		IF type!=6
+		{
+			DEBUG_TRACE "Non I16 interrupt descriptor!!";
+			CALL missing(0);
+		}
+
+		oHi<-offsHi;
+		oLo<-offsLo;
+		
+		CALL PushWord(EFLAGS);
+		I<-0;
+		CALL PushWord(CS);
+		CALL PushWord(EXIP);
+
+		DEBUG_TRACE BASE 16,idescriptor,offs,present,priv,storage,type,selector;
+
+		CALL SetSegByDescriptor(SegCS,selector,CALL GetGDTEntry(selector));
+		EIP<-offs;
+	}
+	IF ~CR_PE
+	{
+		DECLARE TMP[16];
+		CALL PushWord(EFLAGS);
+		I<-0;
+		CALL PushWord(CS);
+		CALL PushWord(EXIP);
+		TMP<-vector*$0004;
+		CALL FetchWordNoOveride(SegCS,$0000,TMP)->EIP;
+		CALL FetchWordNoOveride(SegCS,$0000,TMP+2)->CS;
+
+		51+CYCLES->CYCLES;
+	}
 }
 
 
-FUNCTION INTERNAL 		Exception			vector[16]
-{
-#	DECLARE TMP[16];
-#	CALL PushWord(FLAGS);
-#	I<-0;
-#	CALL PushWord(CS);
-#	CALL PushWord(EXIP);
-#	TMP<-vector*$0004;
-#	CALL FetchWordNoOveride($0000,TMP)->IP;
-#	CALL FetchWordNoOveride($0000,TMP+2)->CS;
-#
-#	51+CYCLES->CYCLES;
-}
+
 ############ CPU Step/Reset/Interrupt 
 
 FUNCTION INTERNAL	DoExecute	IR[8]				#Workaround for bug in table generation when more than one execute exists in 2 different instructions
@@ -280,7 +425,8 @@ FUNCTION STEP
 	DECLARE	IR[8];
 
 	SegOveride<-0;
-	rSize<-cSize;
+	oSize<-cSize;		# Going to need to look these up per segment!
+	aSize<-cSize;
 	CYCLES<-0;
 	IRQBlock<-0;
 
@@ -288,7 +434,7 @@ FUNCTION STEP
 	{
 		IF ~HALT
 		{
-			IR<-CALL GetByteFromPhysicalAddress(CS,EIP);
+			IR<-CALL GetByteFromPhysicalAddress(SegCS,CS,EIP);
 			EXIP<-EIP;					# CACHE IP FOR EXCEPTION/REPEAT HANDLING
 			EIP<-EIP+1;
 
@@ -345,6 +491,18 @@ FUNCTION RESET
 	HALT<-0;
 	CR_PE<-0;
 	cSize<-0;
+	SegBase[[SegCS]]<-$FFFF0000;
+	SegLimit[[SegCS]]<-$0000FFFF;
+	SegBase[[SegDS]]<-$00000000;
+	SegLimit[[SegDS]]<-$0000FFFF;
+	SegBase[[SegES]]<-$00000000;
+	SegLimit[[SegES]]<-$0000FFFF;
+	SegBase[[SegFS]]<-$00000000;
+	SegLimit[[SegFS]]<-$0000FFFF;
+	SegBase[[SegGS]]<-$00000000;
+	SegLimit[[SegGS]]<-$0000FFFF;
+	SegBase[[SegSS]]<-$00000000;
+	SegLimit[[SegSS]]<-$0000FFFF;
 }
 
 ############# Various Mappings
@@ -382,19 +540,19 @@ MAPPING	flags[4]
 #	%110	"DH"	DH;
 #	%111	"BH"	BH;
 #}
-#
-#MAPPING	regw[3]
-#{
-#	%000	"AX"	AX;
-#	%001	"CX"	CX;
-#	%010	"DX"	DX;
-#	%011	"BX"	BX;
-#	%100	"SP"	SP;
-#	%101	"BP"	BP;
-#	%110	"SI"	SI;
-#	%111	"DI"	DI;
-#}
-#
+
+MAPPING	regw[3]
+{
+	%000	"AX"	EAX[0..15];
+	%001	"CX"	ECX[0..15];
+	%010	"DX"	EDX[0..15];
+	%011	"BX"	EBX[0..15];
+	%100	"SP"	ESP[0..15];
+	%101	"BP"	EBP[0..15];
+	%110	"SI"	ESI[0..15];
+	%111	"DI"	EDI[0..15];
+}
+
 #MAPPING	regwop2[3]
 #{
 #	%000	"AX"	AX;
@@ -407,13 +565,6 @@ MAPPING	flags[4]
 #	%111	"DI"	DI;
 #}
 #
-MAPPING regs[2]
-{
-	%00	"ES"	ES;
-	%01	"CS"	CS;
-	%10	"SS"	SS;
-	%11	"DS"	DS;
-}
 
 MAPPING cond[4]
 {
@@ -476,12 +627,40 @@ MAPPING loopcond[2]
 #
 ##### Prefix operations
 
-INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs:%110
+FUNCTION INTERNAL SetSegmentOveride	reg[3]
+{
+	IF reg==%000
+	{
+		SegOverideValue<-ES;
+		SegOverideReg<-SegES;
+		SegOveride<-1;
+	}
+	IF reg==%001
+	{
+		SegOverideValue<-CS;
+		SegOverideReg<-SegCS;
+		SegOveride<-1;
+	}
+	IF reg==%010
+	{
+		SegOverideValue<-SS;
+		SegOverideReg<-SegSS;
+		SegOveride<-1;
+	}
+	IF reg==%011
+	{
+		SegOverideValue<-DS;
+		SegOverideReg<-SegDS;
+		SegOveride<-1;
+	}
+}
+
+INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs[2]:%110
 {
 	DECLARE IR[8];
-	SegOverideValue<-regs;
-	SegOveride<-1;
-	IR<-CALL RM_GetImmediateByte();
+
+	CALL SetSegmentOveride(regs);
+	IR<-CALL GetImmediateByte();
 	CALL DoExecute(IR);
 	2+CYCLES->CYCLES;
 }
@@ -489,8 +668,8 @@ INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs:%110
 INSTRUCTION	"RSIZE"					%01100110
 {
 	DECLARE IR[8];
-	rSize<-~cSize;
-	IR<-CALL RM_GetImmediateByte();
+	oSize<-~cSize;
+	IR<-CALL GetImmediateByte();
 	CALL DoExecute(IR);
 	2+CYCLES->CYCLES;
 }
@@ -788,6 +967,77 @@ FUNCTION INTERNAL	SetControlRegister		reg[3],val[32]		## Because we can't look u
 	}
 }
 
+FUNCTION INTERNAL	SetSegmentRegister		reg[3],val[16]		## Because we can't look up arbitrary mappings in EDL at moment
+{
+	DECLARE seg[16];
+	DECLARE SegReg[3];
+
+	val->seg;
+	IF reg==%000
+	{
+		val->ES;
+		SegES->SegReg;
+	}
+	IF reg==%001
+	{
+		DEBUG_TRACE "Illegal SetRegCS";
+		CALL missing(0);
+	}
+	IF reg==%010
+	{
+		val->SS;
+		SegSS->SegReg;
+	}
+	IF reg==%011
+	{
+		val->DS;
+		SegDS->SegReg;
+	}
+	IF reg==%100
+	{
+		val->FS;
+		SegFS->SegReg;
+	}
+	IF reg==%101
+	{
+		val->GS;
+		SegGS->SegReg;
+	}
+	IF reg>%101
+	{
+		DEBUG_TRACE "SetSeg ",reg;
+		CALL missing(0);
+	}
+	IF CR_PE
+	{
+		CALL SetSegByDescriptor(SegReg,seg,CALL GetGDTEntry(seg));
+	}
+}
+
+FUNCTION INTERNAL	val[16]	GetSegmentRegister		reg[3]		## Because we can't look up arbitrary mappings in EDL at moment
+{
+	IF reg==%000
+	{
+		ES->val;
+	}
+	IF reg==%001
+	{
+		CS->val;
+	}
+	IF reg==%010
+	{
+		SS->val;
+	}
+	IF reg==%011
+	{
+		DS->val;
+	}
+	IF reg>%011
+	{
+		DEBUG_TRACE "GetSeg ",reg;
+		CALL missing(0);
+	}
+}
 
 #
 #FUNCTION INTERNAL	res[8]		IncrementByte		val[8]
@@ -946,93 +1196,137 @@ FUNCTION INTERNAL	res[8]		NegByte			val[8]
 #	
 #	AX<-result;
 #}
-#
-#FUNCTION INTERNAL			MulWord			src[16]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[32];
-#	DECLARE rhs[32];
-#	DECLARE result[32]	ALIAS	upper[16]:lower[16];
-#	lhs<-AX;
-#	rhs<-src;
-#	result<-lhs * rhs;
-#	C<-upper!=$0000;
-#	O<-C;
-#	DX<-upper;
-#	AX<-lower;
-#}
-#
-#FUNCTION INTERNAL			MulByte			src[8]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[16];
-#	DECLARE rhs[16];
-#	DECLARE result[16]	ALIAS	upper[8]:lower[8];
-#	lhs<-AL;
-#	rhs<-src;
-#	result<-lhs * rhs;
-#	C<-upper!=$00;
-#	O<-C;
-#	
-#	AX<-result;
-#}
-#
-#FUNCTION INTERNAL			DivWord			src[16]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[32];
-#	DECLARE rhs[32];
-#	DX->lhs[16..31];
-#	AX->lhs[0..15];
-#	rhs<-src;
-#	IF rhs!=0
-#	{
-#		DECLARE quo[32];
-#		DECLARE rem[32];
-#		quo<-lhs / rhs;
-#		rem<-lhs % rhs;
-#
-#		IF quo<=$0000FFFF
-#		{
-#			AX<-quo;
-#			DX<-rem;
-#		}
-#		IF quo>$0000FFFF
-#		{
-#			CALL Exception(0);
-#		}
-#	}
-#	IF rhs==0
-#	{
-#		CALL Exception(0);
-#	}
-#}
-#
-#FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[16];
-#	DECLARE rhs[16];
-#	lhs<-AX;
-#	rhs<-src;
-#	IF rhs!=0
-#	{
-#		DECLARE quo[16];
-#		DECLARE rem[16];
-#		quo<-lhs / rhs;
-#		rem<-lhs % rhs;
-#		IF quo<=$00FF
-#		{
-#			AL<-quo;
-#			AH<-rem;
-#		}
-#		IF quo>$00FF
-#		{
-#			CALL Exception(0);
-#		}
-#	}
-#	IF rhs==0
-#	{
-#		CALL Exception(0);
-#	}
-#}
-#
+
+FUNCTION INTERNAL			MulLong			src[32]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[64];
+	DECLARE rhs[64];
+	DECLARE result[64]	ALIAS	upper[32]:lower[32];
+	lhs<-EAX;
+	rhs<-src;
+	result<-lhs * rhs;
+	CF<-upper!=$00000000;
+	OF<-CF;
+	EDX<-upper;
+	EAX<-lower;
+}
+
+FUNCTION INTERNAL			MulWord			src[16]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DECLARE result[32]	ALIAS	upper[16]:lower[16];
+	lhs<-EAX[0..15];
+	rhs<-src;
+	result<-lhs * rhs;
+	CF<-upper!=$0000;
+	OF<-CF;
+	upper->EDX[0..15];
+	lower->EAX[0..15];
+}
+
+FUNCTION INTERNAL			MulByte			src[8]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	DECLARE result[16]	ALIAS	upper[8]:lower[8];
+	lhs<-EAX[0..7];
+	rhs<-src;
+	result<-lhs * rhs;
+	CF<-upper!=$00;
+	OF<-CF;
+	
+	result->EAX[0..15];
+}
+
+FUNCTION INTERNAL			DivLong			src[32]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[64];
+	DECLARE rhs[64];
+	EDX->lhs[32..63];
+	EAX->lhs[0..31];
+	rhs<-src;
+	IF rhs!=0
+	{
+		DECLARE quo[32];
+		DECLARE rem[32];
+		quo<-lhs / rhs;
+		rem<-lhs % rhs;
+
+		IF quo<=$FFFFFFFF
+		{
+			quo->EAX;
+			rem->EDX;
+		}
+		IF quo>$FFFFFFFF
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
+}
+
+FUNCTION INTERNAL			DivWord			src[16]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	EDX[0..15]->lhs[16..31];
+	EAX[0..15]->lhs[0..15];
+	rhs<-src;
+	IF rhs!=0
+	{
+		DECLARE quo[32];
+		DECLARE rem[32];
+		quo<-lhs / rhs;
+		rem<-lhs % rhs;
+
+		IF quo<=$0000FFFF
+		{
+			quo->EAX[0..15];
+			rem->EDX[0..15];
+		}
+		IF quo>$0000FFFF
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
+}
+
+FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	lhs<-EAX[0..15];
+	rhs<-src;
+	IF rhs!=0
+	{
+		DECLARE quo[16];
+		DECLARE rem[16];
+		quo<-lhs / rhs;
+		rem<-lhs % rhs;
+		IF quo<=$00FF
+		{
+			quo->EAX[0..7];
+			rem->EAX[8..15];
+		}
+		IF quo>$00FF
+		{
+			CALL Exception(0);
+		}
+	}
+	IF rhs==0
+	{
+		CALL Exception(0);
+	}
+}
+
 #FUNCTION INTERNAL			IDivWord		src[16]					# No return, assigns value as intended by instruction implicitly
 #{
 #	DECLARE lhs[32];
@@ -1092,27 +1386,33 @@ FUNCTION INTERNAL	res[8]		NegByte			val[8]
 
 ## This needs some tweaking!
 
-FUNCTION INTERNAL	EAS[32]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Returns EAS which is EFFECTIVE_SEGMENT[16]:EFFECTIVE_ADDRESS[16] - Only for use with MOD=00,01,10 (11 is ignored)
+FUNCTION INTERNAL	EAS[35]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Returns EAS which is SEFFECTIVE_SEGMENT_REGISTER[3]:EFFECTIVE_SEGMENT[16]:EFFECTIVE_ADDRESS[16] - Only for use with MOD=00,01,10 (11 is ignored)
 {
-	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
 	DECLARE DISP[16];
+
+	IF aSize
+	{
+		DEBUG_TRACE "EffectiveAddress 32bit";
+		CALL missing(0);
+	}
 
 	IF eamod==%00
 	{
 		DISP<-$0000;
 		IF earm==%110
 		{
-			DISP<-CALL RM_GetImmediateWord();		# Special case - cycles adjusted at code check time
+			DISP<-CALL GetImmediateWord();		# Special case - cycles adjusted at code check time
 		}
 	}
 	IF eamod==%01
 	{
-		DISP<-$0000++CALL RM_GetImmediateByte();
+		DISP<-$0000++CALL GetImmediateByte();
 		4+CYCLES->CYCLES;
 	}
 	IF eamod==%10
 	{
-		DISP<-CALL RM_GetImmediateWord();
+		DISP<-CALL GetImmediateWord();
 		4+CYCLES->CYCLES;
 	}
 	IF eamod==%11
@@ -1124,38 +1424,44 @@ FUNCTION INTERNAL	EAS[32]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Re
 		addcyc+CYCLES->CYCLES;
 		IF earm==%000
 		{
-			EBX[0..15]+ESI[0..15]+DISP->EFF;
+			EBX+ESI+DISP->EFF;
 			DS->SEG;
+			SegDS->SEGREG;
 			7+CYCLES->CYCLES;
 		}
 		IF earm==%001
 		{
-			EBX[0..15]+EDI[0..15]+DISP->EFF;
+			EBX+EDI+DISP->EFF;
 			DS->SEG;
+			SegDS->SEGREG;
 			8+CYCLES->CYCLES;
 		}
 		IF earm==%010
 		{
-			EBP[0..15]+ESI[0..15]+DISP->EFF;
+			EBP+ESI+DISP->EFF;
 			SS->SEG;
+			SegSS->SEGREG;
 			8+CYCLES->CYCLES;
 		}
 		IF earm==%011
 		{
-			EBP[0..15]+EDI[0..15]+DISP->EFF;
+			EBP+EDI+DISP->EFF;
 			SS->SEG;
+			SegSS->SEGREG;
 			7+CYCLES->CYCLES;
 		}
 		IF earm==%100
 		{
-			ESI[0..15]+DISP->EFF;
+			ESI+DISP->EFF;
 			DS->SEG;
+			SegDS->SEGREG;
 			5+CYCLES->CYCLES;
 		}
 		IF earm==%101
 		{
-			EDI[0..15]+DISP->EFF;
+			EDI+DISP->EFF;
 			DS->SEG;
+			SegDS->SEGREG;
 			5+CYCLES->CYCLES;
 		}
 		IF earm==%110
@@ -1164,19 +1470,22 @@ FUNCTION INTERNAL	EAS[32]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Re
 			{
 				DISP->EFF;
 				DS->SEG;
+				SegDS->SEGREG;
 				6+CYCLES->CYCLES;
 			}
 			IF eamod!=%00
 			{
-				EBP[0..15]+DISP->EFF;
+				EBP+DISP->EFF;
 				SS->SEG;
+				SegSS->SEGREG;
 				5+CYCLES->CYCLES;
 			}
 		}
 		IF earm==%111
 		{
-			EBX[0..15]+DISP->EFF;
+			EBX+DISP->EFF;
 			DS->SEG;
+			SegDS->SEGREG;
 			5+CYCLES->CYCLES;
 		}
 	}
@@ -1184,7 +1493,7 @@ FUNCTION INTERNAL	EAS[32]		CalcEffectiveAddress	eamod[2],earm[3],addcyc[8]		# Re
 	EAS<-SEGEA;
 }
 
-FUNCTION INTERNAL	SetEffectiveAddressLong	eamod[2],earm[3],SEG[16],EFF[16],long[32]
+FUNCTION INTERNAL	SetEffectiveAddressLong	eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16],long[32]
 {
 	IF eamod==%11
 	{
@@ -1192,11 +1501,11 @@ FUNCTION INTERNAL	SetEffectiveAddressLong	eamod[2],earm[3],SEG[16],EFF[16],long[
 	}
 	IF eamod!=%11
 	{
-		CALL StoreLong(SEG,EFF,long);
+		CALL StoreLong(SEGREG,SEG,EFF,long);
 	}
 }
 
-FUNCTION INTERNAL	SetEffectiveAddressWord	eamod[2],earm[3],SEG[16],EFF[16],word[16]
+FUNCTION INTERNAL	SetEffectiveAddressWord	eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16],word[16]
 {
 	IF eamod==%11
 	{
@@ -1204,11 +1513,11 @@ FUNCTION INTERNAL	SetEffectiveAddressWord	eamod[2],earm[3],SEG[16],EFF[16],word[
 	}
 	IF eamod!=%11
 	{
-		CALL StoreWord(SEG,EFF,word);
+		CALL StoreWord(SEGREG,SEG,EFF,word);
 	}
 }
 
-FUNCTION INTERNAL	byte[8]		GetEffectiveAddressByte		eamod[2],earm[3],SEG[16],EFF[16]
+FUNCTION INTERNAL	byte[8]		GetEffectiveAddressByte		eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16]
 {
 	IF eamod==%11
 	{
@@ -1216,11 +1525,11 @@ FUNCTION INTERNAL	byte[8]		GetEffectiveAddressByte		eamod[2],earm[3],SEG[16],EFF
 	}
 	IF eamod!=%11
 	{
-		CALL FetchByte(SEG,EFF)->byte;
+		CALL FetchByte(SEGREG,SEG,EFF)->byte;
 	}
 }
 
-FUNCTION INTERNAL	word[16]	GetEffectiveAddressWord		eamod[2],earm[3],SEG[16],EFF[16]
+FUNCTION INTERNAL	word[16]	GetEffectiveAddressWord		eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16]
 {
 	IF eamod==%11
 	{
@@ -1228,11 +1537,11 @@ FUNCTION INTERNAL	word[16]	GetEffectiveAddressWord		eamod[2],earm[3],SEG[16],EFF
 	}
 	IF eamod!=%11
 	{
-		CALL FetchWord(SEG,EFF)->word;
+		CALL FetchWord(SEGREG,SEG,EFF)->word;
 	}
 }
 
-FUNCTION INTERNAL	long[32]	GetEffectiveAddressLong		eamod[2],earm[3],SEG[16],EFF[16]
+FUNCTION INTERNAL	long[32]	GetEffectiveAddressLong		eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16]
 {
 	IF eamod==%11
 	{
@@ -1240,20 +1549,20 @@ FUNCTION INTERNAL	long[32]	GetEffectiveAddressLong		eamod[2],earm[3],SEG[16],EFF
 	}
 	IF eamod!=%11
 	{
-		CALL FetchLong(SEG,EFF)->long;
+		CALL FetchLong(SEGREG,SEG,EFF)->long;
 	}
 }
 
-FUNCTION INTERNAL	fword[48]	GetEffectiveAddressFWord		SEG[16],EFF[16]
+FUNCTION INTERNAL	fword[48]	GetEffectiveAddressFWord		SEGREG[3],SEG[16],EFF[16]
 {
-	CALL FetchWord(SEG,EFF)->fword[0..15];
-	CALL FetchWord(SEG,EFF+2)->fword[16..31];
-	CALL FetchWord(SEG,EFF+4)->fword[32..47];
+	CALL FetchWord(SEGREG,SEG,EFF)->fword[0..15];
+	CALL FetchWord(SEGREG,SEG,EFF+2)->fword[16..31];
+	CALL FetchWord(SEGREG,SEG,EFF+4)->fword[32..47];
 }
 
 
 
-FUNCTION INTERNAL	SetEffectiveAddressByte	eamod[2],earm[3],SEG[16],EFF[16],byte[8]
+FUNCTION INTERNAL	SetEffectiveAddressByte	eamod[2],earm[3],SEGREG[3],SEG[16],EFF[16],byte[8]
 {
 	IF eamod==%11
 	{
@@ -1261,72 +1570,91 @@ FUNCTION INTERNAL	SetEffectiveAddressByte	eamod[2],earm[3],SEG[16],EFF[16],byte[
 	}
 	IF eamod!=%11
 	{
-		CALL StoreByte(SEG,EFF,byte);
+		CALL StoreByte(SEGREG,SEG,EFF,byte);
 	}
 }
 
-#
-#####
-##### Implied/1/2/3 Byte opcode instructions
-#####
-#
-#INSTRUCTION	"PUSH %M0"		%01010:regw
-#{
-#	CALL PushWord(regw);
-#	11+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"PUSH %M0"		%000:regs:%110
-#{
-#	CALL PushWord(regs);
-#	10+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"POP %M0"		%01011:regw
-#{
-#	CALL PopWord()->regw;
-#	8+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"POP %M0"		%000:regs:%111
-#{
-#	CALL PopWord()->regs;
-#	8+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"XCHG AX,%M0"		%10010:regw
-#{
-#	AX<->regw;
-#	3+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
-#{
-#	DECLARE port[16];
-#
-#	IF portVariable
-#	{
-#		port<-DX;
-#		8+CYCLES->CYCLES;
-#	}
-#	IF ~portVariable
-#	{
-#		port<-CALL GetImmediateByte();
-#		10+CYCLES->CYCLES;
-#	}
-#	IF accword
-#	{
-#		CALL GetPortW(port)->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL GetPortB(port)->AL;
-#	}
-#}
 
-INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
+####
+#### Implied/1/2/3 Byte opcode instructions
+####
+
+INSTRUCTION	"PUSH %M0"		%01010:reg[3]
+{
+	IF oSize
+	{
+		CALL PushLong(CALL GetLongRegister(reg));
+	}
+	IF ~oSize
+	{
+		CALL PushWord(CALL GetWordRegister(reg));
+	}
+	11+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"PUSH %M0"		%000:regs[2]:%110
+{
+	CALL PushWord(CALL GetSegmentRegister(regs));
+	10+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POP %M0"		%01011:reg[3]
+{
+	IF oSize
+	{
+		CALL SetLongRegister(reg,CALL PopLong());
+	}
+	IF ~oSize
+	{
+		CALL SetWordRegister(reg,CALL PopWord());
+	}
+	8+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POP ES"		%00000111
+{
+	CALL SetSegmentRegister(%000,CALL PopWord());
+	8+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POP SS"		%00010111
+{
+	CALL SetSegmentRegister(%010,CALL PopWord());
+	8+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POP DS"		%00011111
+{
+	CALL SetSegmentRegister(%011,CALL PopWord());
+	8+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"XCHG AX,%M0"		%10010:reg[3]
+{
+	IF oSize
+	{
+		DEBUG_TRACE "xchg long";
+		CALL missing(0);
+	}
+	IF ~oSize
+	{
+		DECLARE tmp[16];
+		CALL GetWordRegister(reg)->tmp;
+		CALL SetWordRegister(reg,EAX[0..15]);
+		tmp->EAX[0..15];
+		3+CYCLES->CYCLES;
+	}
+}
+
+INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
 {
 	DECLARE port[16];
+
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "IN long";
+		CALL missing(0);	
+	}
 
 	IF portVariable
 	{
@@ -1335,7 +1663,37 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 	}
 	IF ~portVariable
 	{
-		port<-CALL RM_GetImmediateByte();
+		port<-CALL GetImmediateByte();
+		10+CYCLES->CYCLES;
+	}
+	IF accword
+	{
+		CALL GetPortW(port)->EAX[0..15];
+	}
+	IF ~accword
+	{
+		CALL GetPortB(port)->EAX[0..7];
+	}
+}
+
+INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
+{
+	DECLARE port[16];
+
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "OUT long";
+		CALL missing(0);	
+	}
+
+	IF portVariable
+	{
+		port<-EDX[0..15];
+		8+CYCLES->CYCLES;
+	}
+	IF ~portVariable
+	{
+		port<-CALL GetImmediateByte();
 		10+CYCLES->CYCLES;
 	}
 	IF accword
@@ -1383,85 +1741,87 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 
 INSTRUCTION	"MOV #REGWB#,#IMM3#"	%1011:word[1]:reg[3]
 {
-	IF ~CR_PE
+	IF word
 	{
-		IF word
+		IF oSize
 		{
-			IF rSize
-			{
-				CALL SetLongRegister(reg,CALL RM_GetImmediateLong());
-			}
-			IF ~rSize
-			{
-				CALL SetWordRegister(reg,CALL RM_GetImmediateWord());
-			}
+			CALL SetLongRegister(reg,CALL GetImmediateLong());
 		}
-		IF ~word
+		IF ~oSize
 		{
-			CALL SetByteRegister(reg,CALL RM_GetImmediateByte());
+			CALL SetWordRegister(reg,CALL GetImmediateWord());
 		}
-		4+CYCLES->CYCLES;
 	}
-	IF CR_PE
+	IF ~word
 	{
-		DEBUG_TRACE "TODO MOV xx,imm PE MODE";
-		CALL missing(0);
+		CALL SetByteRegister(reg,CALL GetImmediateByte());
 	}
+	4+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
-#{
-#	DECLARE Addr[16];
-#
-#	CALL GetImmediateWord()->Addr;
-#	IF accword
-#	{
-#		CALL FetchWord(DS,Addr)->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL FetchByte(DS,Addr)->AL;
-#	}
-#	10+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"MOV #ADDR#,%M0"	%1010001:accword
-#{
-#	DECLARE Addr[16];
-#
-#	CALL GetImmediateWord()->Addr;
-#	IF accword
-#	{
-#		CALL StoreWord(DS,Addr,AX);
-#	}
-#	IF ~accword
-#	{
-#		CALL StoreByte(DS,Addr,AL);
-#	}
-#	10+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
-#{
-#	IF accword
-#	{
-#		IF rSize
-#		{
-#			DEBUG_TRACE "32 bit mode todo --";
-#			CALL missing(0);
-#		}
-#		IF ~rSize
-#		{
-#			CALL AddWord(EAX[0..15],CALL RM_GetImmediateWord(),0)->EAX[0..15];
-#		}
-#	}
-#	IF ~accword
-#	{
-#		CALL AddByte(EAX[0..7],CALL RM_GetImmediateByte(),0)->EAX[0..7];
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
+INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
+{
+	DECLARE Addr[16];
+
+	CALL GetImmediateWord()->Addr;
+	IF accword
+	{
+		IF oSize | aSize
+		{
+			DEBUG_TRACE "MOV offs32";
+			CALL missing(0);
+		}
+		CALL FetchWord(SegDS,DS,Addr)->EAX[0..15];
+	}
+	IF ~accword
+	{
+		CALL FetchByte(SegDS,DS,Addr)->EAX[0..7];
+	}
+	10+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"MOV #ADDR#,%M0"	%1010001:accword
+{
+	DECLARE Addr[16];
+
+	CALL GetImmediateWord()->Addr;
+	IF accword
+	{
+		IF oSize | aSize
+		{
+			DEBUG_TRACE "MOV offs32";
+			CALL missing(0);
+		}
+		CALL StoreWord(SegDS,DS,Addr,EAX[0..15]);
+	}
+	IF ~accword
+	{
+		CALL StoreByte(SegDS,DS,Addr,EAX[0..7]);
+	}
+	10+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "32 bit mode todo --";
+			CALL missing(0);
+		}
+		IF ~oSize
+		{
+			CALL AddWord(EAX[0..15],CALL GetImmediateWord(),0)->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL AddByte(EAX[0..7],CALL GetImmediateByte(),0)->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"ADC %M0,#IMM0#"	%0001010:accword
 #{
 #	IF accword
@@ -1477,30 +1837,38 @@ INSTRUCTION	"MOV #REGWB#,#IMM3#"	%1011:word[1]:reg[3]
 
 INSTRUCTION	"INC %M0"		%01000:reg[3]
 {
-	IF rSize
+	IF oSize
 	{
 		CALL SetLongRegister(reg,CALL IncrementLong(CALL GetLongRegister(reg)));
 	}
-	IF ~rSize
+	IF ~oSize
 	{
 		CALL SetWordRegister(reg,CALL IncrementWord(CALL GetWordRegister(reg)));
 	}
 	2+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
-#{
-#	IF accword
-#	{
-#		CALL SubWord(AX,CALL GetImmediateWord(),0)->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL SubByte(AL,CALL GetImmediateByte(),0)->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
+INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "32 bit mode todo --";
+			CALL missing(0);
+		}
+		IF ~oSize
+		{
+			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),0)->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),0)->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
 #{
 #	IF accword
@@ -1516,30 +1884,38 @@ INSTRUCTION	"INC %M0"		%01000:reg[3]
 
 INSTRUCTION	"DEC %M0"		%01001:reg[3]
 {
-	IF rSize
+	IF oSize
 	{
 		CALL SetLongRegister(reg,CALL DecrementLong(CALL GetLongRegister(reg)));
 	}
-	IF ~rSize
+	IF ~oSize
 	{
 		CALL SetWordRegister(reg,CALL DecrementWord(CALL GetWordRegister(reg)));
 	}
 	2+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
-#{
-#	IF accword
-#	{
-#		CALL SubWord(AX,CALL GetImmediateWord(),0);
-#	}
-#	IF ~accword
-#	{
-#		CALL SubByte(AL,CALL GetImmediateByte(),0);
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
+INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "CMP lng";
+			CALL missing(0);
+		}
+		IF ~oSize
+		{
+			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),0);
+		}
+	}
+	IF ~accword
+	{
+		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),0);
+	}
+	4+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"AAA"			%00110111
 #{
 #	IF ((AL & $0F) > 9) | A
@@ -1562,7 +1938,7 @@ INSTRUCTION	"DEC %M0"		%01001:reg[3]
 #{
 #	DECLARE Modifier[8];
 #
-#	IF A | (AL[0..3]>9)
+#	IF A | ((AL[0..3])>9)
 #	{
 #		Modifier<-6;
 #	}
@@ -1581,7 +1957,7 @@ INSTRUCTION	"DEC %M0"		%01001:reg[3]
 #{
 #	DECLARE Modifier[8];
 #
-#	IF A | (AL[0..3]>9)
+#	IF A | ((AL[0..3])>9)
 #	{
 #		Modifier<-6;
 #	}
@@ -1652,46 +2028,67 @@ INSTRUCTION	"DEC %M0"		%01001:reg[3]
 #	DX<-UPPER;
 #	5+CYCLES->CYCLES;
 #}
-#
-#INSTRUCTION	"AND %M0,#IMM0#"	%0010010:accword
-#{
-#	IF accword
-#	{
-#		CALL AndWord(AX,CALL GetImmediateWord())->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL AndByte(AL,CALL GetImmediateByte())->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"TEST %M0,#IMM0#"	%1010100:accword
-#{
-#	IF accword
-#	{
-#		CALL AndWord(AX,CALL GetImmediateWord());
-#	}
-#	IF ~accword
-#	{
-#		CALL AndByte(AL,CALL GetImmediateByte());
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"OR %M0,#IMM0#"		%0000110:accword
-#{
-#	IF accword
-#	{
-#		CALL OrWord(AX,CALL GetImmediateWord())->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL OrByte(AL,CALL GetImmediateByte())->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
+
+INSTRUCTION	"AND %M0,#IMM0#"	%0010010:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			CALL AndLong(EAX,CALL GetImmediateLong())->EAX;
+		}
+		IF ~oSize
+		{
+			CALL AndWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL AndByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"TEST %M0,#IMM0#"	%1010100:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			CALL AndLong(EAX,CALL GetImmediateLong());
+		}
+		IF ~oSize
+		{
+			CALL AndWord(EAX[0..15],CALL GetImmediateWord());
+		}
+	}
+	IF ~accword
+	{
+		CALL AndByte(EAX[0..7],CALL GetImmediateByte());
+	}
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"OR %M0,#IMM0#"		%0000110:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			CALL OrLong(EAX,CALL GetImmediateLong())->EAX;
+		}
+		IF ~oSize
+		{
+			CALL OrWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL OrByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
 #{
 #	IF accword
@@ -1918,8 +2315,8 @@ INSTRUCTION	"JMP #16DISP#"		%11101001
 	IF ~CR_PE
 	{
 		DECLARE disp[16];
-		disp<-CALL RM_GetImmediateWord();
-		EIP[0..15]++disp->EIP[0..15];
+		disp<-CALL GetImmediateWord();
+		EIP++disp->EIP[0..15];			##check for 16/32 mode
 		15+CYCLES->CYCLES;
 	}
 	IF CR_PE
@@ -1937,30 +2334,39 @@ INSTRUCTION	"JMP #16DISP#"		%11101001
 #	15+CYCLES->CYCLES;
 #}
 
-#INSTRUCTION	"JMP #FAR#"		%11101010
-#{
-#	IF ~CR_PE
-#	{
-#		DECLARE off[16];
-#		DECLARE seg[16];
-#		off<-CALL RM_GetImmediateWord();
-#		seg<-CALL RM_GetImmediateWord();
-#		EIP<-$00000000 | off;
-#		CS<-seg;
-#		15+CYCLES->CYCLES;
-#	}
-#	IF CR_PE
-#	{
-#		DEBUG_TRACE "TO DO JMPFAR PE MODE";
-#	}
-#}
+INSTRUCTION	"JMP #FAR#"		%11101010
+{
+	IF ~CR_PE
+	{
+		DECLARE off[16];
+		DECLARE seg[16];
+		off<-CALL GetImmediateWord();
+		seg<-CALL GetImmediateWord();
+		EIP<-$00000000 | off;
+		CS<-seg;
+		15+CYCLES->CYCLES;
+	}
+	IF CR_PE
+	{
+		DECLARE off[16];
+		DECLARE seg[16];
+		off<-CALL GetImmediateWord();
+		seg<-CALL GetImmediateWord();
 
-#INSTRUCTION	"RET"			%11000011
-#{
-#	IP<-CALL PopWord();
-#	8+CYCLES->CYCLES;
-#}
-#
+		CALL SetSegByDescriptor(SegCS,seg,CALL GetGDTEntry(seg));
+
+		EIP<-off;
+		CS<-seg;
+		15+CYCLES->CYCLES;
+	}
+}
+
+INSTRUCTION	"RET"			%11000011
+{
+	EIP<-CALL PopWord();
+	8+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"RET #IMM16#"		%11000010
 #{
 #	DECLARE TMP[16];
@@ -1989,24 +2395,16 @@ INSTRUCTION	"JMP #16DISP#"		%11101001
 
 INSTRUCTION	"J%M0 #8DISP#"		%0111:cond
 {
-	IF ~CR_PE
+	DECLARE disp[8];
+	disp<-CALL GetImmediateByte();
+	IF cond
 	{
-		DECLARE disp[8];
-		disp<-CALL RM_GetImmediateByte();
-		IF cond
-		{
-			EIP[0..15]++disp->EIP[0..15];
-			16+CYCLES->CYCLES;
-		}
-		IF ~cond
-		{
-			4+CYCLES->CYCLES;
-		}
+		EIP++disp->EIP;
+		16+CYCLES->CYCLES;
 	}
-	IF CR_PE
+	IF ~cond
 	{
-		DEBUG_TRACE "TODO JCC PE MODE";			### Probably change this to some form of update IP which would solve conditions within most of these functions
-		CALL missing(0);
+		4+CYCLES->CYCLES;
 	}
 }
 
@@ -2030,14 +2428,14 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 	IF ~CR_PE
 	{
 		DECLARE disp[8];
-		disp<-CALL RM_GetImmediateByte();
-		ECX[0..15]-1->ECX[0..15];
-		IF (ECX[0..15]!=0) & (loopcond)
+		disp<-CALL GetImmediateByte();
+		(ECX[0..15])-1->ECX[0..15];
+		IF ((ECX[0..15])!=0) & (loopcond)
 		{
-			EIP[0..15]++disp->EIP[0..15];
+			EIP++disp->EIP;
 			17+CYCLES->CYCLES;
 		}
-		IF (ECX[0..15]==0) & (~loopcond)
+		IF ((ECX[0..15])==0) & (~loopcond)
 		{
 			5+CYCLES->CYCLES;
 		}
@@ -2049,15 +2447,15 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 	}
 }
 
-#INSTRUCTION	"INT #VECTOR#"		%11001101
-#{
-#	DECLARE TMP[16];
-#
-#	TMP<-CALL GetImmediateByte();
-#	EXIP<-IP;
-#	CALL Exception(TMP);
-#}
-#
+INSTRUCTION	"INT #VECTOR#"		%11001101
+{
+	DECLARE TMP[8];
+
+	TMP<-CALL GetImmediateByte();
+	EXIP<-EIP;
+	CALL Exception(TMP);
+}
+
 #INSTRUCTION	"INTO"			%11001110
 #{
 #	IF O
@@ -2070,14 +2468,20 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 #		4+CYCLES->CYCLES;
 #	}
 #}
-#
-#INSTRUCTION	"IRET"			%11001111
-#{
-#	IP<-CALL PopWord();
-#	CS<-CALL PopWord();
-#	FLAGS<-CALL PopWord();
-#	24+CYCLES->CYCLES;
-#}
+
+INSTRUCTION	"IRET"			%11001111
+{
+	CALL PopWord()->EIP[0..15];
+	CALL PopWord()->CS;
+	CALL PopWord()->EFLAGS[0..15];
+
+	IF CR_PE
+	{
+		CALL SetSegByDescriptor(SegCS,CS,CALL GetGDTEntry(CS));
+	}
+
+	24+CYCLES->CYCLES;
+}
 
 INSTRUCTION	"%M0"			%1111:flags
 {
@@ -2173,34 +2577,34 @@ INSTRUCTION	"%M0"			%1111:flags
 #}
 #
 ##### MOD n SREG R/M instructions
-#
-#INSTRUCTION	"MOV #MODSREGRM#"	%100011:direc[1]:0
-#{
-#	DECLARE IR[9]	ALIAS	direcOp[1]:opcode[8];
-#
-#	direcOp<-direc;
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_MOV_MOD_SREG IR;
-#}
-#
-#INSTRUCTION	TABLE_MOV_MOD_SREG	""		direcOp[1]:mod[2]:%0:regs:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6+(1-direcOp))->SEGEA;
-#	2+CYCLES->CYCLES;
-#
-#	IF direcOp
-#	{
-#		CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->regs;
-#	}
-#	IF ~direcOp
-#	{
-#		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,regs);
-#	}
-#}
-#
+
+INSTRUCTION	"MOV #MODSREGRM#"	%100011:direc[1]:0
+{
+	DECLARE IR[9]	ALIAS	direcOp[1]:opcode[8];
+
+	direcOp<-direc;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_MOV_MOD_SREG IR;
+}
+
+INSTRUCTION	TABLE_MOV_MOD_SREG	""		direcOp[1]:mod[2]:sreg[3]:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,6+(1-direcOp))->SEGEA;
+	2+CYCLES->CYCLES;
+
+	IF direcOp
+	{
+		CALL SetSegmentRegister(sreg,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
+	}
+	IF ~direcOp
+	{
+		CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL GetSegmentRegister(sreg));
+	}
+}
+
 ##### MOD reg R/M instructions (2 operand)
 #
 #MAPPING leaMod[2]
@@ -2263,13 +2667,13 @@ INSTRUCTION	"%M0"			%1111:flags
 
 MAPPING operationMapping[6]
 {
-#%000000		"ADD"	$0;
-#%000100		"ADC"	$1;
-#%001010		"SUB"	$2;
-#%001000		"AND"	$3;
-#%000010		"OR"	$4;
+%000000		"ADD"	$0;
+%000100		"ADC"	$1;
+%001010		"SUB"	$2;
+%001000		"AND"	$3;
+%000010		"OR"	$4;
 %001100		"XOR"	$5;
-#%000110		"SBB"	$6;
+%000110		"SBB"	$6;
 }
 
 FUNCTION INTERNAL	res[8]	DoOperationByte	operation[3],dst[8],src[8]
@@ -2370,46 +2774,45 @@ FUNCTION INTERNAL	res[32]	DoOperationLong	operation[3],dst[32],src[32]
 
 FUNCTION INTERNAL	DoModReg	oper[3],direcOp[1],wordOp[1],mod[2],reg[3],rm[3]
 {
-	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
 
-	CALL CalcEffectiveAddress(mod,rm,6+(1-direcOp)*7)->SEGEA;
+	CALL CalcEffectiveAddress(mod,rm,6+((1-direcOp)*7))->SEGEA;
 	3+CYCLES->CYCLES;
 
 	IF direcOp
 	{
 		IF wordOp
 		{
-			IF rSize
+			IF oSize
 			{
-				CALL SetLongRegister(reg,CALL DoOperationLong(oper,CALL GetLongRegister(reg),CALL GetEffectiveAddressLong(mod,rm,SEG,EFF)));
+				CALL SetLongRegister(reg,CALL DoOperationLong(oper,CALL GetLongRegister(reg),CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF)));
 			}
-			IF ~rSize
+			IF ~oSize
 			{
-				CALL SetWordRegister(reg,CALL DoOperationWord(oper,CALL GetWordRegister(reg),CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)));
+				CALL SetWordRegister(reg,CALL DoOperationWord(oper,CALL GetWordRegister(reg),CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)));
 			}
 		}
 		IF ~wordOp
 		{
-			CALL SetByteRegister(reg,CALL DoOperationByte(oper,CALL GetByteRegister(reg),CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)));
+			CALL SetByteRegister(reg,CALL DoOperationByte(oper,CALL GetByteRegister(reg),CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF)));
 		}
 	}
 	IF ~direcOp
 	{
 		IF wordOp
 		{
-			IF rSize
+			IF oSize
 			{
-				DEBUG_TRACE "TODO:: MODRM ---";
-				CALL missing(0);
+				CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL DoOperationLong(oper,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF),CALL GetLongRegister(reg)));
 			}
-			IF ~rSize
+			IF ~oSize
 			{
-				CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoOperationWord(oper,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),CALL GetWordRegister(reg)));
+				CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoOperationWord(oper,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),CALL GetWordRegister(reg)));
 			}
 		}
 		IF ~wordOp
 		{
-			CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoOperationByte(oper,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),CALL GetByteRegister(reg)));
+			CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoOperationByte(oper,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),CALL GetByteRegister(reg)));
 		}
 	}
 }
@@ -2424,7 +2827,7 @@ INSTRUCTION	"%M0 #MODregRM#"	operationMapping:direc[1]:word[1]
 	wordOp<-word;
 	oper<-operationMapping;
 
-	CALL RM_GetImmediateByte()->opc;
+	CALL GetImmediateByte()->opc;
 
 	CALL DoModReg(oper,direcOp,wordOp,mod,reg,rm);
 
@@ -2475,7 +2878,7 @@ INSTRUCTION	"%M0 #MODregRM#"	operationMapping:direc[1]:word[1]
 
 FUNCTION INTERNAL MovModRM	direcOp[1],wordOp[1],mod[2],reg[3],rm[3]
 {
-	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
 
 	CALL CalcEffectiveAddress(mod,rm,6+(1-direcOp))->SEGEA;
 	2+CYCLES->CYCLES;
@@ -2484,37 +2887,36 @@ FUNCTION INTERNAL MovModRM	direcOp[1],wordOp[1],mod[2],reg[3],rm[3]
 	{
 		IF wordOp
 		{
-			IF rSize
+			IF oSize
 			{
-				DEBUG_TRACE "TODO:: MODRM ---!";
-				CALL missing(0);
+				CALL SetLongRegister(reg,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF));
 			}
-			IF ~rSize
+			IF ~oSize
 			{
-				CALL SetWordRegister(reg,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF));
+				CALL SetWordRegister(reg,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
 			}
 		}
 		IF ~wordOp
 		{
-			CALL SetByteRegister(reg,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
+			CALL SetByteRegister(reg,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF));
 		}
 	}
 	IF ~direcOp
 	{
 		IF wordOp
 		{
-			IF rSize
+			IF oSize
 			{
-				CALL SetEffectiveAddressLong(mod,rm,SEG,EFF,CALL GetLongRegister(reg));
+				CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL GetLongRegister(reg));
 			}
-			IF ~rSize
+			IF ~oSize
 			{
-				CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL GetWordRegister(reg));
+				CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL GetWordRegister(reg));
 			}
 		}
 		IF ~wordOp
 		{
-			CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL GetByteRegister(reg));
+			CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL GetByteRegister(reg));
 		}
 	}
 }
@@ -2528,7 +2930,7 @@ INSTRUCTION	"MOV #MODregRM#"	%100010:direc[1]:word[1]
 	direcOp<-direc;
 	wordOp<-word;
 
-	CALL RM_GetImmediateByte()->opc;
+	CALL GetImmediateByte()->opc;
 
 	CALL MovModRM(direc,word,mod,reg,rm);
 }
@@ -2605,13 +3007,13 @@ INSTRUCTION	"MOV #MODregRM#"	%100010:direc[1]:word[1]
 MAPPING signwordModOp[3]
 {
 	%000	"ADD"	$0;
-#	%001	"OR"	$4;
-#	%010	"ADC"	$1;
-#	%011	"SBB"	$6;
-#	%100	"AND"	$3;
-#	%101	"SUB"	$2;
-#	%110	"XOR"	$5;
-##	%111	"CMP"			#Handle seperately due to timing/operation difference
+	%001	"OR"	$4;
+	%010	"ADC"	$1;
+	%011	"SBB"	$6;
+	%100	"AND"	$3;
+	%101	"SUB"	$2;
+	%110	"XOR"	$5;
+#	%111	"CMP"			#Handle seperately due to timing/operation difference
 }
 
 MAPPING signword[2]
@@ -2628,7 +3030,7 @@ INSTRUCTION	"#TABLE4#"	%100000:signword
 
 	signOp<-signword[1..1];
 	wordOp<-signword[0..0];
-	CALL RM_GetImmediateByte()->opcode;
+	CALL GetImmediateByte()->opcode;
 
 	EXECUTE TABLE_OP_MOD_IMM IR;
 }
@@ -2636,33 +3038,33 @@ INSTRUCTION	"#TABLE4#"	%100000:signword
 INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:signwordModOp:rm[3]
 {
 	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
-	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
 
 	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
 	4+CYCLES->CYCLES;
 
 	IF wordOp
 	{
-		IF rSize
+		IF oSize
 		{
 			DEBUG_TRACE "TABLE_OP_MOD_IMM long";
 			CALL missing(0);
 		}
 		IF signOp
 		{
-			$0000++CALL RM_GetImmediateByte()->IMM;
+			$0000++CALL GetImmediateByte()->IMM;
 		}
 		IF ~signOp
 		{
-			CALL RM_GetImmediateWord()->IMM;
+			CALL GetImmediateWord()->IMM;
 		}
 
-		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoOperationWord(signwordModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),IMM));
+		CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoOperationWord(signwordModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),IMM));
 	}
 	IF ~wordOp
 	{
-		CALL RM_GetImmediateByte()->IMMLO;
-		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoOperationByte(signwordModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),IMMLO));
+		CALL GetImmediateByte()->IMMLO;
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoOperationByte(signwordModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),IMMLO));
 	}
 }
 
@@ -2693,424 +3095,604 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 #		CALL DoOperationByte($2,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),IMMLO);
 #	}
 #}
-#
-#MAPPING shift1ModOp[3]
-#{
-#	%000	"ROL"	$0;
-#	%001	"ROR"	$1;
-#	%010	"RCL"	$2;
-#	%011	"RCR"	$3;
-#	%100	"SHL"	$4;
-#	%101	"SHR"	$5;
-### %110 Not part of set
-#	%111	"SAR"	$6;
-#}
-#
-#FUNCTION INTERNAL	res[8]	Do1ShiftOperationByte	operation[4],dst[8]
-#{
-#	IF operation==$0			# ROL
-#	{
-#		res<-ROL(dst,C,dst[7..7],1);
-#		O<-C^(res[7..7]);
-#	}
-#	IF operation==$1			# ROR
-#	{
-#		res<-ROR(dst,C,dst[0..0],1);
-#		O<-(res[6..6])^(res[7..7]);
-#	}
-#	IF operation==$2			# RCL
-#	{
-#		res<-ROL(dst,C,C,1);
-#		O<-C^(res[7..7]);
-#	}
-#	IF operation==$3			# RCR
-#	{
-#		res<-ROR(dst,C,C,1);
-#		O<-res[7..7]^res[6..6];
-#	}
-#	IF operation==$4			# SHL/SAL
-#	{
-#		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(dst,C,$00,1) }->res;
-#		O<-~(C==res[7..7]);
-#	}
-#	IF operation==$5			# SHR
-#	{
-#		O<-dst[7..7];
-#		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(dst,C,$00,1) }->res;
-#	}
-#	IF operation==$6			# SAR
-#	{
-#		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,O AS FORCERESET { ROR(dst,C,dst[7..7],1) }->res;
-#	}
-#}
-#
-#FUNCTION INTERNAL	res[16]	Do1ShiftOperationWord	operation[4],dst[16]
-#{
-#	IF operation==$0			# ROL
-#	{
-#		res<-ROL(dst,C,dst[15..15],1);
-#		O<-C^(res[15..15]);
-#	}
-#	IF operation==$1			# ROR
-#	{
-#		res<-ROR(dst,C,dst[0..0],1);
-#		O<-(res[14..14])^(res[15..15]);
-#	}
-#	IF operation==$2			# RCL
-#	{
-#		res<-ROL(dst,C,C,1);
-#		O<-C^(res[15..15]);
-#	}
-#	IF operation==$3			# RCR
-#	{
-#		res<-ROR(dst,C,C,1);
-#		O<-res[15..15]^res[14..14];
-#	}
-#	IF operation==$4			# SHL/SAL
-#	{
-#		AFFECT S AS SIGN,Z AS ZERO { ROL(dst,C,$0000,1) }->res;
-#		AFFECT P AS PARITYEVEN { res[0..7] };
-#		O<-~(C==res[15..15]);
-#	}
-#	IF operation==$5			# SHR
-#	{
-#		O<-dst[15..15];
-#		AFFECT S AS SIGN,Z AS ZERO { ROR(dst,C,$0000,1) }->res;
-#		AFFECT P AS PARITYEVEN { res[0..7] };
-#	}
-#	IF operation==$6			# SAR
-#	{
-#		AFFECT S AS SIGN,Z AS ZERO,O AS FORCERESET { ROR(dst,C,dst[15..15],1) }->res;
-#		AFFECT P AS PARITYEVEN { res[0..7] };
-#	}
-#}
-#
-#MAPPING shiftVarModOp[3]
-#{
-#	%000	"ROL"	$0;
-#	%001	"ROR"	$1;
-#	%010	"RCL"	$2;
-#	%011	"RCR"	$3;
-#	%100	"SHL"	$4;
-#	%101	"SHR"	$5;
-### %110 Not part of set
-#	%111	"SAR"	$6;
-#}
-#
-#FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
-#{
-#	DECLARE TMP[8];
-#	DECLARE fill[8];
-#	DECLARE dummy[8];
-#	DECLARE shCnt[8];			# Original 8086 did not mask shift count?
-#
-#	shCnt<-CL;
-#	CYCLES+((shCnt)*$0004)->CYCLES;
-#	TMP<-dst;
-#
-#	IF operation==$0			# ROL
-#	{
-#		IF shCnt>0
-#		{
-#			DECLARE bug[8];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
-#			shCnt<-shCnt % 8;
-#			bug<-ROR(TMP,dummy,0,8-shCnt);
-#			TMP<-ROL(TMP,dummy,bug,shCnt);
-#			C<-TMP[0..0];
-#		}
-#		res<-TMP;
-#	}
-#	IF operation==$1			# ROR
-#	{
-#		IF shCnt>0
-#		{
-#			shCnt<-shCnt % 8;
-#			TMP<-ROR(TMP,dummy,TMP,shCnt);
-#			C<-TMP[7..7];
-#		}
-#		res<-TMP;
-#	}
-#	IF operation==$2			# RCL
-#	{
-#		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
-#		DECLARE bug[9];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
-#
-#		val<-TMP;
-#		carry<-C;
-#		shCnt<-shCnt % 9;
-#		bug<-ROR(tRot,dummy,0,9-shCnt);
-#		tRot<-ROL(tRot,dummy,bug,shCnt);
-#
-#		res<-val;
-#		C<-carry;
-#	}
-#	IF operation==$3			# RCR
-#	{
-#		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
-#
-#		val<-TMP;
-#		carry<-C;
-#		shCnt<-shCnt % 9;
-#
-#		tRot<-ROR(tRot,dummy,tRot,shCnt);
-#
-#		res<-val;
-#		C<-carry;
-#	}
-#	IF operation==$4			# SHL/SAL
-#	{
-#		res<-TMP;
-#		IF shCnt>=9
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $00 }->res;
-#		}
-#		IF (shCnt>0) & (shCnt<9)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROL(TMP,dummy,$00,shCnt);
-#			}
-#
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(TMP,C,$00,1) }->res;
-#		}
-#	}
-#	IF operation==$5			# SHR
-#	{
-#		res<-TMP;
-#		IF shCnt>=9
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS FORCERESET { $00 }->res;
-#		}
-#		IF (shCnt>0) & (shCnt<9)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROR(TMP,dummy,$00,shCnt);
-#			}
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(TMP,C,$00,1) }->res;
-#		}
-#	}
-#	IF operation==$6			# SAR
-#	{
-#		res<-TMP;
-#		IF TMP[7..7]==1
-#		{
-#			fill<-$FFFF;
-#		}
-#		IF TMP[7..7]==0
-#		{
-#			fill<-$0000;
-#		}
-#		IF shCnt>=9
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN,C AS BIT(7) { fill }->res;
-#		}
-#		IF (shCnt>0) & (shCnt<9)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROR(TMP,dummy,fill,shCnt);
-#			}
-#			AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROR(TMP,C,fill,1) }->res;
-#		}
-#	}
-#}
-#
-#FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
-#{
-#	DECLARE TMP[16];
-#	DECLARE fill[16];
-#	DECLARE dummy[16];
-#	DECLARE shCnt[8];
-#
-#	shCnt<-CL;
-#	CYCLES+(shCnt*$0004)->CYCLES;
-#	TMP<-dst;
-#
-#	IF operation==$0			# ROL
-#	{
-#		IF shCnt>0
-#		{
-#			DECLARE bug[16];
-#			shCnt<-shCnt % 16;
-#			bug<-ROR(TMP,dummy,0,16-shCnt);
-#			TMP<-ROL(TMP,dummy,bug,shCnt);
-#			C<-TMP[0..0];
-#		}
-#		res<-TMP;
-#	}
-#	IF operation==$1			# ROR
-#	{
-#		IF shCnt>0
-#		{
-#			shCnt<-shCnt % 16;
-#			TMP<-ROR(TMP,dummy,TMP,shCnt);
-#			C<-TMP[15..15];
-#		}
-#		res<-TMP;
-#	}
-#	IF operation==$2			# RCL
-#	{
-#		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
-#		DECLARE bug[17];
-#
-#		val<-TMP;
-#		carry<-C;
-#		shCnt<-shCnt % 17;
-#		bug<-ROR(tRot,dummy,0,17-shCnt);
-#		tRot<-ROL(tRot,dummy,bug,shCnt);
-#
-#		res<-val;
-#		C<-carry;
-#	}
-#	IF operation==$3			# RCR
-#	{
-#		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
-#
-#		val<-TMP;
-#		carry<-C;
-#		shCnt<-shCnt % 17;
-#
-#		tRot<-ROR(tRot,dummy,tRot,shCnt);
-#
-#		res<-val;
-#		C<-carry;
-#	}
-#	IF operation==$4			# SHL/SAL
-#	{
-#		res<-TMP;
-#		IF shCnt>=17
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,C AS FORCERESET { $0000 }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#		IF (shCnt>0) & (shCnt<17)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROL(TMP,dummy,$0000,shCnt);
-#			}
-#
-#			AFFECT S AS SIGN,Z AS ZERO { ROL(TMP,C,$0000,1) }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#	}
-#	IF operation==$5			# SHR
-#	{
-#		res<-TMP;
-#		IF shCnt>=17
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,C AS FORCERESET { $0000 }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#		IF (shCnt>0) & (shCnt<17)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROR(TMP,dummy,$0000,shCnt);
-#			}
-#			AFFECT S AS SIGN,Z AS ZERO { ROR(TMP,C,$0000,1) }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#	}
-#	IF operation==$6			# SAR
-#	{
-#		res<-TMP;
-#		IF TMP[15..15]==1
-#		{
-#			fill<-$FFFF;
-#		}
-#		IF TMP[15..15]==0
-#		{
-#			fill<-$0000;
-#		}
-#		IF shCnt>=17
-#		{
-#			AFFECT S AS SIGN,Z AS ZERO,C AS BIT(15) { fill }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#		IF (shCnt>0) & (shCnt<17)
-#		{
-#			IF shCnt>1
-#			{
-#				shCnt<-shCnt-1;
-#				TMP<-ROR(TMP,dummy,fill,shCnt);
-#			}
-#			AFFECT S AS SIGN,Z AS ZERO { ROR(TMP,C,fill,1) }->res;
-#			AFFECT P AS PARITYEVEN { res[0..7] };
-#		}
-#	}
-#}
-#
-#INSTRUCTION	"#TABLE5#"	%1101000:word[1]			# Single shifts
-#{
-#	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
-#
-#	wordOp<-word;
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_SH1_MOD IR;
-#}
-#
-#INSTRUCTION	"#TABLE6#"	%1101001:word[1]			# Variable (CL) shifts
-#{
-#	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
-#
-#	wordOp<-word;
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_SHV_MOD IR;
-#}
-#
-#INSTRUCTION	TABLE_SH1_MOD	"%M0 #MODnnnRM#,1"		wordOp[1]:mod[2]:shift1ModOp:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
-#	2+CYCLES->CYCLES;
-#		
-#	IF wordOp
-#	{
-#		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL Do1ShiftOperationWord(shift1ModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL Do1ShiftOperationByte(shift1ModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)));
-#	}
-#}
-#
-#INSTRUCTION	TABLE_SHV_MOD	"%M0 #MODnnnRM#,CL"		wordOp[1]:mod[2]:shiftVarModOp:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
-#	8+CYCLES->CYCLES;
-#		
-#	IF wordOp
-#	{
-#		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)));
-#	}
-#}
-#
-#INSTRUCTION	"#TABLE7#"	%1111011:word[1]
-#{
-#	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
-#
-#	wordOp<-word;
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_SOP_MOD IR;
-#}
-#
+
+MAPPING shift1ModOp[3]
+{
+	%000	"ROL"	$0;
+	%001	"ROR"	$1;
+	%010	"RCL"	$2;
+	%011	"RCR"	$3;
+	%100	"SHL"	$4;
+	%101	"SHR"	$5;
+## %110 Not part of set
+	%111	"SAR"	$6;
+}
+
+FUNCTION INTERNAL	res[8]	Do1ShiftOperationByte	operation[4],dst[8]
+{
+	IF operation==$0			# ROL
+	{
+		res<-ROL(dst,CF,dst[7..7],1);
+		OF<-CF^(res[7..7]);
+	}
+	IF operation==$1			# ROR
+	{
+		res<-ROR(dst,CF,dst[0..0],1);
+		OF<-(res[6..6])^(res[7..7]);
+	}
+	IF operation==$2			# RCL
+	{
+		res<-ROL(dst,CF,CF,1);
+		OF<-CF^(res[7..7]);
+	}
+	IF operation==$3			# RCR
+	{
+		res<-ROR(dst,CF,CF,1);
+		OF<-res[7..7]^res[6..6];
+	}
+	IF operation==$4			# SHL/SAL
+	{
+		AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROL(dst,CF,$00,1) }->res;
+		OF<-~(CF==res[7..7]);
+	}
+	IF operation==$5			# SHR
+	{
+		OF<-dst[7..7];
+		AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROR(dst,CF,$00,1) }->res;
+	}
+	IF operation==$6			# SAR
+	{
+		AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN,OF AS FORCERESET { ROR(dst,CF,dst[7..7],1) }->res;
+	}
+}
+
+FUNCTION INTERNAL	res[16]	Do1ShiftOperationWord	operation[4],dst[16]
+{
+	IF operation==$0			# ROL
+	{
+		res<-ROL(dst,CF,dst[15..15],1);
+		OF<-CF^(res[15..15]);
+	}
+	IF operation==$1			# ROR
+	{
+		res<-ROR(dst,CF,dst[0..0],1);
+		OF<-(res[14..14])^(res[15..15]);
+	}
+	IF operation==$2			# RCL
+	{
+		res<-ROL(dst,CF,CF,1);
+		OF<-CF^(res[15..15]);
+	}
+	IF operation==$3			# RCR
+	{
+		res<-ROR(dst,CF,CF,1);
+		OF<-(res[15..15])^(res[14..14]);
+	}
+	IF operation==$4			# SHL/SAL
+	{
+		AFFECT SF AS SIGN,ZF AS ZERO { ROL(dst,CF,$0000,1) }->res;
+		AFFECT PF AS PARITYEVEN { res[0..7] };
+		OF<-~(CF==(res[15..15]));
+	}
+	IF operation==$5			# SHR
+	{
+		OF<-dst[15..15];
+		AFFECT SF AS SIGN,ZF AS ZERO { ROR(dst,CF,$0000,1) }->res;
+		AFFECT PF AS PARITYEVEN { res[0..7] };
+	}
+	IF operation==$6			# SAR
+	{
+		AFFECT SF AS SIGN,ZF AS ZERO,OF AS FORCERESET { ROR(dst,CF,dst[15..15],1) }->res;
+		AFFECT PF AS PARITYEVEN { res[0..7] };
+	}
+}
+
+MAPPING shiftVarModOp[3]
+{
+	%000	"ROL"	$0;
+	%001	"ROR"	$1;
+	%010	"RCL"	$2;
+	%011	"RCR"	$3;
+	%100	"SHL"	$4;
+	%101	"SHR"	$5;
+## %110 Not part of set
+	%111	"SAR"	$6;
+}
+
+FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8],ishCnt[8]
+{
+	DECLARE TMP[8];
+	DECLARE fill[8];
+	DECLARE dummy[8];
+	DECLARE shCnt[8];
+
+	shCnt<-ishCnt;
+	CYCLES+((shCnt)*$0004)->CYCLES;
+	TMP<-dst;
+
+	IF operation==$0			# ROL
+	{
+		IF shCnt>0
+		{
+			DECLARE bug[8];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
+			shCnt<-shCnt % 8;
+			bug<-ROR(TMP,dummy,0,8-shCnt);
+			TMP<-ROL(TMP,dummy,bug,shCnt);
+			CF<-TMP[0..0];
+		}
+		res<-TMP;
+	}
+	IF operation==$1			# ROR
+	{
+		IF shCnt>0
+		{
+			shCnt<-shCnt % 8;
+			TMP<-ROR(TMP,dummy,TMP,shCnt);
+			CF<-TMP[7..7];
+		}
+		res<-TMP;
+	}
+	IF operation==$2			# RCL
+	{
+		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
+		DECLARE bug[9];					# Another compiler issue - ROL steals bits from the wrong end - so needs preshifting into the right slot
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 9;
+		bug<-ROR(tRot,dummy,0,9-shCnt);
+		tRot<-ROL(tRot,dummy,bug,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$3			# RCR
+	{
+		DECLARE tRot[9]	ALIAS	val[8]:carry[1];
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 9;
+
+		tRot<-ROR(tRot,dummy,tRot,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$4			# SHL/SAL
+	{
+		res<-TMP;
+		IF shCnt>=9
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN,CF AS FORCERESET { $00 }->res;
+		}
+		IF (shCnt>0) & (shCnt<9)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROL(TMP,dummy,$00,shCnt);
+			}
+
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROL(TMP,CF,$00,1) }->res;
+		}
+	}
+	IF operation==$5			# SHR
+	{
+		res<-TMP;
+		IF shCnt>=9
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN,CF AS FORCERESET { $00 }->res;
+		}
+		IF (shCnt>0) & (shCnt<9)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,$00,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROR(TMP,CF,$00,1) }->res;
+		}
+	}
+	IF operation==$6			# SAR
+	{
+		res<-TMP;
+		IF TMP[7..7]==1
+		{
+			fill<-$FFFF;
+		}
+		IF TMP[7..7]==0
+		{
+			fill<-$0000;
+		}
+		IF shCnt>=9
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN,CF AS BIT(7) { fill }->res;
+		}
+		IF (shCnt>0) & (shCnt<9)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,fill,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROR(TMP,CF,fill,1) }->res;
+		}
+	}
+}
+
+FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16],ishCnt[8]
+{
+	DECLARE TMP[16];
+	DECLARE fill[16];
+	DECLARE dummy[16];
+	DECLARE shCnt[8];
+
+	shCnt<-ishCnt;
+	CYCLES+(shCnt*$0004)->CYCLES;
+	TMP<-dst;
+
+	IF operation==$0			# ROL
+	{
+		IF shCnt>0
+		{
+			DECLARE bug[16];
+			shCnt<-shCnt % 16;
+			bug<-ROR(TMP,dummy,0,16-shCnt);
+			TMP<-ROL(TMP,dummy,bug,shCnt);
+			CF<-TMP[0..0];
+		}
+		res<-TMP;
+	}
+	IF operation==$1			# ROR
+	{
+		IF shCnt>0
+		{
+			shCnt<-shCnt % 16;
+			TMP<-ROR(TMP,dummy,TMP,shCnt);
+			CF<-TMP[15..15];
+		}
+		res<-TMP;
+	}
+	IF operation==$2			# RCL
+	{
+		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
+		DECLARE bug[17];
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 17;
+		bug<-ROR(tRot,dummy,0,17-shCnt);
+		tRot<-ROL(tRot,dummy,bug,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$3			# RCR
+	{
+		DECLARE tRot[17]	ALIAS	val[16]:carry[1];
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 17;
+
+		tRot<-ROR(tRot,dummy,tRot,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$4			# SHL/SAL
+	{
+		res<-TMP;
+		IF shCnt>=17
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS FORCERESET { $0000 }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<17)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROL(TMP,dummy,$0000,shCnt);
+			}
+
+			AFFECT SF AS SIGN,ZF AS ZERO { ROL(TMP,CF,$0000,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+	IF operation==$5			# SHR
+	{
+		res<-TMP;
+		IF shCnt>=17
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS FORCERESET { $0000 }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<17)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,$0000,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO { ROR(TMP,CF,$0000,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+	IF operation==$6			# SAR
+	{
+		res<-TMP;
+		IF (TMP[15..15])==1
+		{
+			fill<-$FFFF;
+		}
+		IF (TMP[15..15])==0
+		{
+			fill<-$0000;
+		}
+		IF shCnt>=17
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS BIT(15) { fill }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<17)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,fill,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO { ROR(TMP,CF,fill,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+}
+
+FUNCTION INTERNAL	res[32]	DoVariableShiftOperationLong	operation[4],dst[32],ishCnt[8]
+{
+	DECLARE TMP[32];
+	DECLARE fill[32];
+	DECLARE dummy[32];
+	DECLARE shCnt[8];
+
+	shCnt<-ishCnt;
+	CYCLES+(shCnt*$0004)->CYCLES;
+	TMP<-dst;
+
+	IF operation==$0			# ROL
+	{
+		IF shCnt>0
+		{
+			DECLARE bug[32];
+			shCnt<-shCnt % 32;
+			bug<-ROR(TMP,dummy,0,32-shCnt);
+			TMP<-ROL(TMP,dummy,bug,shCnt);
+			CF<-TMP[0..0];
+		}
+		res<-TMP;
+	}
+	IF operation==$1			# ROR
+	{
+		IF shCnt>0
+		{
+			shCnt<-shCnt % 32;
+			TMP<-ROR(TMP,dummy,TMP,shCnt);
+			CF<-TMP[31..31];
+		}
+		res<-TMP;
+	}
+	IF operation==$2			# RCL
+	{
+		DECLARE tRot[33]	ALIAS	val[32]:carry[1];
+		DECLARE bug[33];
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 33;
+		bug<-ROR(tRot,dummy,0,33-shCnt);
+		tRot<-ROL(tRot,dummy,bug,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$3			# RCR
+	{
+		DECLARE tRot[33]	ALIAS	val[32]:carry[1];
+
+		val<-TMP;
+		carry<-CF;
+		shCnt<-shCnt % 33;
+
+		tRot<-ROR(tRot,dummy,tRot,shCnt);
+
+		res<-val;
+		CF<-carry;
+	}
+	IF operation==$4			# SHL/SAL
+	{
+		res<-TMP;
+		IF shCnt>=33
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS FORCERESET { $00000000 }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<33)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROL(TMP,dummy,$00000000,shCnt);
+			}
+
+			AFFECT SF AS SIGN,ZF AS ZERO { ROL(TMP,CF,$00000000,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+	IF operation==$5			# SHR
+	{
+		res<-TMP;
+		IF shCnt>=33
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS FORCERESET { $00000000 }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<33)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,$00000000,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO { ROR(TMP,CF,$00000000,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+	IF operation==$6			# SAR
+	{
+		res<-TMP;
+		IF (TMP[31..31])==1
+		{
+			fill<-$FFFFFFFF;
+		}
+		IF (TMP[31..31])==0
+		{
+			fill<-$00000000;
+		}
+		IF shCnt>=33
+		{
+			AFFECT SF AS SIGN,ZF AS ZERO,CF AS BIT(31) { fill }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+		IF (shCnt>0) & (shCnt<33)
+		{
+			IF shCnt>1
+			{
+				shCnt<-shCnt-1;
+				TMP<-ROR(TMP,dummy,fill,shCnt);
+			}
+			AFFECT SF AS SIGN,ZF AS ZERO { ROR(TMP,CF,fill,1) }->res;
+			AFFECT PF AS PARITYEVEN { res[0..7] };
+		}
+	}
+}
+
+
+INSTRUCTION	"#TABLE5#"	%1101000:word[1]			# Single shifts
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_SH1_MOD IR;
+}
+
+INSTRUCTION	"#TABLE6#"	%1101001:word[1]			# Variable (CL) shifts
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_SHV_MOD IR;
+}
+
+INSTRUCTION	"#TABLEn#"	%1100000:word[1]			# Variable (immediate) shifts
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_SHVIMM_MOD IR;
+}
+
+
+INSTRUCTION	TABLE_SH1_MOD	"%M0 #MODnnnRM#,1"		wordOp[1]:mod[2]:shift1ModOp:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
+	2+CYCLES->CYCLES;
+		
+	IF wordOp
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "SH1 long";
+			CALL missing(0);
+		}
+		IF ~oSize
+		{
+			CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL Do1ShiftOperationWord(shift1ModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL Do1ShiftOperationByte(shift1ModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF)));
+	}
+}
+
+INSTRUCTION	TABLE_SHV_MOD	"%M0 #MODnnnRM#,CL"		wordOp[1]:mod[2]:shiftVarModOp:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
+	8+CYCLES->CYCLES;
+		
+	IF wordOp
+	{
+		IF oSize
+		{
+			CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationLong(shiftVarModOp,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+		}
+		IF ~oSize
+		{
+			CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+	}
+}
+
+INSTRUCTION	TABLE_SHVIMM_MOD	"%M0 #MODnnnRM#,IMM"		wordOp[1]:mod[2]:shiftVarModOp:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
+	8+CYCLES->CYCLES;
+
+	IF wordOp
+	{
+		IF oSize
+		{
+			CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationLong(shiftVarModOp,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF),(CALL GetImmediateByte())&$1F));
+		}
+		IF ~oSize
+		{
+			CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),(CALL GetImmediateByte())&$1F));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),(CALL GetImmediateByte())&$1F));
+	}
+}
+
+
+INSTRUCTION	"#TABLE7#"	%1111011:word[1]
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_SOP_MOD IR;
+}
+
 #INSTRUCTION	TABLE_SOP_MOD	"NEG #MODnnnRM#"		wordOp[1]:mod[2]:%011:rm[3]
 #{
 #	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -3144,24 +3726,31 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 #		CALL AndByte(CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),CALL GetImmediateByte());
 #	}
 #}
-#
-#INSTRUCTION	TABLE_SOP_MOD	"MUL #MODnnnRM#"		wordOp[1]:mod[2]:%100:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
-#	70+(wordOp*48)+CYCLES->CYCLES;										# 70-77 (118-133) cycles
-#
-#	IF wordOp
-#	{
-#		CALL MulWord(CALL GetEffectiveAddressWord(mod,rm,SEG,EFF));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL MulByte(CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
-#	}
-#}
-#
+
+INSTRUCTION	TABLE_SOP_MOD	"MUL #MODnnnRM#"		wordOp[1]:mod[2]:%100:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	70+(wordOp*48)+CYCLES->CYCLES;										# 70-77 (118-133) cycles
+
+	IF wordOp
+	{
+		IF oSize
+		{
+			CALL MulLong(CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF));
+		}
+		IF ~oSize
+		{
+			CALL MulWord(CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL MulByte(CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF));
+	}
+}
+
 #INSTRUCTION	TABLE_SOP_MOD	"IMUL #MODnnnRM#"		wordOp[1]:mod[2]:%101:rm[3]
 #{
 #	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -3195,24 +3784,31 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 #		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,~CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
 #	}
 #}
-#
-#INSTRUCTION	TABLE_SOP_MOD	"DIV #MODnnnRM#"		wordOp[1]:mod[2]:%110:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
-#	80+(wordOp*64)+CYCLES->CYCLES;										# 80-90 (144-162) cycles
-#
-#	IF wordOp
-#	{
-#		CALL DivWord(CALL GetEffectiveAddressWord(mod,rm,SEG,EFF));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL DivByte(CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
-#	}
-#}
-#
+
+INSTRUCTION	TABLE_SOP_MOD	"DIV #MODnnnRM#"		wordOp[1]:mod[2]:%110:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	80+(wordOp*64)+CYCLES->CYCLES;										# 80-90 (144-162) cycles
+
+	IF wordOp
+	{
+		IF oSize
+		{
+			CALL DivLong(CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF));
+		}
+		IF ~oSize
+		{
+			CALL DivWord(CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL DivByte(CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF));
+	}
+}
+
 #INSTRUCTION	TABLE_SOP_MOD	"IDIV #MODnnnRM#"		wordOp[1]:mod[2]:%111:rm[3]
 #{
 #	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -3229,19 +3825,19 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 #		CALL IDivByte(CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
 #	}
 #}
-#
-#INSTRUCTION	"#TABLE8#"	%11111111
-#{
-#	# Register/Memory (word)
-#	#     JMPFAR
-#	# MOD 101     R/M
-#	DECLARE IR[8];
-#
-#	CALL GetImmediateByte()->IR;
-#
-#	EXECUTE TABLE_OP_MOD IR;
-#}
-#
+
+INSTRUCTION	"#TABLE8#"	%11111111
+{
+	# Register/Memory (word)
+	#     JMPFAR
+	# MOD 101     R/M
+	DECLARE IR[8];
+
+	CALL GetImmediateByte()->IR;
+
+	EXECUTE TABLE_OP_MOD IR;
+}
+
 #INSTRUCTION	TABLE_OP_MOD	"JMP #MODnnnRM#"	mod[2]:%100:rm[3]
 #{
 #	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -3251,18 +3847,24 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 #
 #	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
 #}
-#
-#INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,5)->SEGEA;
-#	16+CYCLES->CYCLES;
-#
-#	CALL PushWord(IP);
-#	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
-#}
-#
+
+INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
+{
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "CALL 32bit mode?";
+		CALL missing(0);
+	}
+
+	CALL CalcEffectiveAddress(mod,rm,5)->SEGEA;
+	16+CYCLES->CYCLES;
+
+	CALL PushWord(EIP);
+	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
+}
+
 #INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 #{
 #	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -3309,14 +3911,14 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 INSTRUCTION	"0F"	%00001111
 {
 	DECLARE IR[8];
-	IR<-CALL RM_GetImmediateByte();
+	IR<-CALL GetImmediateByte();
 	EXECUTE FTABLE IR;
 	2+CYCLES->CYCLES;
 }
 
 FUNCTION INTERNAL 	Do0F01	mod[2],reg[3],rm[3]
 {
-	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+	DECLARE SEGEA[35]	ALIAS	SEGREG[3]:SEG[16]:EFF[16];
 
 	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
 	3+CYCLES->CYCLES;
@@ -3329,12 +3931,12 @@ FUNCTION INTERNAL 	Do0F01	mod[2],reg[3],rm[3]
 	{
 		IF reg==%010	#LGDT
 		{
-			GDT<-CALL GetEffectiveAddressFWord(SEG,EFF);
+			GDT<-CALL GetEffectiveAddressFWord(SEGREG,SEG,EFF);
 			DEBUG_TRACE "GDT Table ",BASE 16,GDT_limit," - ",GDT_base;
 		}
 		IF reg==%011	#LIDT
 		{
-			IDT<-CALL GetEffectiveAddressFWord(SEG,EFF);
+			IDT<-CALL GetEffectiveAddressFWord(SEGREG,SEG,EFF);
 			DEBUG_TRACE "IDT Table ",BASE 16,IDT_limit," - ",IDT_base;
 		}
 		IF (reg!=%010) & (reg!=%011)
@@ -3352,7 +3954,7 @@ INSTRUCTION	FTABLE	"Do0F01"	%00000001
 	# Could be a few different instructions based on modrm byte that follows
 	DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
 
-	mrm<-CALL RM_GetImmediateByte();
+	mrm<-CALL GetImmediateByte();
 		
 	CALL Do0F01(mod,reg,rm);
 }
@@ -3362,7 +3964,7 @@ INSTRUCTION	FTABLE	"MOV CRx"	%00100010
 	# Could be a few different instructions based on modrm byte that follows
 	DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
 
-	mrm<-CALL RM_GetImmediateByte();
+	mrm<-CALL GetImmediateByte();
 	
 	IF reg<5
 	{

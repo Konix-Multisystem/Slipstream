@@ -36,9 +36,12 @@ extern uint16_t	MSU_CS;					// FROM EDL
 extern uint16_t	MSU_DS;					// FROM EDL
 extern uint16_t	MSU_ES;					// FROM EDL
 extern uint16_t	MSU_SS;					// FROM EDL
+extern uint16_t	MSU_FS;					// FROM EDL
+extern uint16_t	MSU_GS;					// FROM EDL
 extern uint16_t	MSU_EIP;				// FROM EDL
 extern uint16_t MSU_EFLAGS;				// FROM EDL
 extern uint16_t MSU_CYCLES;				// FROM EDL
+extern uint32_t MSU_GETPHYSICAL_EIP();
 
 extern uint8_t *DIS_[256];				// FROM EDL
 extern uint32_t DIS_max_;				// FROM EDL

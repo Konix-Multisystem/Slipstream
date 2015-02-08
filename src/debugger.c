@@ -266,8 +266,20 @@ void DebugWPort(uint16_t port)
 				case 0x0000:
 					CONSOLE_OUTPUT("KINT ??? Vertical line interrupt location (Word address)\n");
 					break;
+				case 0x0002:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
 				case 0x0004:
 					CONSOLE_OUTPUT("STARTL - screen line start (Byte address)\n");
+					break;
+				case 0x0006:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x000A:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x000E:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
 					break;
 				case 0x0010:
 					CONSOLE_OUTPUT("SCROLL1 - TL pixel address LSB (Word address) - byte width\n");
@@ -287,6 +299,9 @@ void DebugWPort(uint16_t port)
 				case 0x001A:
 					CONSOLE_OUTPUT("BORD - border colour (Word address)  - Little Endian if matching V1\n");
 					break;
+				case 0x001C:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
 				case 0x001E:
 					CONSOLE_OUTPUT("PMASK - palette mask? (Word address) - only a byte documented\n");
 					break;
@@ -296,6 +311,9 @@ void DebugWPort(uint16_t port)
 				case 0x0022:
 					CONSOLE_OUTPUT("ENDL - screen line end (Byte address)\n");
 					break;
+				case 0x0024:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
 				case 0x0026:
 					CONSOLE_OUTPUT("MEM - memory configuration (Byte address)\n");
 					break;
@@ -304,6 +322,24 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x002C:
 					CONSOLE_OUTPUT("DIS - disable interupts (Byte address)\n");
+					break;
+				case 0x002E:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x0030:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x0032:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x0034:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x0036:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
+				case 0x003C:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
 					break;
 				case 0x0040:
 					CONSOLE_OUTPUT("BLTPC (low 16 bits) (Word address)\n");
@@ -661,7 +697,7 @@ void DUMP_REGISTERS8086()
 
 void FETCH_REGISTERS80386(char* tmp)
 {
-	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nCR0= %08X\n--------\n",
+	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nFS= %04X\nGS= %04X\n\nEIP= %08X\n\nCR0= %08X\n--------\n",
 			MSU_EFLAGS&0x800 ? "1" : "0",
 			MSU_EFLAGS&0x400 ? "1" : "0",
 			MSU_EFLAGS&0x200 ? "1" : "0",
@@ -674,7 +710,7 @@ void FETCH_REGISTERS80386(char* tmp)
 			MSU_EFLAGS&0x004 ? "1" : "0",
 			MSU_EFLAGS&0x002 ? "1" : "0",
 			MSU_EFLAGS&0x001 ? "1" : "0",
-			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_CR0);
+			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_FS,MSU_GS,MSU_EIP,MSU_CR0);
 }
 
 
@@ -1564,21 +1600,21 @@ uint32_t missing(uint32_t opcode)
 uint32_t MSU_missing(uint32_t opcode)
 {
 	int a;
-	CONSOLE_OUTPUT("IP : %04X:%04X\n",MSU_CS,MSU_EIP);
+	CONSOLE_OUTPUT("IP : %08X\n",MSU_GETPHYSICAL_EIP());
 	CONSOLE_OUTPUT("Next 7 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_EIP)+a));
+		CONSOLE_OUTPUT("%02X ",PeekByte(MSU_GETPHYSICAL_EIP()+a));
 	}
 	CONSOLE_OUTPUT("\nNext 7-1 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_EIP)+a-1));
+		CONSOLE_OUTPUT("%02X ",PeekByte(MSU_GETPHYSICAL_EIP()+a-1));
 	}
 	CONSOLE_OUTPUT("\nNext 7-2 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(MSU_CS,MSU_EIP)+a-2));
+		CONSOLE_OUTPUT("%02X ",PeekByte(MSU_GETPHYSICAL_EIP()+a-2));
 	}
 	CONSOLE_OUTPUT("\n");
 	exit(-1);

@@ -93,7 +93,7 @@ void Z80_SetPort(uint16_t addr,uint8_t byte)
 
 uint8_t GetByteMSU(uint32_t addr)
 {
-//	addr&=0xFFFFF;
+	addr&=0xFFFFF;
 	if (addr<0xC0000)
 	{
 		return RAM[addr];
@@ -104,7 +104,7 @@ uint8_t GetByteMSU(uint32_t addr)
 	}
 	if (addr>=0xE0000)
 	{
-		return ROM[((addr&0xFFFF)|0xF0000)-0xE0000];
+		return ROM[addr-0xE0000];
 //		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
 	}
 #if ENABLE_DEBUG

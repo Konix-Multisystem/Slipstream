@@ -795,13 +795,13 @@ void DoCPU8086()
 void DoCPU80386sx()
 {
 #if ENABLE_DEBUG
-	if (SEGTOPHYS(MSU_CS,MSU_EIP)==0xF0073)
+	if (MSU_GETPHYSICAL_EIP()==0xF0073)
 	{
 		doDebug=1;
 	}
 	if (doDebug)
 	{
-		Disassemble80386(SEGTOPHYS(MSU_CS,MSU_EIP),1);
+		Disassemble80386(MSU_GETPHYSICAL_EIP(),1);
 	}
 #endif
 	MSU_STEP();
