@@ -919,6 +919,21 @@ void ParseCommandLine(int argc,char** argv)
 				emulateDSP=0;
 				continue;
 			}
+			if (strcmp(argv[a],"-H")==0)
+			{
+				curSystem=ESS_P88;
+				LoadBinary("heads/slipstrm.hi",0x8B000);
+				LoadBinary("heads/data.9",0x90000);
+				LoadBinary("heads/data.9e",0x9E000);
+				LoadBinary("heads/data.a",0xA0000);
+				LoadBinary("heads/data.aa",0xAA000);
+				LoadBinary("heads/laugh.ss",0xB0000);
+				LoadBinary("heads/head.com",0x80000);
+
+				CS=0x8000;
+				IP=0;
+				return;
+			}
 			if (strcmp(argv[a],"-K")==0)
 			{
 				curSystem=ESS_P89;
@@ -1026,6 +1041,7 @@ int main(int argc,char**argv)
 #endif
 
 	ParseCommandLine(argc,argv);
+	
 
 // Poke Rom To  Skip floppy security  test results of no floppy
 	if (curSystem==ESS_P89)

@@ -17,4 +17,5 @@ PROPLAY.*
 builds/*
 x64/
 .vs/
+heads/
 *.user
