@@ -587,6 +587,8 @@ int HandleExecuteSection(FILE* inFile)
 		exit(1);
 	}
 
+	MSU_EIP=offset;
+	MSU_CS=segment;
 	CS=segment;
 	IP=offset;
 	Z80_PC=offset;
@@ -954,7 +956,7 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_MSU;
 				LoadRom("roms/MSUBios.bin",0);
-				return;
+				continue;
 			}
 			if (strcmp(argv[a],"-b")==0)
 			{
@@ -1100,7 +1102,7 @@ int main(int argc,char**argv)
 //		debugWatchReads=1;
 //		doShowPortStuff=1;
 //		doDSPDisassemble=1;
-//		doDebug=1;
+		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
 	while (1==1)

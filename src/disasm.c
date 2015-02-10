@@ -2195,6 +2195,12 @@ void Disassemble(InStream* stream)
 				case OM_GS:
 					seg=table[nxtByte].operands[0]-OM_ES;
 					break;
+				case OM_REP:
+					AddToOutput("REP ");
+					break;
+				case OM_REPNE:
+					AddToOutput("REPNE ");
+					break;
 				default:
 					AddToOutput("Unhandled prefix");		// NOTE, F2/F3 need to be flagged forward for mmx instructions due to use for encoding their precision
 					stream->bytesRead=0;

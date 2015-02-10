@@ -725,11 +725,11 @@ INSTRUCTION	"ASIZE"					%01100111
 }
 
 #
-#MAPPING repne[1]
-#{
-#	%0	"NE"	%0;
-#	%1	"E"	%1;
-#}
+MAPPING repne[1]
+{
+	%0	"NE"	%0;
+	%1	"E"	%1;
+}
 
 FUNCTION INTERNAL	proceed[1]	DoRepeat
 {
@@ -762,17 +762,17 @@ FUNCTION INTERNAL	proceed[1]	DoRepeat
 	}
 }
 
-#INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this prefix code
-#{
-#	DECLARE IR[8];
-#	IR<-CALL GetImmediateByte();
-#		
-#	REPEAT<-1;
-#	REPEATZ<-repne;
-#
-#	CALL DoExecute(IR);
-#}
-#
+INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this prefix code
+{
+	DECLARE IR[8];
+	IR<-CALL GetImmediateByte();
+		
+	REPEAT<-1;
+	REPEATZ<-repne;
+
+	CALL DoExecute(IR);
+}
+
 ##### Unimplemented
 #
 ## INT3    11001100
@@ -2267,19 +2267,26 @@ INSTRUCTION	"OR %M0,#IMM0#"		%0000110:accword
 	4+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
-#{
-#	IF accword
-#	{
-#		CALL XorWord(AX,CALL GetImmediateWord())->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL XorByte(AL,CALL GetImmediateByte())->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
-#
+INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			CALL XorLong(EAX,CALL GetImmediateLong())->EAX;
+		}
+		IF ~oSize
+		{
+			CALL XorWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL XorByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte
 #{
 #	IF CALL DoRepeat()
@@ -2534,18 +2541,24 @@ INSTRUCTION	"CALL #16DISP#"		%11101000
 	19+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"CALL #FAR#"		%10011010
-#{
-#	DECLARE offset[16];
-#	DECLARE segment[16];
-#	offset<-CALL GetImmediateWord();
-#	segment<-CALL GetImmediateWord();
-#	CALL PushWord(CS);
-#	CALL PushWord(IP);
-#	CS<-segment;
-#	IP<-offset;
-#	28+CYCLES->CYCLES;
-#}
+INSTRUCTION	"CALL #FAR#"		%10011010
+{
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "CALL FAR long mode";
+		CALL missing(0);
+	}
+
+	DECLARE offset[16];
+	DECLARE segment[16];
+	offset<-CALL GetImmediateWord();
+	segment<-CALL GetImmediateWord();
+	CALL PushWord(CS);
+	CALL PushWord(EIP);
+	CS<-segment;
+	EIP<-offset;
+	28+CYCLES->CYCLES;
+}
 
 INSTRUCTION	"JMP #16DISP#"		%11101001
 {
@@ -2734,50 +2747,56 @@ INSTRUCTION	"%M0"			%1111:flags
 	2+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"STI"			%11111011
-#{
-#	I<-1;
-#	IRQBlock<-1;
-#	2+CYCLES->CYCLES;
-#}
-#
+INSTRUCTION	"STI"			%11111011
+{
+	I<-1;
+	IRQBlock<-1;
+	2+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"HLT"			%11110100
 #{
 #	HALT<-1;
 #	2+CYCLES->CYCLES;
 #}
-#
-#####
-##### MOD nnn R/M instructions (immediate/implied register)
-#####
-#
-#INSTRUCTION	"MOV #MODnnnRM#,#IMM0#"		%1100011:word[1]
-#{
-#	DECLARE IR[9]	ALIAS	wordOp[1]:Opcode[8];
-#
-#	wordOp<-word;
-#	CALL GetImmediateByte()->Opcode;
-#
-#	EXECUTE TABLE_MOV_MOD_IMM IR;
-#}
-#
-#INSTRUCTION	TABLE_MOV_MOD_IMM	""		wordOp[1]:mod[2]:%000:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
-#	4+CYCLES->CYCLES;
-#
-#	IF wordOp
-#	{
-#		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL GetImmediateWord());
-#	}
-#	IF ~wordOp
-#	{
-#		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL GetImmediateByte());
-#	}
-#}
-#
+
+####
+#### MOD nnn R/M instructions (immediate/implied register)
+####
+
+INSTRUCTION	"MOV #MODnnnRM#,#IMM0#"		%1100011:word[1]
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:Opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->Opcode;
+
+	EXECUTE TABLE_MOV_MOD_IMM IR;
+}
+
+INSTRUCTION	TABLE_MOV_MOD_IMM	""		wordOp[1]:mod[2]:%000:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	4+CYCLES->CYCLES;
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "MOV_MOD_IMM lng";
+		CALL missing(0);
+	}
+
+	IF wordOp
+	{
+		CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL GetImmediateWord());
+	}
+	IF ~wordOp
+	{
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL GetImmediateByte());
+	}
+}
+
 #INSTRUCTION	"#TABLE2#"	%11111110
 #{
 #	DECLARE opcode[8];
