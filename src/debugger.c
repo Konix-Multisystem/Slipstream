@@ -1297,8 +1297,8 @@ int DoDisassemble8086(unsigned int address,int registers,char* tmp)
 			CONSOLE_OUTPUT("%02X ",PeekByte(address+numBytes+1+a));
 		}
 		CONSOLE_OUTPUT("\n");
-		DUMP_REGISTERS8086();
-		exit(-1);
+//		DUMP_REGISTERS8086();
+//		exit(-1);
 	}
 
 	if (registers)

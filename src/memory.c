@@ -910,6 +910,13 @@ void VECTORS_INIT()
 		case ESS_P89:
 			break;
 		case ESS_MSU:
+			// Add CB to vectors used by msu emulation
+			SetByte(0xE0004,0xCB);
+			SetByte(0xE000C,0xCB);
+			SetByte(0xE0010,0xCB);
+			SetByte(0xE001C,0xCB);
+			SetByte(0x0D000,0xCB);
+
 		case ESS_P88:
 			// Also pre-fill vector table at $0000 to point to an IRET instruction at $400 (suspect the bios is supposed to safely setup this area before booting a program)
 			for (a=0;a<256;a++)

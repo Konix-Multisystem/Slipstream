@@ -729,6 +729,40 @@ int LoadDisk(const char* fname)				// Load P89 Disk -- Pure Sector Dump
 	return ret;
 }
 
+int LoadBinaryMaxSizeOffset(const char* fname,uint32_t address,uint32_t len,uint32_t offs)					// Load an MSU file which will fill some memory regions and give us our booting point
+{
+	unsigned int expectedSize=0;
+	FILE* inFile = fopen(fname,"rb");
+	fseek(inFile,0,SEEK_END);
+	expectedSize=ftell(inFile);
+	fseek(inFile,offs,SEEK_SET);
+
+	expectedSize-=offs;
+	if (expectedSize>len)
+	{
+		expectedSize=len;
+	}
+
+	while (expectedSize)
+	{
+		uint8_t data;
+
+		// Read a byte
+		if (1!=fread(&data,1,1,inFile))
+		{
+			CONSOLE_OUTPUT("Failed to read from %s\n",fname);
+			return 1;
+		}
+		SetByte(address,data);
+		address++;
+		expectedSize--;
+	}
+
+	fclose(inFile);
+
+	return 0;
+}
+
 int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -791,6 +825,89 @@ void DoCPU8086()
 		Disassemble80386(SEGTOPHYS(CS,IP),1);
 	}
 #endif
+
+	if (CS==0xE000)
+	{
+		if (IP==0x1c)
+		{
+			CONSOLE_OUTPUT("port_init called\n");
+		}
+		if (IP==0x10)
+		{
+			static uint32_t dirAddr;
+			static int lastEntry;
+			static uint32_t fileOffset;
+			CONSOLE_OUTPUT("read_cd called\n");
+//	bh -minute
+//	bl -second
+//	al -block
+
+			if (DX==0 && CX==0x1400)
+			{
+				CONSOLE_OUTPUT("Read Root Directory To ES:DI (Length in CX)\n");
+				LoadBinaryMaxSizeOffset("roms/ROBOCOD/CRUNCH/CD_DIR.BIN",SEGTOPHYS(ES,DI),CX,0);
+				dirAddr=SEGTOPHYS(ES,DI);
+//				doDebug=1;
+//				debugWatchReads=1;
+//				debugWatchWrites=1;
+			}
+			else
+			{
+				char tmp[200];
+				int a;
+				CONSOLE_OUTPUT("Read Something from Directory To ES:DI : %05X\n",SEGTOPHYS(ES,DI));
+				CONSOLE_OUTPUT("Minute %02X, Second %02X, Block %02X, Length %04X\n",BX>>8,BX&255,AX&255,CX);
+
+				// Find filename from directory table -- note if name not in table, its a continuation from the last load offset by 25 blocks -- HACK!
+				for (a=0;a<211;a++)
+				{
+					if (GetByte(dirAddr+a*20+13)==(BX>>8))
+					{
+						if (GetByte(dirAddr+a*20+14)==(BX&255))
+						{
+							if (GetByte(dirAddr+a*20+15)==(AX&255))
+							{
+								//CONSOLE_OUTPUT("Filename : %s\n",&RAM[dirAddr+a*20]);
+								lastEntry=a;
+								fileOffset=0;
+								break;
+							}
+						}
+					}
+				}
+				if (a==211)
+				{
+					fileOffset+=25*2048;
+					//CONSOLE_OUTPUT("CONTINUATION : %s + %08X\n",&RAM[dirAddr+lastEntry*20],fileOffset);
+				}
+				sprintf(tmp,"roms/ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
+				CONSOLE_OUTPUT("Loading : %s\n",tmp);
+				LoadBinaryMaxSizeOffset(tmp,SEGTOPHYS(ES,DI),CX,fileOffset);
+
+				if (strcmp("GENERAL.ITM",(const char*)&RAM[dirAddr+lastEntry*20])==0)
+				{
+					doDebug=1;
+				}
+
+			}
+		}
+		if (IP==0x4)
+		{
+			CONSOLE_OUTPUT("read_kmssjoy called\n");
+		}
+		if (IP==0xC)
+		{
+			CONSOLE_OUTPUT("read_keypad called\n");
+		}
+	}
+	if (CS==0x0D00)
+	{
+		if (IP==0)
+		{
+			CONSOLE_OUTPUT("neildos called\n");
+		}
+	}
+
 	STEP();
 }
 
