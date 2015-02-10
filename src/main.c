@@ -795,10 +795,13 @@ void DoCPU8086()
 void DoCPU80386sx()
 {
 #if ENABLE_DEBUG
-	if (MSU_GETPHYSICAL_EIP()==0xF0073)
+/*	if ((MSU_GETPHYSICAL_EIP()&0xFFFFF)==0xF0100)
 	{
 		doDebug=1;
-	}
+		debugWatchWrites=1;
+		debugWatchReads=1;
+		doShowPortStuff=1;
+	}*/
 	if (doDebug)
 	{
 		Disassemble80386(MSU_GETPHYSICAL_EIP(),1);
@@ -856,7 +859,7 @@ int CPU_STEP(int doDebug)
 		{
 			case ESS_MSU:
 				DoCPU80386sx();
-				return CYCLES;			// Assuming clock speed same as hardware chips
+				return MSU_CYCLES;			// Assuming clock speed same as hardware chips
 			case ESS_P88:
 			case ESS_P89:
 				DoCPU8086();
@@ -1093,9 +1096,9 @@ int main(int argc,char**argv)
 	//	pause=1;
 	/*	extern int doShowDMA;
 		doDebug=1;*/
-		debugWatchWrites=1;
-		debugWatchReads=1;
-		doShowPortStuff=1;
+//		debugWatchWrites=1;
+//		debugWatchReads=1;
+//		doShowPortStuff=1;
 //		doDSPDisassemble=1;
 //		doDebug=1;
 /*		doShowDMA=1;

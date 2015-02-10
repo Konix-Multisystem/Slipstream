@@ -350,6 +350,9 @@ void DebugWPort(uint16_t port)
 				case 0x0044:
 					CONSOLE_OUTPUT("BLTCON - blitter control (Word address) - only a byte documented, but perhaps step follows?\n");
 					break;
+				case 0x00A0:
+					CONSOLE_OUTPUT("UNKNWN - used by bios on init!\n");
+					break;
 				case 0x00C0:
 					CONSOLE_OUTPUT("ADP - (Word address) - Anologue/digital port reset?\n");
 					break;
