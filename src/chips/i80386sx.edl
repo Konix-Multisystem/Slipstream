@@ -460,24 +460,29 @@ FUNCTION STEP
 		}
 	}
 
-#	IF interruptPending
-#	{
-#		HALT<-0;
-#		interruptPending<-0;
-#		# Standard interrupt procedure
-#		CALL PushWord(FLAGS);
-#		I<-0;
-#		CALL PushWord(CS);
-#		CALL PushWord(IP);
-#		DECLARE TMP[16];
-#		DECLARE dummy[2];
-#		TMP<-interruptVector;
-#		TMP<-ROL(TMP,dummy,%0000,2);
-#		CALL FetchWordNoOveride($0000,TMP)->IP;
-#		CALL FetchWordNoOveride($0000,TMP+2)->CS;
-#
-#		61+CYCLES->CYCLES;
-#	}
+	IF interruptPending
+	{
+		IF CR_PE | oSize | aSize
+		{
+			DEBUG_TRACE "Interrupt and PE mode or O/A Size";	
+			CALL unimplemented(0);
+		}
+		HALT<-0;
+		interruptPending<-0;
+		# Standard interrupt procedure
+		CALL PushWord(EFLAGS);
+		I<-0;
+		CALL PushWord(CS);
+		CALL PushWord(EIP);
+		DECLARE TMP[16];
+		DECLARE dummy[2];
+		TMP<-interruptVector;
+		TMP<-ROL(TMP,dummy,%0000,2);
+		CALL FetchWordNoOveride(SegCS,$0000,TMP)->EIP;
+		CALL FetchWordNoOveride(SegCS,$0000,TMP+2)->CS;
+
+		61+CYCLES->CYCLES;
+	}
 
 }
 
@@ -524,12 +529,12 @@ FUNCTION RESET
 
 MAPPING	flags[4]
 {
-#	%1000	"CLC"	CF<-0;
-#	%0101	"CMC"	CF<-~C;
-#	%1001	"STC"	CF<-1;
+	%1000	"CLC"	CF<-0;
+	%0101	"CMC"	CF<-~CF;
+	%1001	"STC"	CF<-1;
 	%1010	"CLI"	I<-0;
 	%1100	"CLD"	DF<-0;
-#	%1101	"STD"	DF<-1;
+	%1101	"STD"	DF<-1;
 }
 
 #MAPPING	regl[3]
@@ -613,12 +618,12 @@ MAPPING portVariable[1]
 	%1	"DX"		1;
 }
 
-#MAPPING DecIncB[1]
-#{
-#	%0	"INC"	CALL IncrementByte(T);
-#	%1	"DEC"	CALL DecrementByte(T);
-#}
-#
+MAPPING DecIncB[1]
+{
+	%0	"INC"	CALL IncrementByte(T);
+	%1	"DEC"	CALL DecrementByte(T);
+}
+
 #MAPPING DecIncW[1]
 #{
 #	%0	"INC"	CALL IncrementWord(T);
@@ -1097,16 +1102,16 @@ FUNCTION INTERNAL	val[16]	GetSegmentRegister		reg[3]		## Because we can't look u
 	}
 }
 
-#
-#FUNCTION INTERNAL	res[8]		IncrementByte		val[8]
-#{
-#	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(val,$01,7), P AS PARITYEVEN { val + 1 }->res;
-#}
-#
-#FUNCTION INTERNAL	res[8]		DecrementByte		val[8]
-#{
-#	AFFECT S AS SIGN, Z AS ZERO, A AS CARRY(3), O AS OVERFLOW(val,$01,7), P AS PARITYEVEN { val - 1 }->res;
-#}
+
+FUNCTION INTERNAL	res[8]		IncrementByte		val[8]
+{
+	AFFECT SF AS SIGN, ZF AS ZERO, AF AS CARRY(3), OF AS OVERFLOW(val,$01,7), PF AS PARITYEVEN { val + 1 }->res;
+}
+
+FUNCTION INTERNAL	res[8]		DecrementByte		val[8]
+{
+	AFFECT SF AS SIGN, ZF AS ZERO, AF AS CARRY(3), OF AS OVERFLOW(val,$01,7), PF AS PARITYEVEN { val - 1 }->res;
+}
 
 FUNCTION INTERNAL	res[16]		IncrementWord		val[16]
 {
@@ -1868,38 +1873,63 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 	}
 }
 
-#INSTRUCTION	"XLAT"			%11010111
-#{
-#	CALL FetchByte(DS,BX+AL)->AL;
-#	11+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"LAHF"			%10011111
-#{
-#	FLAGS[0..7]->AH;
-#	4+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"SAHF"			%10011110
-#{
-#	DECLARE TMP[16];
-#	TMP<-FLAGS;
-#	AH->TMP[0..7];			# Work around for EDL bug, FLAGS does not get masked if updating using bitrange
-#	TMP->FLAGS;
-#	4+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"PUSHF"			%10011100
-#{
-#	CALL PushWord(FLAGS);
-#	10+CYCLES->CYCLES;
-#}
-#
-#INSTRUCTION	"POPF"			%10011101
-#{
-#	CALL PopWord()->FLAGS;
-#	8+CYCLES->CYCLES;
-#}
+INSTRUCTION	"XLAT"			%11010111
+{
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "XLAT long";
+		CALL unimplemented(0);	
+	}
+	CALL FetchByte(SegDS,DS,(EBX[0..15])+(EAX[0..7]))->EAX[0..7];
+	11+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"LAHF"			%10011111
+{
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "LAHF long";
+		CALL unimplemented(0);	
+	}
+	EFLAGS[0..7]->EAX[8..15];
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"SAHF"			%10011110
+{
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "SAHF long";
+		CALL unimplemented(0);	
+	}
+	DECLARE TMP[16];
+	TMP<-EFLAGS;
+	EAX[8..15]->TMP[0..7];			# Work around for EDL bug, FLAGS does not get masked if updating using bitrange
+	TMP->EFLAGS;
+	4+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"PUSHF"			%10011100
+{
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "PUSHF long";
+		CALL unimplemented(0);	
+	}
+	CALL PushWord(EFLAGS[0..15]);
+	10+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POPF"			%10011101
+{
+	IF oSize|aSize
+	{
+		DEBUG_TRACE "POPF long";
+		CALL unimplemented(0);	
+	}
+	CALL PopWord()->EFLAGS[0..15];
+	8+CYCLES->CYCLES;
+}
 
 INSTRUCTION	"MOV #REGWB#,#IMM3#"	%1011:word[1]:reg[3]
 {
@@ -1985,7 +2015,7 @@ INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
 	{
 		IF oSize
 		{
-			DEBUG_TRACE "32 bit mode todo --";
+			DEBUG_TRACE "ADD 32 bit mode todo --";
 			CALL unimplemented(0);
 		}
 		IF ~oSize
@@ -2000,18 +2030,26 @@ INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
 	4+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"ADC %M0,#IMM0#"	%0001010:accword
-#{
-#	IF accword
-#	{
-#		CALL AddWord(AX,CALL GetImmediateWord(),C)->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL AddByte(AL,CALL GetImmediateByte(),C)->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
+INSTRUCTION	"ADC %M0,#IMM0#"	%0001010:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "ADC 32 bit mode todo --";
+			CALL unimplemented(0);
+		}
+		IF ~oSize
+		{
+			CALL AddWord(EAX[0..15],CALL GetImmediateWord(),CF)->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL AddByte(EAX[0..7],CALL GetImmediateByte(),CF)->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
 
 INSTRUCTION	"INC %M0"		%01000:reg[3]
 {
@@ -2032,7 +2070,7 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 	{
 		IF oSize
 		{
-			DEBUG_TRACE "32 bit mode todo --";
+			DEBUG_TRACE "SUB 32 bit mode todo --";
 			CALL unimplemented(0);
 		}
 		IF ~oSize
@@ -2047,18 +2085,26 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 	4+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
-#{
-#	IF accword
-#	{
-#		CALL SubWord(AX,CALL GetImmediateWord(),C)->AX;
-#	}
-#	IF ~accword
-#	{
-#		CALL SubByte(AL,CALL GetImmediateByte(),C)->AL;
-#	}
-#	4+CYCLES->CYCLES;
-#}
+INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
+{
+	IF accword
+	{
+		IF oSize
+		{
+			DEBUG_TRACE "SBB 32 bit mode todo --";
+			CALL unimplemented(0);
+		}
+		IF ~oSize
+		{
+			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),CF)->EAX[0..15];
+		}
+	}
+	IF ~accword
+	{
+		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),CF)->EAX[0..7];
+	}
+	4+CYCLES->CYCLES;
+}
 
 INSTRUCTION	"DEC %M0"		%01001:reg[3]
 {
@@ -2625,14 +2671,14 @@ INSTRUCTION	"RET"			%11000011
 #	SP<-SP+TMP;
 #	12+CYCLES->CYCLES;
 #}
-#
-#INSTRUCTION	"RETF"			%11001011
-#{
-#	IP<-CALL PopWord();
-#	CS<-CALL PopWord();
-#	18+CYCLES->CYCLES;
-#}
-#
+
+INSTRUCTION	"RETF"			%11001011
+{
+	EIP<-CALL PopWord();
+	CS<-CALL PopWord();
+	18+CYCLES->CYCLES;
+}
+
 #INSTRUCTION	"RETF #IMM16#"		%11001010
 #{
 #	DECLARE TMP[16];
@@ -2797,30 +2843,36 @@ INSTRUCTION	TABLE_MOV_MOD_IMM	""		wordOp[1]:mod[2]:%000:rm[3]
 	}
 }
 
-#INSTRUCTION	"#TABLE2#"	%11111110
-#{
-#	DECLARE opcode[8];
-#
-#	CALL GetImmediateByte()->opcode;
-#
-#	EXECUTE TABLE_DECINC_MOD opcode;
-#}
-#
-#INSTRUCTION	TABLE_DECINC_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncB:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#	DECLARE T[8];
-#
-#	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
-#	3+CYCLES->CYCLES;
-#
-#	CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)->T;
-#
-#	DecIncB->T;
-#
-#	CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,T);
-#}
-#
+INSTRUCTION	"#TABLE2#"	%11111110
+{
+	DECLARE opcode[8];
+
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_DECINC_MOD opcode;
+}
+
+INSTRUCTION	TABLE_DECINC_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncB:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+	DECLARE T[8];
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "DecInc lng";
+		CALL unimplemented(0);
+	}
+
+	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
+	3+CYCLES->CYCLES;
+
+	CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF)->T;
+
+	DecIncB->T;
+
+	CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,T);
+}
+
 #INSTRUCTION	"POP #MODnnnRM#"	%10001111
 #{
 #	DECLARE opcode[8];
@@ -3368,33 +3420,39 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 	}
 }
 
-#INSTRUCTION	TABLE_OP_MOD_IMM	"CMP #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:%111:rm[3]		# CMP seperated out due to cycle count and no storage
-#{
-#	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
-#	4+CYCLES->CYCLES;
-#
-#	IF wordOp
-#	{
-#		IF signOp
-#		{
-#			$0000++CALL GetImmediateByte()->IMM;
-#		}
-#		IF ~signOp
-#		{
-#			CALL GetImmediateWord()->IMM;
-#		}
-#
-#		CALL DoOperationWord($2,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),IMM);
-#	}
-#	IF ~wordOp
-#	{
-#		CALL GetImmediateByte()->IMMLO;
-#		CALL DoOperationByte($2,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),IMMLO);
-#	}
-#}
+INSTRUCTION	TABLE_OP_MOD_IMM	"CMP #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2]:%111:rm[3]		# CMP seperated out due to cycle count and no storage
+{
+	DECLARE	IMM[16]		ALIAS	IMMHI[8]:IMMLO[8];
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	4+CYCLES->CYCLES;
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "CMP mod,imm 32 TODO";
+		CALL unimplemented(0);
+	}
+
+	IF wordOp
+	{
+		IF signOp
+		{
+			$0000++CALL GetImmediateByte()->IMM;
+		}
+		IF ~signOp
+		{
+			CALL GetImmediateWord()->IMM;
+		}
+
+		CALL DoOperationWord($2,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),IMM);
+	}
+	IF ~wordOp
+	{
+		CALL GetImmediateByte()->IMMLO;
+		CALL DoOperationByte($2,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),IMMLO);
+	}
+}
 
 MAPPING shift1ModOp[3]
 {
