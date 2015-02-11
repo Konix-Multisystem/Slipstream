@@ -1026,7 +1026,7 @@ void AddressGeneratorSourceRead()
 	{
 		case 0x00:				//4 bits  (256 pixel)
 		case 0x40:				//4 bits  (512 pixel)
-			if (curSystem==ESS_P89)
+			if (curSystem==ESS_P89 || curSystem==ESS_MSU)
 			{
 				// TODO-- why ??
 				if (ADDRESSGENERATOR_SRCADDRESS&1)			// ODD address LSNibble
@@ -1284,7 +1284,7 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 
 		if (BLT_OUTER_CMD&0x04)
 		{
-			if (curSystem==ESS_P89)		// This might apply to MSU version too (and would make more sense)
+			if (curSystem==ESS_P89 || curSystem==ESS_MSU)		// This might apply to MSU version too (and would make more sense)
 			{
 				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
 				ASIC_BLTPC++;
@@ -1312,7 +1312,7 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 #if ENABLE_DEBUG_BLITTER
 			if (doShowBlits)
 			{
-				if (curSystem==ESS_P89)
+				if (curSystem==ESS_P89 || curSystem==ESS_MSU)
 				{
 					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
 					CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
@@ -1346,7 +1346,7 @@ void DoBlitOuter()
 	uint16_t step;
 	uint16_t innerCnt;
 
-	if (curSystem==ESS_P89)
+	if (curSystem==ESS_P89 || curSystem==ESS_MSU)
 	{
 		step = (BLT_INNER_STEP<<1)|((BLT_OUTER_MODE>>1)&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
 		innerCnt = ((BLT_OUTER_MODE&0x1)<<8) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
@@ -1405,7 +1405,7 @@ void DoBlitOuter()
 
 		if (BLT_OUTER_CMD&0x04)
 		{
-			if (curSystem==ESS_P89)		// This might apply to MSU version too (and would make more sense)
+			if (curSystem==ESS_P89 || curSystem==ESS_MSU)		// This might apply to MSU version too (and would make more sense)
 			{
 				BLT_INNER_CNT=GetByte(ASIC_BLTPC);
 				ASIC_BLTPC++;
@@ -1434,7 +1434,7 @@ void DoBlitOuter()
 #if ENABLE_DEBUG_BLITTER
 			if (doShowBlits)
 			{
-				if (curSystem==ESS_P89)
+				if (curSystem==ESS_P89 || curSystem==ESS_MSU)
 				{
 					CONSOLE_OUTPUT("Inner Count : %02X\n",BLT_INNER_CNT);
 					CONSOLE_OUTPUT("Mode Control : %02X\n",BLT_OUTER_MODE);
@@ -1451,7 +1451,7 @@ void DoBlitOuter()
 #endif
 
 
-			if (curSystem==ESS_P89)
+			if (curSystem==ESS_P89 || curSystem==ESS_MSU)
 			{
 				step = (BLT_INNER_STEP<<1)|((BLT_OUTER_MODE>>1)&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
 				innerCnt = ((BLT_OUTER_MODE&0x1)<<8) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
@@ -2593,7 +2593,7 @@ void ShowOffScreen(uint32_t(*conv)(uint16_t),int fl1)
 
 void TickAsicMSU(int cycles)
 {
-	TickBlitterMSU();
+	TickBlitterP89();
 	TickAsic(cycles,ConvPaletteMSU,0);
 }
 

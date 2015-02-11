@@ -1019,6 +1019,38 @@ FUNCTION INTERNAL	SetEffectiveAddressByte	eamod[2],earm[3],SEG[16],EFF[16],byte[
 #### Implied/1/2/3 Byte opcode instructions
 ####
 
+INSTRUCTION	"PUSHA"			%01100000		#80186
+{
+	DECLARE TMP[16];
+	TMP<-SP;
+
+	CALL PushWord(AX);
+	CALL PushWord(CX);
+	CALL PushWord(DX);
+	CALL PushWord(BX);
+	CALL PushWord(TMP);
+	CALL PushWord(BP);
+	CALL PushWord(SI);
+	CALL PushWord(DI);
+
+	11*8+CYCLES->CYCLES;
+}
+
+INSTRUCTION	"POPA"			%01100001		#80186
+{
+	CALL PopWord()->DI;
+	CALL PopWord()->SI;
+	CALL PopWord()->BP;
+	SP+2->SP;
+	CALL PopWord()->BX;
+	CALL PopWord()->DX;
+	CALL PopWord()->CX;
+	CALL PopWord()->AX;
+
+	11*8+CYCLES->CYCLES;
+}
+
+
 INSTRUCTION	"PUSH %M0"		%01010:regw
 {
 	CALL PushWord(regw);
@@ -2406,14 +2438,14 @@ MAPPING shiftVarModOp[3]
 	%111	"SAR"	$6;
 }
 
-FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
+FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8],iShCnt[8]
 {
 	DECLARE TMP[8];
 	DECLARE fill[8];
 	DECLARE dummy[8];
 	DECLARE shCnt[8];			# Original 8086 did not mask shift count?
 
-	shCnt<-CL;
+	shCnt<-iShCnt;
 	CYCLES+((shCnt)*$0004)->CYCLES;
 	TMP<-dst;
 
@@ -2528,14 +2560,14 @@ FUNCTION INTERNAL	res[8]	DoVariableShiftOperationByte	operation[4],dst[8]
 	}
 }
 
-FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16]
+FUNCTION INTERNAL	res[16]	DoVariableShiftOperationWord	operation[4],dst[16],iShCnt[8]
 {
 	DECLARE TMP[16];
 	DECLARE fill[16];
 	DECLARE dummy[16];
 	DECLARE shCnt[8];
 
-	shCnt<-CL;
+	shCnt<-iShCnt;
 	CYCLES+(shCnt*$0004)->CYCLES;
 	TMP<-dst;
 
@@ -2676,6 +2708,16 @@ INSTRUCTION	"#TABLE6#"	%1101001:word[1]			# Variable (CL) shifts
 	EXECUTE TABLE_SHV_MOD IR;
 }
 
+INSTRUCTION	"#TABLE186#"	%1100000:word[1]			# Variable (immediate) shifts	80186 & later
+{
+	DECLARE IR[9]	ALIAS	wordOp[1]:opcode[8];
+
+	wordOp<-word;
+	CALL GetImmediateByte()->opcode;
+
+	EXECUTE TABLE_SHVIMM_MOD IR;
+}
+
 INSTRUCTION	TABLE_SH1_MOD	"%M0 #MODnnnRM#,1"		wordOp[1]:mod[2]:shift1ModOp:rm[3]
 {
 	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
@@ -2702,13 +2744,31 @@ INSTRUCTION	TABLE_SHV_MOD	"%M0 #MODnnnRM#,CL"		wordOp[1]:mod[2]:shiftVarModOp:rm
 		
 	IF wordOp
 	{
-		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)));
+		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),CL));
 	}
 	IF ~wordOp
 	{
-		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)));
+		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),CL));
 	}
 }
+
+INSTRUCTION	TABLE_SHVIMM_MOD	"%M0 #MODnnnRM#,IMM"		wordOp[1]:mod[2]:shiftVarModOp:rm[3]
+{
+	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+
+	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
+	8+CYCLES->CYCLES;
+
+	IF wordOp
+	{
+		CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEG,EFF),(CALL GetImmediateByte())));
+	}
+	IF ~wordOp
+	{
+		CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEG,EFF),(CALL GetImmediateByte())));
+	}
+}
+
 
 INSTRUCTION	"#TABLE7#"	%1111011:word[1]
 {
@@ -2850,6 +2910,17 @@ INSTRUCTION	"#TABLE8#"	%11111111
 
 	EXECUTE TABLE_OP_MOD IR;
 }
+
+#INSTRUCTION	TABLE_OP_MOD	"JMP FAR #MODnnnRM#"	mod[2]:%101:rm[3]
+#{
+#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
+#
+#	CALL CalcEffectiveAddress(mod,rm,7)->SEGEA;
+#	37+CYCLES->CYCLES;
+#
+#	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
+#	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF+2)->CS;
+#}
 
 INSTRUCTION	TABLE_OP_MOD	"JMP #MODnnnRM#"	mod[2]:%100:rm[3]
 {
