@@ -39,6 +39,7 @@ extern unsigned char PALETTE[256*2];
 extern int doShowPortStuff;
 extern int doDebug;
 
+void MSU_INTERRUPT(uint8_t);
 void INTERRUPT(uint8_t);
 void Z80_INTERRUPT(uint8_t);
 void FL1DSP_RESET();
@@ -2308,6 +2309,7 @@ void DoScreenInterrupt()
 		case ESS_P89:
 		case ESS_P88:
 			INTERRUPT(0x21);
+			MSU_INTERRUPT(0x21);
 			break;
 		case ESS_FL1:
 			Z80_INTERRUPT(0x00);		// use a nop, which should mean we don't smack into uninitialised interrupt... maybe
