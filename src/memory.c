@@ -96,6 +96,12 @@ uint8_t GetByteMSU(uint32_t addr)
 	addr&=0xFFFFF;
 	if (addr<0xC0000)
 	{
+#if ENABLE_DEBUG
+		if (debugWatchReads)
+		{
+			CONSOLE_OUTPUT("GetByte RAM: %05X - %02X\n",addr,RAM[addr]);
+		}
+#endif
 		return RAM[addr];
 	}
 	if (addr>=0xC1000 && addr<=0xC1FFF)
@@ -104,6 +110,12 @@ uint8_t GetByteMSU(uint32_t addr)
 	}
 	if (addr>=0xE0000)
 	{
+#if ENABLE_DEBUG
+		if (debugWatchReads)
+		{
+			CONSOLE_OUTPUT("GetByte ROM: %05X - %02X\n",addr,ROM[addr-0xE0000]);
+		}
+#endif
 		return ROM[addr-0xE0000];
 //		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
 	}

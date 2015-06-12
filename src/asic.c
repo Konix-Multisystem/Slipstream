@@ -261,6 +261,7 @@ void TickBlitterP89()								// NOTE MSU and THIS may turn out to be identical -
 #if ENABLE_DEBUG_BLITTER
 	if (doShowBlits)
 	{
+		CONSOLE_OUTPUT("BLTPC : %05X\n",ASIC_BLTPC);
 		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d)\n",
 			ASIC_BLTCMD&0x02?1:0,
 			ASIC_BLTCMD&0x04?1:0,

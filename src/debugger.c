@@ -716,11 +716,28 @@ void FETCH_REGISTERS80386(char* tmp)
 			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_FS,MSU_GS,MSU_EIP,MSU_CR0);
 }
 
+void FETCH_REGISTERS80386_8086(char* tmp)
+{
+	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
+			MSU_EFLAGS&0x800 ? "1" : "0",
+			MSU_EFLAGS&0x400 ? "1" : "0",
+			MSU_EFLAGS&0x200 ? "1" : "0",
+			MSU_EFLAGS&0x100 ? "1" : "0",
+			MSU_EFLAGS&0x080 ? "1" : "0",
+			MSU_EFLAGS&0x040 ? "1" : "0",
+			MSU_EFLAGS&0x020 ? "1" : "0",
+			MSU_EFLAGS&0x010 ? "1" : "0",
+			MSU_EFLAGS&0x008 ? "1" : "0",
+			MSU_EFLAGS&0x004 ? "1" : "0",
+			MSU_EFLAGS&0x002 ? "1" : "0",
+			MSU_EFLAGS&0x001 ? "1" : "0",
+			MSU_EAX&0xFFFF,MSU_EBX&0xFFFF,MSU_ECX&0xFFFF,MSU_EDX&0xFFFF,MSU_ESP&0xFFFF,MSU_EBP&0xFFFF,MSU_ESI&0xFFFF,MSU_EDI&0xFFFF,MSU_CS,MSU_DS,MSU_ES,MSU_SS);
+}
 
 void DUMP_REGISTERS80386()
 {
 	char tmp[1024];
-	FETCH_REGISTERS80386(tmp);
+	FETCH_REGISTERS80386_8086(tmp);
 	CONSOLE_OUTPUT(tmp);
 }
 
@@ -1324,6 +1341,53 @@ int DoDisassemble8086(unsigned int address,int registers,char* tmp)
 
 int Disassemble8086(unsigned int address,int registers)
 {
+#if 1
+	char tmp[2048];
+	char tBuffer[2048];
+	int a;
+
+	InStream disMe;
+	disMe.bytesRead=0;
+	disMe.curAddress=address;
+	disMe.useAddress=1;
+	Disassemble(&disMe);
+
+	if (disMe.bytesRead==0)
+	{
+		CONSOLE_OUTPUT("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
+		CONSOLE_OUTPUT("\nNext 7 Bytes : ");
+		for (a=0;a<7;a++)
+		{
+			CONSOLE_OUTPUT("%02X ",PeekByte(address+disMe.bytesRead+a));
+		}
+		CONSOLE_OUTPUT("\n");
+		DUMP_REGISTERS8086();
+		exit(-1);
+	}
+
+	if (registers)
+	{
+		DUMP_REGISTERS8086();
+	}
+	sprintf(tmp,"%05X : ",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+
+	for (a=0;a<disMe.bytesRead;a++)
+	{
+		sprintf(tBuffer,"%02X ",PeekByte(address+a));
+		strcat(tmp,tBuffer);
+	}
+	for (a=0;a<8-disMe.bytesRead;a++)
+	{
+		strcat(tmp,"   ");
+	}
+	sprintf(tBuffer,"%s\n",(char*)GetOutputBuffer());
+	strcat(tmp,tBuffer);
+
+	CONSOLE_OUTPUT("--------\n");
+	CONSOLE_OUTPUT(tmp);
+	CONSOLE_OUTPUT("--------\n");
+	return disMe.bytesRead;
+#else
 	int res;
 	char tmp[2048];
 	res=DoDisassemble8086(address,registers,tmp);
@@ -1331,6 +1395,7 @@ int Disassemble8086(unsigned int address,int registers)
 	CONSOLE_OUTPUT(tmp);
 	CONSOLE_OUTPUT("--------\n");
 	return res;
+#endif
 }
 
 int Disassemble80386(unsigned int address,int registers)
