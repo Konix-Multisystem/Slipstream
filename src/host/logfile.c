@@ -10,13 +10,13 @@
 
 #include "logfile.h"
 
-#include <pthread.h>
-
 #define LOGFILENAME	"OUT.LOG"
 
 FILE* logFile=NULL;
 
 #if ENABLE_REMOTE_DEBUG
+#include <pthread.h>
+
 extern int useRemoteDebugger;
 
 char remoteDebuggerLog[1024*1024]={0};
