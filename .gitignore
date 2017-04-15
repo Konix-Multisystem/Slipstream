@@ -7,6 +7,10 @@
 *.DBG
 *.TXT
 *.MOD
+*.LOG
 out/*
 PROPLAY.*
 builds/*
+x64/
+.vs/
+*.user
