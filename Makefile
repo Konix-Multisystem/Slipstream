@@ -26,7 +26,7 @@ else
 	EXTRA_LIBS=
 endif
 
-ENABLE_DEBUG=0
+ENABLE_DEBUG=1
 ENABLE_GPROF=0
 DISABLE_AUDIO=0
 DISABLE_DSP=0
@@ -81,6 +81,13 @@ out/flare1DSP.lls: src/chips/flare1DSP.edl
 out/flare1DSP.lls.s: out/flare1DSP.lls
 	llc -O3 out/flare1DSP.lls
 
+out/flare1Blitter.lls: src/chips/flare1Blitter.edl src/chips/flare1Blitter_internal.edl
+	mkdir -p out
+	$(EDL) $(DISASSM) -O2 -s FL1BLT_ src/chips/flare1Blitter.edl >out/flare1Blitter.lls
+
+out/flare1Blitter.lls.s: out/flare1Blitter.lls
+	llc -O3 out/flare1Blitter.lls
+
 out/z80.lls: src/chips/z80.edl
 	mkdir -p out
 	$(EDL) $(DISASSM) -O3 -s Z80_ src/chips/z80.edl >out/z80.lls
@@ -128,6 +135,10 @@ out/main.o: src/main.c src/host/keys.h src/host/video.h src/host/audio.h src/asi
 	mkdir -p out
 	$(COMPILER) $(COMPILE) src/main.c -o out/main.o
 
-slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o
-	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o $(AL_LIBS) $(GLLIBS) -lpthread $(EXTRA_LIBS) -o slipstream.exe
+out/fdisk.o: src/fdisk.c src/system.h src/host/logfile.h src/fdisk.h
+	mkdir -p out
+	$(COMPILER) $(COMPILE) src/fdisk.c -o out/fdisk.o
+
+slipstream: out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/asic.o out/dsp.o out/logfile.o out/z80.lls.s out/memory.o out/debugger.o out/flare1DSP.lls.s out/terminalEm.o out/fdisk.o out/flare1Blitter.lls.s
+	$(COMPILER) $(SYM_OPTS) out/main.o out/keys.o out/video.o out/audio.o out/i8086.lls.s out/slipDSP.lls.s out/flare1DSP.lls.s out/terminalEm.o out/z80.lls.s out/flare1Blitter.lls.s out/asic.o out/dsp.o out/logfile.o out/memory.o out/debugger.o out/fdisk.o $(ALLIBS) $(GLLIBS) -lpthread -lws2_32 -o slipstream.exe
 

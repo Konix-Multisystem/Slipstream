@@ -15,6 +15,7 @@
 #include "debugger.h"
 #include "memory.h"
 
+int disable_exit=1;
 int doDebug=0;
 int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
@@ -369,6 +370,15 @@ void DebugWPort(uint16_t port)
 				case 0x0022:
 					CONSOLE_OUTPUT("GPO - General Purpose Output Port - ??? unknown use\n");
 					break;
+				case 0x0000:
+					CONSOLE_OUTPUT("BANK0 - Bank Switch 0x0000-0x3FFF range of cpu\n");
+					break;
+				case 0x0001:
+					CONSOLE_OUTPUT("BANK1 - Bank Switch 0x4000-0x7FFF range of cpu\n");
+					break;
+				case 0x0002:
+					CONSOLE_OUTPUT("BANK2 - Bank Switch 0x8000-0xBFFF range of cpu\n");
+					break;
 				case 0x0003:
 					CONSOLE_OUTPUT("BANK3 - Bank Switch 0xC000-0xFFFF range of cpu\n");
 					break;
@@ -399,9 +409,24 @@ void DebugWPort(uint16_t port)
 				case 0x00C0:
 					CONSOLE_OUTPUT("CHAIR_P - This is the signal to the chair\n");
 					break;
+				case 0x0030:
+					CONSOLE_OUTPUT("COMREG - Floppy Disk Command\n");
+					break;
+				case 0x0031:
+					CONSOLE_OUTPUT("TRKREG - Floppy Disk Track\n");
+					break;
+				case 0x0032:
+					CONSOLE_OUTPUT("SECREG - Floppy Disk Sector\n");
+					break;
+				case 0x0033:
+					CONSOLE_OUTPUT("DATAREG - Floppy Disk Data\n");
+					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
-					exit(-1);
+					if (!disable_exit)
+					{
+						exit(-1);
+					}
 					break;
 			}
 			break;
@@ -568,10 +593,37 @@ void DebugRPort(uint16_t port)
 				case 0x0014:
 					CONSOLE_OUTPUT("RUNST - DSP Start/Stop - Memory mapped on later models as DSP_STATUS?\n");
 					break;
+				case 0x0000:
+					CONSOLE_OUTPUT("BANK0 - Bank Switch 0x0000-0x3FFF range of cpu\n");
+					break;
+				case 0x0001:
+					CONSOLE_OUTPUT("BANK1 - Bank Switch 0x4000-0x7FFF range of cpu\n");
+					break;
+				case 0x0002:
+					CONSOLE_OUTPUT("BANK2 - Bank Switch 0x8000-0xBFFF range of cpu\n");
+					break;
+				case 0x0003:
+					CONSOLE_OUTPUT("BANK3 - Bank Switch 0xC000-0xFFFF range of cpu\n");
+					break;
+				case 0x0030:
+					CONSOLE_OUTPUT("COMREG - Floppy Disk Command\n");
+					break;
+				case 0x0031:
+					CONSOLE_OUTPUT("TRKREG - Floppy Disk Track\n");
+					break;
+				case 0x0032:
+					CONSOLE_OUTPUT("SECREG - Floppy Disk Sector\n");
+					break;
+				case 0x0033:
+					CONSOLE_OUTPUT("DATAREG - Floppy Disk Data\n");
+					break;
 
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN (%04X)- TODO\n",port);
-					exit(-1);
+					if (!disable_exit)
+					{
+						exit(-1);
+					}
 					break;
 			}
 			break;
@@ -1221,7 +1273,7 @@ int FETCH_DISASSEMBLE8086(unsigned int address,char* tmp)
 
 void FETCH_REGISTERSZ80(char* tmp)
 {
-	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\n",
+	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\nPC\t%04X",
 			Z80_AF&0x80 ? "1" : "0",
 			Z80_AF&0x40 ? "1" : "0",
 			Z80_AF&0x20 ? "1" : "0",
@@ -1230,7 +1282,7 @@ void FETCH_REGISTERSZ80(char* tmp)
 			Z80_AF&0x04 ? "1" : "0",
 			Z80_AF&0x02 ? "1" : "0",
 			Z80_AF&0x01 ? "1" : "0",
-			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP);
+			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP,Z80_PC);
 }
 
 void DUMP_REGISTERSZ80()

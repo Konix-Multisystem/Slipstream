@@ -1,0 +1,529 @@
+#
+# Flare One Blitter - Internal
+#
+#
+# Internal Addressing for all 3 registers wraps in 64K pages
+
+C_FUNC_EXTERN	[8]	GetByte	[32];
+C_FUNC_EXTERN		SetByte	[32],[8];
+
+# Fake Internal PIN - So we can tie a state machine to the proceedings
+PIN IN			PIN__TICK[1];
+
+PIN IN			PIN_CMD[8];
+PIN IN			PIN_PROGLO[8];
+PIN IN			PIN_PROGMI[8];
+PIN IN			PIN_PROGHI[4];
+
+PIN OUT			PIN_RUNNING[1];
+
+PIN OUT			PIN_DEBUG[1];
+
+PIN OUT			PIN_DSTLO[8];
+PIN OUT			PIN_DSTMI[8];
+
+DECLARE 		PROGADDR[21]	ALIAS	PROGBYTEADDR[20]:dc[1];
+
+# These are in the same order as the command sequence - although slightly compacted;
+DECLARE 		CMD[8]		ALIAS	LINDR[1]:LT[2]:DSTUP[1]:SRCUP[1]:PARRD[1]:COLST[1]:RUN[1];	#RUN|PARRD|SRCUP|DSTUP|LT - missing COLST|LINDR
+DECLARE 		SRCADDR[21]	ALIAS	SRCBYTEADDR[20]:SRCNIBBLEADDR[1];
+DECLARE 		DSTADDR[21]	ALIAS	DSTBYTEADDR[20]:DSTNIBBLEADDR[1];
+DECLARE 		MODE[8]		ALIAS	SSIGN[1]:DSIGN[1]:YFRAC[1]:LKUP[1]:HIRES[1]:CMPBIT[1]:ILCNT8[1]:STEP8[1];	#SSIGN|DSIGN|LKUP|CMPBIT|ILCNT8|STEP8 - missing YFRAC,HIRES (affects comparator + LFU + nibble usage)
+DECLARE 		CMPLOG[8]	ALIAS	LOG3[1]:LOG2[1]:LOG1[1]:LOG0[1]:CMPBEQ[1]:CMPGT[1]:CMPEQ[1]:CMPLT[1];		#LOG3-0|CMPBEQ - missing CMPGT|CMPEQ|CMPLT
+DECLARE 		OUTER[8];
+DECLARE 		INNER[8];
+DECLARE			STEP[8];
+DECLARE 		PATTERN[8];
+
+# Internal Blitter State Registers
+
+DECLARE			SrcByte[8];
+DECLARE			DstByte[8];
+DECLARE			InnerCnt[9]		ALIAS	InnerCntHi[1]:InnerCntLo[8];
+DECLARE			InnerStep[17]		ALIAS	Step[16]:StepLow[1];
+DECLARE			InnerInnerStep[17];						# Also doubles as X step in line mode
+
+# Instruction Definitions - Note these are purely to facilitate ease of definition
+
+DECLARE			IRReadDst[2]		ALIAS	%00;
+DECLARE			IRReadSrc[2]		ALIAS	%01;
+DECLARE			IRWriteDstComparator[2]	ALIAS	%10;
+DECLARE			IRWriteDst[2]		ALIAS	%11;
+
+HANDLER PIN_PROGLO	ALWAYS
+{
+	PIN_PROGLO->PROGADDR[1..8];
+}
+
+HANDLER PIN_PROGMI	ALWAYS
+{
+	PIN_PROGMI->PROGADDR[9..16];
+}
+
+HANDLER PIN_PROGHI	ALWAYS
+{
+	PIN_PROGHI->PROGADDR[17..20];
+}
+
+FUNCTION INTERNAL	newAddr[21]	Adder17bit		oldAddr[21],inc[17],sign[1]
+{
+	DECLARE clamped[21]	ALIAS upper[4]:lower[17];
+
+	clamped<-oldAddr;
+
+	IF sign
+	{
+		lower<-lower-inc;
+	}
+	IF ~sign
+	{
+		lower<-lower+inc;
+	}
+
+	newAddr<-clamped;
+}
+
+FUNCTION INTERNAL	byte[8]		GetNextProgByte
+{
+	byte<-CALL GetByte(PROGBYTEADDR);
+	CALL Adder17bit(PROGADDR,2,0)->PROGADDR;
+}
+
+FUNCTION INTERNAL	DebugDumpState
+{
+	DEBUG_TRACE LINDR,LT,DSTUP,SRCUP,PARRD,COLST,RUN;
+	DEBUG_TRACE SRCADDR;
+	DEBUG_TRACE DSTADDR;
+	DEBUG_TRACE SSIGN,DSIGN,YFRAC,LKUP,HIRES,CMPBIT,ILCNT8,STEP8;
+	DEBUG_TRACE LOG3,LOG2,LOG1,LOG0,CMPBEQ,CMPGT,CMPEQ,CMPLT;
+	DEBUG_TRACE OUTER;
+	DEBUG_TRACE INNER;
+	DEBUG_TRACE STEP;
+	DEBUG_TRACE PATTERN;
+}
+
+HANDLER PIN__TICK	ALWAYS
+{
+	PIN_RUNNING<-1;
+	STATES	IDLE|FIRST|LOAD|PARAMS|RUN
+	{
+		STATE IDLE
+		{
+			PIN_RUNNING<-0;
+		}
+		STATE FIRST
+		{
+			DEBUG_TRACE "PROGRAM ADDRESS : ",BASE 16,PROGBYTEADDR;
+			DEBUG_TRACE "SRC ADDRESS : ",BASE 16,SRCBYTEADDR,SRCNIBBLEADDR;
+			DEBUG_TRACE "DST ADDRESS : ",BASE 16,DSTBYTEADDR,DSTNIBBLEADDR;
+			DEBUG_TRACE "FIRST";
+			IF ~LINDR
+			{
+				PIN_DEBUG<-1;
+			}
+			NEXT PIN__TICK.LOAD.LDSRCLO;
+		}
+		STATE PARAMS
+		{
+			STATES	LDINNER,LDSTEP,LDPAT,INITPAT
+			{
+				STATE LDINNER
+				{
+					CALL GetNextProgByte()->INNER;
+				}
+
+				STATE LDSTEP
+				{
+					CALL GetNextProgByte()->STEP;
+				}
+
+				STATE LDPAT
+				{
+					CALL GetNextProgByte()->PATTERN;
+					CALL DebugDumpState();
+				}
+
+				STATE INITPAT
+				{
+					# This copies the innerloop counter into the inner loop internal counter
+					# and selects the correct start state for the blitter inner loop module
+
+					#PIN_DEBUG<-LINDR;#&COLST;
+
+					InnerCntLo<-INNER;
+					InnerCntHi<-ILCNT8;
+					Step<-STEP;
+					StepLow<-STEP8;
+					InnerInnerStep<-$01+(~HIRES);
+					DstByte<-PATTERN;
+					SrcByte<-PATTERN;
+
+					IF LT==0
+					{
+						NEXT PIN__TICK.RUN.Mod00.ReadDst;
+					}
+					IF LT==1
+					{
+						NEXT PIN__TICK.RUN.Mod01.ReadSrc;
+					}
+					IF LT==2
+					{
+						NEXT PIN__TICK.RUN.Mod10.WriteDst;
+					}
+					IF LT==3
+					{
+						NEXT PIN__TICK.RUN.Mod11.ReadSrc;
+					}
+
+					IF LINDR
+					{
+						NEXT PIN__TICK.LOAD.LDCMD;
+					}
+				}
+			}
+		}
+		STATE LOAD
+		{
+			STATES	LDCMD,LDSRCLO,LDSRCMID,LDSRCHI,LDDSTLO,LDDSTMID,LDDSTHI,LDMODE,LDCMPLOG,LDOUTER
+			{
+				STATE LDCMD
+				{
+					CALL GetNextProgByte()->CMD;
+					DEBUG_TRACE "READ CMD",CMD;
+					IF ~LINDR
+					{
+						PIN_DEBUG<-1;
+					}
+					IF RUN==0
+					{
+						PIN_DEBUG<-0;
+						NEXT PIN__TICK.IDLE;
+					}
+				}
+
+				STATE LDSRCLO
+				{
+					PIN_DEBUG<-0;
+					CALL GetNextProgByte()->SRCADDR[1..8];
+				}
+
+				STATE LDSRCMID
+				{
+					CALL GetNextProgByte()->SRCADDR[9..16];
+				}
+
+				STATE LDSRCHI
+				{
+					DECLARE Tmp[8]	ALIAS	dc[3]:lo[1]:hi[4];
+					CALL GetNextProgByte()->Tmp;
+					hi->SRCADDR[17..20];
+					lo->SRCNIBBLEADDR;
+
+					DEBUG_TRACE "SRC ADDR : ",BASE 16,SRCADDR,SRCBYTEADDR,SRCNIBBLEADDR,hi,lo,dc;
+				}
+
+				STATE LDDSTLO
+				{
+					CALL GetNextProgByte()->DSTADDR[1..8];
+				}
+
+				STATE LDDSTMID
+				{
+					CALL GetNextProgByte()->DSTADDR[9..16];
+				}
+
+				STATE LDDSTHI
+				{
+					DECLARE Tmp[8]	ALIAS	dc[3]:lo[1]:hi[4];
+					CALL GetNextProgByte()->Tmp;
+					hi->DSTADDR[17..20];
+					lo->DSTNIBBLEADDR;
+
+					DEBUG_TRACE "DST ADDR : ",BASE 16,DSTADDR,DSTBYTEADDR,DSTNIBBLEADDR,hi,lo,dc;
+				}
+
+				STATE LDMODE
+				{
+					CALL GetNextProgByte()->MODE;
+				}
+
+				STATE LDCMPLOG
+				{
+					CALL GetNextProgByte()->CMPLOG;
+				}
+
+				STATE LDOUTER
+				{
+					CALL GetNextProgByte()->OUTER;
+					NEXT PIN__TICK.PARAMS.LDINNER;
+				}
+			}
+		}
+		STATE RUN
+		{
+			STATES	Mod00|Mod01|Mod10|Mod11
+			{
+				STATE Mod00
+				{
+					STATES	ReadDst,ReadSrc,WriteDst
+					{
+						STATE ReadDst
+						{
+							EXECUTE IRReadDst;
+						}
+						STATE ReadSrc
+						{
+							EXECUTE IRReadSrc;
+						}
+						STATE WriteDst
+						{
+							EXECUTE IRWriteDstComparator;
+						}
+					}
+				}
+				STATE Mod01
+				{
+					STATES ReadSrc,WriteDst
+					{
+						STATE ReadSrc
+						{
+							EXECUTE IRReadSrc;
+						}
+						STATE WriteDst
+						{
+							EXECUTE IRWriteDstComparator;
+						}
+					}
+				}
+				STATE Mod10
+				{
+					STATES WriteDst
+					{
+						STATE WriteDst
+						{
+							EXECUTE IRWriteDst;
+						}
+					}
+				}
+				STATE Mod11
+				{
+					STATES ReadSrc|WriteDst
+					{
+						STATE ReadSrc
+						{
+							EXECUTE IRReadSrc;			# Source Read only once per inner loop
+							NEXT PIN__TICK.RUN.Mod11.WriteDst;
+						}
+						STATE WriteDst
+						{
+							EXECUTE IRWriteDstComparator;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	PIN_DSTLO<-DSTBYTEADDR[0..7];
+	PIN_DSTMI<-DSTBYTEADDR[8..15];
+}
+
+HANDLER PIN_CMD		ALWAYS
+{
+	PIN_CMD->CMD;
+	NEXT PIN__TICK.FIRST;
+}
+
+
+INSTRUCTION	"ReadDst"	%00
+{
+	CALL GetByte(DSTBYTEADDR)->DstByte;		#TODO NIBBLE FETCH
+}
+
+INSTRUCTION	"ReadSrc"	%01			#TODO NIBBLE FETCH
+{
+	IF ~LINDR
+	{
+		IF ~LKUP
+		{
+			CALL GetByte(SRCBYTEADDR)->SrcByte;
+			CALL Adder17bit(SRCADDR,InnerInnerStep,SSIGN)->SRCADDR;
+		}
+		IF LKUP
+		{
+			DECLARE lkupAddr[20]	ALIAS	srcBits[12]:dstBits[8];
+	
+			lkupAddr<-SRCBYTEADDR;
+			dstBits<-DstByte;
+	
+			DEBUG_TRACE BASE 16,DstByte,SRCBYTEADDR,lkupAddr;
+	
+			CALL GetByte(lkupAddr)->SrcByte;
+		}
+	}
+}
+
+FUNCTION INTERNAL	Inhibit[1]	DoComparator
+{
+	Inhibit<-0;
+
+	IF CMPBIT
+	{
+		DECLARE c[8];
+		DECLARE sel[8];
+		DECLARE t[1];
+
+		sel<-$80;
+		c<-(InnerCnt-1)&7;
+
+		ROR(sel,c,0,c)->sel;
+
+		Inhibit<-Inhibit | ((SrcByte&sel)==0);
+	}
+	IF CMPBEQ
+	{
+		IF LINDR
+		{
+			DEBUG_TRACE BASE 16,SrcByte,DstByte;
+		}
+		Inhibit<-Inhibit | (SrcByte==DstByte);
+	}
+}
+
+FUNCTION INTERNAL	result[8]	DoLOGic
+{
+	result<-0;
+	IF LOG0
+	{
+		result<-result | ((~DstByte) & (~SrcByte));
+	}
+	IF LOG1
+	{
+		result<-result | ((DstByte) & (~SrcByte));
+	}
+	IF LOG2
+	{
+		result<-result | ((~DstByte) & (SrcByte));
+	}
+	IF LOG3
+	{
+		result<-result | ((DstByte) & (SrcByte));
+	}
+}
+
+FUNCTION	DoInnerOuterUpdate
+{
+	InnerCnt<-InnerCnt-1;
+	IF InnerCnt==0
+	{
+		# Do outer loop
+		OUTER<-OUTER-1;
+		IF OUTER==0
+		{
+			NEXT PIN__TICK.LOAD.LDCMD;
+		}
+		IF OUTER!=0
+		{
+			IF DSTUP
+			{
+				CALL Adder17bit(DSTADDR,InnerStep,DSIGN)->DSTADDR;
+			}
+			IF SRCUP
+			{
+				CALL Adder17bit(SRCADDR,InnerStep,SSIGN)->SRCADDR;
+			}
+			IF PARRD
+			{
+				NEXT PIN__TICK.PARAMS.LDINNER;
+			}
+			IF ~PARRD
+			{
+				NEXT PIN__TICK.PARAMS.INITPAT;
+			}
+		}
+	}
+}
+
+
+FUNCTION	UpdateWriteAddresses
+{
+	IF LINDR
+	{
+		DECLARE srcAlt[21]	ALIAS	dc[3]:d1h[1]:d1[8]:d1m1[9];
+		DECLARE delta1[9]	ALIAS	d1up[8]:d1lo[1];
+		DECLARE delta1m1[9]	ALIAS	d1m1up[8]:d1m1lo[1];
+		DECLARE delta2[9]	ALIAS	d2up[8]:d2lo[1];
+		DECLARE c[1];
+
+		srcAlt<-SRCADDR;
+		d2up<-STEP;
+		d2lo<-STEP8;
+		d1up<-d1;
+		d1lo<-d1h;
+		delta1m1<-d1m1;
+
+		IF YFRAC
+		{
+			CALL Adder17bit(DSTADDR,InnerInnerStep,SSIGN)->DSTADDR;
+
+			AFFECT c AS CARRY(8) { delta1m1-delta2 }->delta1m1;
+
+			IF c
+			{
+				delta1m1<-delta1m1+delta1;
+				CALL Adder17bit(DSTADDR,512,DSIGN)->DSTADDR;
+			}
+		}
+		IF ~YFRAC
+		{
+			CALL Adder17bit(DSTADDR,512,DSIGN)->DSTADDR;
+
+			AFFECT c AS CARRY(8) { delta1m1-delta2 }->delta1m1;
+
+			IF c
+			{
+				delta1m1<-delta1m1+delta1;
+				CALL Adder17bit(DSTADDR,InnerInnerStep,SSIGN)->DSTADDR;
+			}
+
+		}
+		d1m1<-delta1m1;
+		SRCADDR<-srcAlt;
+	}
+	IF ~LINDR
+	{
+		CALL Adder17bit(DSTADDR,InnerInnerStep,DSIGN)->DSTADDR;		# Not clear if DSIGN has effect
+	}
+	CALL DoInnerOuterUpdate();
+}
+
+INSTRUCTION	"WriteDstComparator"	%10
+{
+	DECLARE inhibit[1];
+
+	inhibit<-CALL DoComparator();
+
+	IF ~inhibit		# TODO STOP BIT TEST
+	{
+		CALL SetByte(DSTBYTEADDR,CALL DoLOGic());
+	}
+
+	IF inhibit & COLST
+	{
+		PIN_DEBUG<-0;
+		DEBUG_TRACE "COL STOP";
+		NEXT PIN__TICK.IDLE;
+	}
+	IF ~(inhibit & COLST)
+	{
+		CALL UpdateWriteAddresses();
+	}
+}
+
+INSTRUCTION	"WriteDst"	%11
+{
+	CALL SetByte(DSTBYTEADDR,CALL DoLOGic());
+	CALL UpdateWriteAddresses();
+}
+
+

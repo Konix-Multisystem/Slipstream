@@ -1,0 +1,66 @@
+#
+# Flare One Blitter
+#
+# According to best documentation I have, the blitter owns the BUS apart from DSP DMA and CPU interrupts. So at a minimum we
+#need a way to tell the blitter to pause during either of the above conditions.
+#
+
+INSTANCE	"src/chips/flare1Blitter_internal.edl"	AS	Internal;
+
+FUNCTION cycles[32]	Step	hold[8]
+{
+	cycles<-0;
+	IF hold==0
+	{
+		IF Internal PIN_RUNNING
+		{
+			cycles<-1;
+		}
+		IF Internal PIN_DEBUG
+		{
+			cycles<-2;
+		}
+#		IF (Internal CMD & 1)==0
+#		{
+#			cycles<-0;
+#		}
+#		IF (Internal CMD & 1)==1
+#		{
+			# Continue current operation
+			Internal PIN__TICK<-1;
+#		}
+	}
+
+}
+
+FUNCTION	SetCmd		byte[8]
+{
+	Internal PIN_CMD<-byte;
+	Internal PIN__TICK<-1;			# Force initial tick
+}
+
+FUNCTION	SetProgLow	addr[8]
+{
+	Internal PIN_PROGLO<-addr;
+}
+
+FUNCTION	SetProgMiddle	addr[8]
+{
+	Internal PIN_PROGMI<-addr;
+}
+
+FUNCTION	SetProgHi	addr[8]
+{
+	Internal PIN_PROGHI<-addr;
+}
+
+FUNCTION	byte[8]	GetDstLo
+{
+	byte<-Internal PIN_DSTLO;
+}
+
+FUNCTION	byte[8] GetDstMi
+{
+	byte<-Internal PIN_DSTMI;
+}
+

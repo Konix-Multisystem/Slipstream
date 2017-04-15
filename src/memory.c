@@ -18,6 +18,7 @@
 #include "keys.h"
 #include "asic.h"
 #include "dsp.h"
+#include "fdisk.h"
 
 unsigned char ROM[ROM_SIZE];							
 unsigned char RAM[RAM_SIZE];							
@@ -373,6 +374,11 @@ void SetByte(uint32_t addr,uint8_t byte)
 
 extern uint32_t ASIC_BLTPC;
 
+uint8_t bitSwizzle=0x55;
+
+extern uint8_t IsKeyAvailable();
+extern uint8_t NextKeyCode();
+
 uint8_t GetPortB(uint16_t port)
 {
 	switch (curSystem)
@@ -422,12 +428,12 @@ uint8_t GetPortB(uint16_t port)
 		case ESS_FL1:
 			switch (port)
 			{
-				case 0x18:
+/*				case 0x18:
 					return ASIC_BLTPC&0xFF;
 				case 0x19:
 					return (ASIC_BLTPC>>8)&0xFF;
 				case 0x1A:
-					return (ASIC_BLTPC>>16)&0xFF;
+					return (ASIC_BLTPC>>16)&0xFF;*/
 				case 0xE0:
 					switch (ADPSelect)
 					{
@@ -437,15 +443,40 @@ uint8_t GetPortB(uint16_t port)
 						return PotXValue;
 					}
 					return 0xFF;
-				case 0x22:
-					return (0xFFFF^joyPadState)>>10;
+				case 0x22:		// Ready PORT  bit 5 seems to indicate drive ready (maybe?) bios expects it to be 0 during floppy initialisation (for now bit 5 is masked out)
+					return ((0xFFFF^joyPadState)>>10)&0xDF;
 				case 0xA0:
 					return (0xFFFF^joyPadState)>>8;
+				case 0x0051:
+				case 0x0000:
+				case 0x0001:
+				case 0x0002:
+				case 0x0003:
 				case 0x0007:
 				case 0x0014:
 				case 0x0020:
 				case 0x0021:
+				case 0x0006:		// LPEN3 -- labelled as combined light pen register -- but combined how.. All I know is the bios during interrupt reads from this and takes bit 4 and based on result either
+							//tries to read various peripherals or goes on to clear the interrupt and do other processing.
+							//Speculation : Could bit 4 indicate interrupt source, with a second interrupt firing when devices need processing
 					return ASIC_ReadFL1(port,doShowPortStuff);
+
+				case 0x001C:		// KBSP - Keyboard Status Port -- bit 0 seems to be set when keyboard has data to read
+					return IsKeyAvailable();
+				case 0x0018:		// KBDP - Keyboard Data Port -- should be the scan code from the keyboard
+					return NextKeyCode();
+				case 0x0026:	// Hack around uart
+					bitSwizzle=((bitSwizzle&0x80)>>7)|((bitSwizzle&0x7F)<<1);
+					return (bitSwizzle&0xFE) | IsKeyAvailable();
+
+				case 0x0030:
+					return FDC_GetStatus();
+				case 0x0031:
+					return FDC_GetTrack();
+				case 0x0032:
+					return FDC_GetSector();
+				case 0x0033:
+					return FDC_GetData();
 			}
 			break;
 	}
@@ -459,6 +490,8 @@ uint8_t GetPortB(uint16_t port)
 #endif
 	return 0x00;
 }
+
+void ClearKBKey();
 
 void SetPortB(uint16_t port,uint8_t byte)
 {
@@ -510,6 +543,39 @@ void SetPortB(uint16_t port,uint8_t byte)
 					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
 				}
 #endif
+				break;
+			case 0x0030:
+				FDC_SetCommand(byte);
+				break;
+			case 0x0031:
+				FDC_SetTrack(byte);
+				break;
+			case 0x0032:
+				FDC_SetSector(byte);
+				break;
+			case 0x0033:
+				FDC_SetData(byte);
+				break;
+			case 0x001B:
+				// Keyboard Control
+				if (byte&0x01)
+				{
+					ClearKBKey();
+				}
+
+				break;
+			case 0x0022:
+				// GPO known bits ????sdd?
+				//for now we just need the side
+				if (byte&0x2)
+				{
+					FDC_SetDrive(0);
+				}
+				if (byte&0x4)
+				{
+					FDC_SetDrive(1);
+				}
+				FDC_SetSide((byte>>3)&0x01);
 				break;
 			default:
 				ASIC_WriteFL1(port,byte,doShowPortStuff);
@@ -617,6 +683,10 @@ void TickKeyboard()
 						0,0,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN};			// Joystick 1
 	static const int keyToJoy_JY[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
 						0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
+	static const int keyToJoy_KBFL1[16]={	0,0,GLFW_KEY_KP_8,GLFW_KEY_KP_2,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_3,GLFW_KEY_KP_1,		// Joystick 2
+						0,0,GLFW_KEY_UP,GLFW_KEY_DOWN,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_RCTRL,GLFW_KEY_RALT};			// Joystick 1
+	static const int keyToJoy_JYFL1[16]={	0,0,GLFW_KEY_KP_8,GLFW_KEY_KP_2,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_3,GLFW_KEY_KP_1,		// Joystick 2
+						0,0,0x1000000A,0x1000000C,0x1000000D,0x1000000B,0x10000001,0x10000002};				// Joystick 1 - Mapped to joysticks (hence special numbers)
 
 	static const int knxKeyToJoy_KB[19]={	0,0,GLFW_KEY_R,GLFW_KEY_E,GLFW_KEY_W,GLFW_KEY_Q,GLFW_KEY_F,GLFW_KEY_D,GLFW_KEY_S,GLFW_KEY_A,GLFW_KEY_Z,GLFW_KEY_X,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_UP,GLFW_KEY_DOWN,GLFW_KEY_C,GLFW_KEY_ENTER,GLFW_KEY_V};
 
@@ -624,6 +694,17 @@ void TickKeyboard()
 	if (JoystickPresent())
 	{
 		keyToJoy=keyToJoy_JY;
+		if (curSystem==ESS_FL1)
+		{
+			keyToJoy=keyToJoy_JYFL1;
+		}
+	}
+	else
+	{
+		if (curSystem==ESS_FL1)
+		{
+			keyToJoy=keyToJoy_KBFL1;
+		}
 	}
 
 	for (a=0;a<19;a++)
@@ -809,13 +890,14 @@ void VECTORS_INIT()
 		case ESS_FL1:
 			// Bit more comlex. RST38 is used to trigger the video interrupt (no idea on the real system, this is simply how the emulator handles it)
 			//Note this is not done via a redirect table, the code is simply inserted at 0x38 ....
-			SetByte(0x40038,0xF3);	// di
+
+/*			SetByte(0x40038,0xF3);	// di
 			SetByte(0x40039,0xF5);	// push af
 			SetByte(0x4003A,0xDB);	// in a,(7)
 			SetByte(0x4003B,0x07);
 			SetByte(0x4003C,0xF1);	// pop af
 			SetByte(0x4003D,0xFB);	// ei
-			SetByte(0x4003E,0xC9);	// ret
+			SetByte(0x4003E,0xC9);	// ret*/
 			break;
 	}
 }

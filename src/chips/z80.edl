@@ -78,6 +78,7 @@ FUNCTION RESET
 	SP<-$FFFF;
 	AF<-$FFFF;
 	PC<-$0;
+	IM<-0;
 }
 
 FUNCTION INTERNAL PushWord word[16]

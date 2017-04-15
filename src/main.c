@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.3 Preview 2"
+#define SLIPSTREAM_VERSION	"0.4 - Flare 1 Built In"
 
 #include <GLFW/glfw3.h>
 
@@ -23,7 +23,7 @@
 #include "memory.h"
 #include "debugger.h"
 
-ESlipstreamSystem curSystem=ESS_MSU;
+ESlipstreamSystem curSystem=ESS_FL1;
 int numClocks;
 int masterClock=0;
 int pause=0;
@@ -37,6 +37,9 @@ int emulateDSP=1;
 int useRemoteDebugger=0;
 
 char lastRomLoaded[1024];
+
+uint8_t dskABuffer[720*1024];
+uint8_t dskBBuffer[720*1024];
 
 #if ENABLE_REMOTE_DEBUG
 
@@ -178,7 +181,7 @@ void SendStatus(int sock)
 			FETCH_REGISTERS8086(tmp2);
 			break;
 		case ESS_FL1:
-			address=GetZ80LinearAddress()&0xFFFFF;
+			address=Z80_PC;//GetZ80LinearAddress()&0xFFFFF;		// disassembly expects address in chip space not linear space
 			sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERSZ80(tmp2);
 			break;
@@ -349,6 +352,60 @@ void SendStatus(int sock)
 		Z80_GetByte(Z80_SP+16+13),
 		Z80_GetByte(Z80_SP+16+14),
 		Z80_GetByte(Z80_SP+16+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[IX %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_IX,
+		Z80_GetByte(Z80_IX+0),
+		Z80_GetByte(Z80_IX+1),
+		Z80_GetByte(Z80_IX+2),
+		Z80_GetByte(Z80_IX+3),
+		Z80_GetByte(Z80_IX+4),
+		Z80_GetByte(Z80_IX+5),
+		Z80_GetByte(Z80_IX+6),
+		Z80_GetByte(Z80_IX+7),
+		Z80_GetByte(Z80_IX+8),
+		Z80_GetByte(Z80_IX+9),
+		Z80_GetByte(Z80_IX+10),
+		Z80_GetByte(Z80_IX+11),
+		Z80_GetByte(Z80_IX+12),
+		Z80_GetByte(Z80_IX+13),
+		Z80_GetByte(Z80_IX+14),
+		Z80_GetByte(Z80_IX+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[IY %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",Z80_IY,
+		Z80_GetByte(Z80_IY+0),
+		Z80_GetByte(Z80_IY+1),
+		Z80_GetByte(Z80_IY+2),
+		Z80_GetByte(Z80_IY+3),
+		Z80_GetByte(Z80_IY+4),
+		Z80_GetByte(Z80_IY+5),
+		Z80_GetByte(Z80_IY+6),
+		Z80_GetByte(Z80_IY+7),
+		Z80_GetByte(Z80_IY+8),
+		Z80_GetByte(Z80_IY+9),
+		Z80_GetByte(Z80_IY+10),
+		Z80_GetByte(Z80_IY+11),
+		Z80_GetByte(Z80_IY+12),
+		Z80_GetByte(Z80_IY+13),
+		Z80_GetByte(Z80_IY+14),
+		Z80_GetByte(Z80_IY+15));
+	strcat(tmp,tmp2);
+	sprintf(tmp2,"[E278 %04X]\t%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",0xe278,
+		Z80_GetByte(0xE278+0),
+		Z80_GetByte(0xE278+1),
+		Z80_GetByte(0xE278+2),
+		Z80_GetByte(0xE278+3),
+		Z80_GetByte(0xE278+4),
+		Z80_GetByte(0xE278+5),
+		Z80_GetByte(0xE278+6),
+		Z80_GetByte(0xE278+7),
+		Z80_GetByte(0xE278+8),
+		Z80_GetByte(0xE278+9),
+		Z80_GetByte(0xE278+10),
+		Z80_GetByte(0xE278+11),
+		Z80_GetByte(0xE278+12),
+		Z80_GetByte(0xE278+13),
+		Z80_GetByte(0xE278+14),
+		Z80_GetByte(0xE278+15));
 	strcat(tmp,tmp2);
 
 	strcat(tmp,"DISEND\n");
@@ -596,6 +653,35 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 	return 0;
 }
 
+int FL1LoadDisk(uint8_t* buffer,const char* fname)					// Load an MSU file which will fill some memory regions and give us our booting point
+{
+	unsigned int expectedSize=0;
+	unsigned int address=0;
+	FILE* inFile = fopen(fname,"rb");
+	fseek(inFile,0,SEEK_END);
+	expectedSize=ftell(inFile);
+	fseek(inFile,0,SEEK_SET);
+
+	while (expectedSize)
+	{
+		uint8_t data;
+
+		// Read a byte
+		if (1!=fread(&data,1,1,inFile))
+		{
+			CONSOLE_OUTPUT("Failed to read from %s\n",fname);
+			return 1;
+		}
+		buffer[address]=data;
+		address++;
+		expectedSize--;
+	}
+
+	fclose(inFile);
+
+	return 0;
+}
+
 int LoadRom(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -703,20 +789,31 @@ void DoCPU8086()
 	STEP();
 }
 
+void GoDebug()
+{
+	extern int doShowDMA;
+	pause=1;
+//	doDebug=1;
+	debugWatchWrites=1;
+	debugWatchReads=1;
+	doShowPortStuff=1;
+//	doDSPDisassemble=1;
+	doShowDMA=1;
+	doShowBlits=1;
+}
+
 void DoCPUZ80()
 {
 #if ENABLE_REMOTE_DEBUG
-	if (((GetZ80LinearAddress()&0xFFFFF)==(0x40000+19680) /*0x4042A*/) && !(Z80_HALTED&1))
+
+//	uint32_t LinearAddress = GetZ80LinearAddress()&0xFFFFF;
+
+
+//	if (((GetZ80LinearAddress()&0xFFFFF)==(/*0x8E*//*0x24b8*/0x94) || (GetZ80LinearAddress()&0xFFFFF)==(0x38)) && !(Z80_HALTED&1))
+
+	if ((Z80_PC==0x3/*0xe7e5*/ /*|| Z80_PC==0x35af*/) && !(Z80_HALTED&1))
 	{
-		//extern int doShowDMA;
-	//	pause=1;
-//		doDebug=1;
-//		debugWatchWrites=1;
-//		debugWatchReads=1;
-//		doShowPortStuff=1;
-//		doDSPDisassemble=1;
-//		doShowDMA=1;
-		//doShowBlits=1;
+		GoDebug();
 		//			numClocks=1;
 	}
 #endif
@@ -782,6 +879,7 @@ void Usage()
 	CONSOLE_OUTPUT("-D [floppy] load [floppy]\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
+	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
@@ -874,6 +972,16 @@ void ParseCommandLine(int argc,char** argv)
 				a+=1;
 				continue;
 			}
+			if (strcmp(argv[a],"-1")==0)
+			{
+				FL1LoadDisk(dskABuffer,"SYSTEM.DSK");
+				FL1LoadDisk(dskBBuffer,"BLANK.DSK");
+
+				LoadBinary("FL1_ROM0_0000.rom",0);
+				LoadBinary("FL1_ROM1_CC00.rom",4*16384);
+				curSystem=ESS_FL1;
+				return;
+			}
 		}
 		else
 		{
@@ -898,6 +1006,9 @@ void ResetHardware()
 	PALETTE_INIT();
 	DSP_RAM_INIT();
 }
+
+void DebugDrawOffScreen();
+uint32_t FL1BLT_Step(uint8_t hold);
 
 int main(int argc,char**argv)
 {
@@ -956,12 +1067,24 @@ int main(int argc,char**argv)
 //		doDebug=1;
 /*		doShowDMA=1;
 		doShowBlits=1;*/
-
 	while (1==1)
 	{
+		uint32_t ttBltDebug;
 		if (!pause)
 		{
-			numClocks+=CPU_STEP(doDebug);
+			ttBltDebug=FL1BLT_Step(0);
+			if (ttBltDebug==0)
+			{
+				numClocks+=CPU_STEP(doDebug);
+			}
+			else
+			{
+				if (ttBltDebug==2)
+				{
+					pause=1;
+				}
+				numClocks+=1;
+			}
 			switch (curSystem)
 			{
 				case ESS_MSU:
@@ -1060,10 +1183,31 @@ int main(int argc,char**argv)
 				}
 				VideoUpdate();
 
+			/*	if (CheckKey(GLFW_KEY_F12))
+				{
+					ClearKey(GLFW_KEY_F12);
+
+					ResetHardware();
+					LoadDisk(dskABuffer,"SYSTEM.DSK");
+					//LoadDisk(dskBBuffer,"BLANK.DSK");
+
+					LoadBinary("FL1_ROM0_0000.rom",0);
+					LoadBinary("FL1_ROM1_CC00.rom",4*16384);
+					curSystem=ESS_FL1;
+					VECTORS_INIT();
+				}*/
 				if (CheckKey(GLFW_KEY_ESCAPE))
 				{
-					ClearKey(GLFW_KEY_ESCAPE);
+					ClearKey(GLFW_KEY_ESCAPE);_
 					break;
+				}
+				if (pause)//CheckKey(GLFW_KEY_F11))
+				{
+					DebugDrawOffScreen();
+				}
+				if (KeyDown(GLFW_KEY_HOME))
+				{
+					pause=0;
 				}
 				if (CheckKey(GLFW_KEY_END))
 				{
