@@ -115,12 +115,12 @@
     <CustomBuild Include="src\chips\z80.edl">
       <Filter>Chips</Filter>
     </CustomBuild>
+    <CustomBuild Include="src\chips\i80386sx.edl">
+      <Filter>Chips</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\chips\flare1Blitter_internal.edl">
-      <Filter>Chips</Filter>
-    </None>
-    <None Include="src\chips\i80386sx.edl">
       <Filter>Chips</Filter>
     </None>
   </ItemGroup>

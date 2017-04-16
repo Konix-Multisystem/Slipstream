@@ -17,5 +17,6 @@ PROPLAY.*
 builds/*
 x64/
 .vs/
+roms/
 heads/
 *.user
