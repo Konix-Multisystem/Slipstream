@@ -109,7 +109,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PreprocessorDefinitions>OS_WINDOWS=1;ENABLE_REMOTE_DEBUG=0;DISABLE_DSP=0;DISABLE_AUDIO=0;ENABLE_DEBUG=0;</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TERMINAL=0;OS_WINDOWS=1;ENABLE_REMOTE_DEBUG=0;DISABLE_DSP=0;DISABLE_AUDIO=0;ENABLE_DEBUG=0;</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>openal32.lib;opengl32.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -117,7 +117,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <PreprocessorDefinitions>OS_WINDOWS=1;ENABLE_REMOTE_DEBUG=0;DISABLE_DSP=0;DISABLE_AUDIO=0;ENABLE_DEBUG=0;</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TERMINAL=0;OS_WINDOWS=1;ENABLE_REMOTE_DEBUG=0;DISABLE_DSP=0;DISABLE_AUDIO=0;ENABLE_DEBUG=0;</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>openal32.lib;opengl32.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>

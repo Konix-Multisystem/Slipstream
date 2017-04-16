@@ -63,18 +63,21 @@ void Z80_SetByte(uint16_t addr,uint8_t byte)
 	switch (addr&0xC000)
 	{
 		case 0x0000:
-			return SetByte(ASIC_BANK0+(addr&0x3FFF),byte);
+			SetByte(ASIC_BANK0+(addr&0x3FFF),byte);
+			return;
 
 		case 0x4000:
-			return SetByte(ASIC_BANK1+(addr&0x3FFF),byte);
+			SetByte(ASIC_BANK1+(addr&0x3FFF),byte);
+			return;
 
 		case 0x8000:
-			return SetByte(ASIC_BANK2+(addr&0x3FFF),byte);
+			SetByte(ASIC_BANK2+(addr&0x3FFF),byte);
+			return;
 		
 		case 0xC000:
 			break;
 	}
-	return SetByte(ASIC_BANK3+(addr&0x3FFF),byte);
+	SetByte(ASIC_BANK3+(addr&0x3FFF),byte);
 }
 
 uint8_t Z80_GetPort(uint16_t addr)
