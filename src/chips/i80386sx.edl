@@ -1804,7 +1804,7 @@ INSTRUCTION	"PUSHA"			%01100000
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "PUSHA long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 
 	CALL PushWord(EAX);
@@ -1824,7 +1824,7 @@ INSTRUCTION	"POPA"			%01100001
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "POPA long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 	CALL PopWord()->EDI[0..15];
 	CALL PopWord()->ESI[0..15];
@@ -2287,7 +2287,7 @@ INSTRUCTION	"CBW"			%10011000
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "CBW long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 	$0000++(EAX[0..7])->EAX[0..15];
 	2+CYCLES->CYCLES;
@@ -2300,7 +2300,7 @@ INSTRUCTION	"CWD"			%10011001
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "CWD long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 
 	TMP<-$00000000++(EAX[0..15]);
@@ -2399,7 +2399,7 @@ INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte[1]
 			IF oSize|aSize
 			{
 				DEBUG_TRACE "oSize|aSize MOVS";
-				CALL missing(0);
+				CALL unimplemented(0);
 			}
 			DECLARE TMP[16];
 			CALL FetchWord(SegDS,DS,ESI)->TMP;
@@ -4124,7 +4124,7 @@ INSTRUCTION	TABLE_SOP_MOD	"NEG #MODnnnRM#"		wordOp[1]:mod[2]:%011:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "NEG 32bit mode?";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
@@ -4212,7 +4212,7 @@ INSTRUCTION	TABLE_SOP_MOD	"NOT #MODnnnRM#"		wordOp[1]:mod[2]:%010:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "NOT 32bit mode?";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	CALL CalcEffectiveAddress(mod,rm,13)->SEGEA;
@@ -4288,7 +4288,7 @@ INSTRUCTION	TABLE_OP_MOD	"JMP #MODnnnRM#"	mod[2]:%100:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "JMP 32bit mode?";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	CALL CalcEffectiveAddress(mod,rm,7)->SEGEA;
@@ -4335,7 +4335,7 @@ INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "INC/DEC 32bit mode?";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
