@@ -1180,7 +1180,7 @@ int main(int argc,char**argv)
 			}
 #endif
 			{
-				SetByte(0x010022,5);		// Infinite lives LN2
+				//SetByte(0x010022,5);		// Infinite lives LN2
 				TickKeyboard();
 				if (JoystickPresent())
 				{

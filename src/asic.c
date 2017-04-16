@@ -637,7 +637,7 @@ void TickBlitterFL1()
 		ASIC_BLTPC++;
 
 
-			CONSOLE_OUTPUT("CMD %02X  (LINE -%s)(LT1 -%s)(LT0 -%s)(DSTUP -%s)(SRCUP -%s)(PARD - %s)(COLST - %s)(RUN - %s) | ",
+/*			CONSOLE_OUTPUT("CMD %02X  (LINE -%s)(LT1 -%s)(LT0 -%s)(DSTUP -%s)(SRCUP -%s)(PARD - %s)(COLST - %s)(RUN - %s) | ",
 				BLT_OUTER_CMD,
 				(BLT_OUTER_CMD&0x80)?"1":"0",
 				(BLT_OUTER_CMD&0x40)?"1":"0",
@@ -669,7 +669,7 @@ void TickBlitterFL1()
 			CONSOLE_OUTPUT("Inner Count : %02X : %02X(%d) | ",BLT_INNER_CNT,BLT_INNER_CNT+((BLT_OUTER_MODE&0x02)<<7),BLT_INNER_CNT+((BLT_OUTER_MODE&0x02)<<7));
 			CONSOLE_OUTPUT("Step : %02X.%d | ",BLT_INNER_STEP,BLT_OUTER_MODE&1);
 			CONSOLE_OUTPUT("Pattern : %02X\n",BLT_INNER_PAT);
-
+			*/
 
 #if ENABLE_DEBUG_BLITTER
 		if (doShowBlits)
