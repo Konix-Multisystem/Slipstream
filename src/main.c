@@ -23,7 +23,7 @@
 #include "memory.h"
 #include "debugger.h"
 
-ESlipstreamSystem curSystem=ESS_FL1;
+ESlipstreamSystem curSystem=ESS_MSU;
 int numClocks;
 int masterClock=0;
 int pause=0;
@@ -1064,8 +1064,8 @@ int CPU_STEP(int doDebug)
 		switch (curSystem)
 		{
 			case ESS_MSU:
-				DoCPU80386sx();
-				return MSU_CYCLES;			// Assuming clock speed same as hardware chips
+				DoCPU8086();// DoCPU80386sx();
+				return CYCLES;// return MSU_CYCLES;			// Assuming clock speed same as hardware chips
 			case ESS_P88:
 			case ESS_P89:
 				DoCPU8086();
