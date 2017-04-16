@@ -23,7 +23,7 @@ unsigned char keyBuffer[KEYBUF_LEN]={0x0,0x00,0x15,0x15,0x00};
 
 int KeyDown(int key)
 {
-	return keyArray[key*3+1]==GLFW_PRESS;
+	return keyArray[key*3+1]!=GLFW_RELEASE;
 }
 
 int CheckKey(int key)
@@ -78,7 +78,7 @@ void kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )		/*
 {
 	keyArray[key*3 + 0]=keyArray[key*3+1];
 	keyArray[key*3 + 1]=action;
-	keyArray[key*3 + 2]|=(keyArray[key*3+0]==GLFW_RELEASE)&&(keyArray[key*3+1]==GLFW_PRESS);
+	keyArray[key*3 + 2]|=(keyArray[key*3+0]==GLFW_RELEASE)&&(keyArray[key*3+1]!=GLFW_RELEASE);
 
 	unsigned char scanCodeNum=FindCode(key);
 
