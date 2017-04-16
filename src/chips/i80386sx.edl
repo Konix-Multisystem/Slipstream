@@ -15,7 +15,7 @@
 #		- Mutliple interrupts are not guarded by priority - Konix system currently only implements video interrupt anyway
 #		- Needs verifying!
 
-C_FUNC_EXTERN	[32]	missing			[32];
+C_FUNC_EXTERN	[32]	unimplemented			[32];
 
 
 C_FUNC_EXTERN	[8]	GetByte			[32];
@@ -377,7 +377,7 @@ FUNCTION INTERNAL	SetSegByDescriptor	segReg[3],seg[16],idescriptor[64]
 		IF Use
 		{
 			DEBUG_TRACE "CS load from 32 bit segment - TODO";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 	}
 }
@@ -394,7 +394,7 @@ FUNCTION INTERNAL 		Exception			vector[8]
 		IF type!=6
 		{
 			DEBUG_TRACE "Non I16 interrupt descriptor!!";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 
 		oHi<-offsHi;
@@ -742,7 +742,7 @@ FUNCTION INTERNAL	proceed[1]	DoRepeat
 		IF aSize
 		{
 			DEBUG_TRACE "REPEAT aSize";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~aSize
 		{
@@ -1039,7 +1039,7 @@ FUNCTION INTERNAL	SetSegmentRegister		reg[3],val[16]		## Because we can't look u
 	IF reg==%001
 	{
 		DEBUG_TRACE "Illegal SetRegCS";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 	IF reg==%010
 	{
@@ -1064,7 +1064,7 @@ FUNCTION INTERNAL	SetSegmentRegister		reg[3],val[16]		## Because we can't look u
 	IF reg>%101
 	{
 		DEBUG_TRACE "SetSeg ",reg;
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 	IF CR_PE
 	{
@@ -1093,7 +1093,7 @@ FUNCTION INTERNAL	val[16]	GetSegmentRegister		reg[3]		## Because we can't look u
 	IF reg>%011
 	{
 		DEBUG_TRACE "GetSeg ",reg;
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 }
 
@@ -1450,7 +1450,7 @@ FUNCTION INTERNAL	EAS[51]		CalcEffectiveAddress32	eamod[2],earm[3],addcyc[8]		# 
 	IF earm==%100		## SIB
 	{
 		DEBUG_TRACE "SIB required";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	IF eamod==%00
@@ -1796,7 +1796,7 @@ INSTRUCTION	"XCHG AX,%M0"		%10010:reg[3]
 	IF oSize
 	{
 		DEBUG_TRACE "xchg long";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 	IF ~oSize
 	{
@@ -1815,7 +1815,7 @@ INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "IN long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 
 	IF portVariable
@@ -1845,7 +1845,7 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "OUT long";
-		CALL missing(0);	
+		CALL unimplemented(0);	
 	}
 
 	IF portVariable
@@ -1929,7 +1929,7 @@ INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
 	{
 		CALL GetImmediateLong()->Addr;
 		DEBUG_TRACE "huh";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 	IF ~aSize
 	{
@@ -1940,7 +1940,7 @@ INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
 		IF oSize 
 		{
 			DEBUG_TRACE "MOV R,offs32";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		CALL FetchWord(SegDS,DS,Addr)->EAX[0..15];
 	}
@@ -1968,7 +1968,7 @@ INSTRUCTION	"MOV #ADDR#,%M0"	%1010001:accword
 		IF oSize 
 		{
 			DEBUG_TRACE "MOV offs32,R";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		CALL StoreWord(SegDS,DS,Addr,EAX[0..15]);
 	}
@@ -1986,7 +1986,7 @@ INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
 		IF oSize
 		{
 			DEBUG_TRACE "32 bit mode todo --";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~oSize
 		{
@@ -2033,7 +2033,7 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 		IF oSize
 		{
 			DEBUG_TRACE "32 bit mode todo --";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~oSize
 		{
@@ -2080,7 +2080,7 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 		IF oSize
 		{
 			DEBUG_TRACE "CMP lng";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~oSize
 		{
@@ -2339,7 +2339,7 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 			IF oSize
 			{
 				DEBUG_TRACE "oSize LODS";
-				CALL missing(0);
+				CALL unimplemented(0);
 			}
 			IF aSize
 			{
@@ -2401,7 +2401,7 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 			IF oSize
 			{
 				DEBUG_TRACE "oSize STOS";
-				CALL missing(0);
+				CALL unimplemented(0);
 			}
 			IF aSize
 			{
@@ -2532,7 +2532,7 @@ INSTRUCTION	"CALL #16DISP#"		%11101000
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "CALL long mode (16disp)";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	disp<-CALL GetImmediateWord();
@@ -2546,7 +2546,7 @@ INSTRUCTION	"CALL #FAR#"		%10011010
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "CALL FAR long mode";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	DECLARE offset[16];
@@ -2572,7 +2572,7 @@ INSTRUCTION	"JMP #16DISP#"		%11101001
 	IF CR_PE
 	{
 		DEBUG_TRACE "TODO JMP DISP16 PE MODE";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 }
 
@@ -2784,7 +2784,7 @@ INSTRUCTION	TABLE_MOV_MOD_IMM	""		wordOp[1]:mod[2]:%000:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "MOV_MOD_IMM lng";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	IF wordOp
@@ -3264,7 +3264,7 @@ INSTRUCTION	TABLE_XCHG_MOD_REG	""	wordOp[1]:mod[2]:reg[3]:rm[3]
 		IF oSize
 		{
 			DEBUG_TRACE "XCHG MOD long";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~oSize
 		{
@@ -3341,7 +3341,7 @@ INSTRUCTION	TABLE_OP_MOD_IMM	"%M0 #MODnnnRM#,#IMMSW#"		signOp[1]:wordOp[1]:mod[2
 			IF ~signOp
 			{
 				DEBUG_TRACE "non sign extended longword... how?";
-				CALL missing(0);
+				CALL unimplemented(0);
 #				CALL GetImmediateWord()->IMML;
 			}
 
@@ -3921,7 +3921,7 @@ INSTRUCTION	TABLE_SH1_MOD	"%M0 #MODnnnRM#,1"		wordOp[1]:mod[2]:shift1ModOp:rm[3]
 		IF oSize
 		{
 			DEBUG_TRACE "SH1 long";
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 		IF ~oSize
 		{
@@ -4155,7 +4155,7 @@ INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
 	IF oSize | aSize
 	{
 		DEBUG_TRACE "CALL 32bit mode?";
-		CALL missing(0);
+		CALL unimplemented(0);
 	}
 
 	CALL CalcEffectiveAddress(mod,rm,5)->SEGEA;
@@ -4242,7 +4242,7 @@ FUNCTION INTERNAL 	Do0F01	mod[2],reg[3],rm[3]
 		IF (reg!=%010) & (reg!=%011)
 		{
 			DEBUG_TRACE "TODO 0F 01 ",reg;
-			CALL missing(0);
+			CALL unimplemented(0);
 		}
 	}
 	
@@ -4273,7 +4273,7 @@ INSTRUCTION	FTABLE	"MOV CRx"	%00100010
 	IF reg>=5
 	{
 		DEBUG_TRACE "Illegal CR register",reg;
-		CALL missing(0);
+		CALL unimplemented(0);
 	}	
 
 	4+CYCLES->CYCLES;

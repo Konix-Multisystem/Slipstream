@@ -126,6 +126,7 @@
   <ItemGroup>
     <ClCompile Include="src\asic.c" />
     <ClCompile Include="src\debugger.c" />
+    <ClCompile Include="src\disasm.c" />
     <ClCompile Include="src\dsp.c" />
     <ClCompile Include="src\fdisk.c" />
     <ClCompile Include="src\host\audio.c" />
@@ -139,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="src\asic.h" />
     <ClInclude Include="src\debugger.h" />
+    <ClInclude Include="src\disasm.h" />
     <ClInclude Include="src\dsp.h" />
     <ClInclude Include="src\fdisk.h" />
     <ClInclude Include="src\font.h" />
@@ -242,6 +244,15 @@
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">src/chips/flare1blitter_internal.edl</AdditionalInputs>
     </CustomBuild>
     <None Include="src\chips\flare1Blitter_internal.edl" />
+    <CustomBuild Include="src\chips\i80386sx.edl">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\NewWork\EDL\x64\Release\EDL.exe -t -o $(OutDir)%(Filename).obj -O0 -s MSU_ %(FullPath)</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">E:\NewWork\EDL\x64\Release\EDL.exe -t -o $(OutDir)%(Filename).obj -O0 -s MSU_ %(FullPath)</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling EDL %(Filename)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling EDL %(Filename)</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename).obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename).obj</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

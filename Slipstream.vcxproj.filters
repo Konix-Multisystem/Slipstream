@@ -51,6 +51,9 @@
     <ClCompile Include="src\fdisk.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\disasm.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\asic.h">
@@ -92,6 +95,9 @@
     <ClInclude Include="src\fdisk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\disasm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="src\chips\flare1Blitter.edl">
@@ -112,6 +118,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\chips\flare1Blitter_internal.edl">
+      <Filter>Chips</Filter>
+    </None>
+    <None Include="src\chips\i80386sx.edl">
       <Filter>Chips</Filter>
     </None>
   </ItemGroup>

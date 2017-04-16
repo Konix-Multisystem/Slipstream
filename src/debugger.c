@@ -1623,7 +1623,7 @@ uint32_t MSU_missing(uint32_t opcode)
 	exit(-1);
 }
 
-uint32_t MSU_missing1(uint32_t opcode)
+uint32_t MSU_unimplemented(uint32_t opcode)
 {
 	return MSU_missing(opcode);
 }

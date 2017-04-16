@@ -700,12 +700,12 @@ uint8_t MSU_GetPortB(uint16_t port)
 
 void MSU_SetPortW(uint16_t port,uint16_t word)
 {
-	return SetPortW(port,word);
+	SetPortW(port,word);
 }
 
 void MSU_SetPortB(uint16_t port,uint8_t byte)
 {
-	return SetPortB(port,byte);
+	SetPortB(port,byte);
 }
 
 uint32_t joy89state;
