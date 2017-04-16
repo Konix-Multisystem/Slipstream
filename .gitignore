@@ -3,6 +3,9 @@
 *~
 *.exe
 *.bak
+*.DSK
+*.rom
+*.bin
 *.MSU
 *.P88
 *.DBG
