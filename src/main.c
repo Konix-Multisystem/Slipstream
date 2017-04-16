@@ -922,16 +922,23 @@ void DoCPU8086()
 void DoCPU80386sx()
 {
 #if ENABLE_DEBUG
-/*	if ((MSU_GETPHYSICAL_EIP()&0xFFFFF)==0xF0100)
+	/*if ((MSU_GETPHYSICAL_EIP()&0xFFFFF)==0x78000)
 	{
 		doDebug=1;
 		debugWatchWrites=1;
 		debugWatchReads=1;
 		doShowPortStuff=1;
 	}*/
+//	{
+//		FILE *dump = fopen("e:\\newwork\\msuUpper.bin", "wb");
+//		fwrite(ROM + 65536, 1, 65536, dump);
+//		fclose(dump);
+//	}
+
 	if (doDebug)
 	{
 		Disassemble80386(MSU_GETPHYSICAL_EIP(),1);
+ 		int vov = 0;
 	}
 #endif
 
@@ -995,18 +1002,20 @@ void DoCPU80386sx()
 
 			if (strcmp("GENERAL.ITM",(const char*)&RAM[dirAddr+lastEntry*20])==0)
 			{
-				doDebug=1;
+				//doDebug=1;
 			}
 
 		}
 	}
 	if (MSU_GETPHYSICAL_EIP()==0xE0004)
 	{
-		CONSOLE_OUTPUT("read_kmssjoy called\n");
+		MSU_EAX = (MSU_EAX & 0xFFFFFF00 ) | ((joyPadState^0xFF)&0xFF);// ^ 0xFFFF;
+		//CONSOLE_OUTPUT("read_kmssjoy called\n");
 	}
 	if (MSU_GETPHYSICAL_EIP()==0xE000C)
 	{
-		CONSOLE_OUTPUT("read_keypad called\n");
+		MSU_EAX = (MSU_EAX & 0xFFFF0000) | (numPadState ^ 0xFFFF);
+		//CONSOLE_OUTPUT("read_keypad called\n");
 	}
 	if (MSU_GETPHYSICAL_EIP()==0x0D000)
 	{
@@ -1448,6 +1457,10 @@ int main(int argc,char**argv)
 				{
 					DebugDrawOffScreen();
 				}
+/*				if (KeyDown(GLFW_KEY_F4))
+				{
+					doDebug = 1;
+				}*/
 				if (KeyDown(GLFW_KEY_HOME))
 				{
 					pause=0;

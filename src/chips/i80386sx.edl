@@ -41,15 +41,15 @@ DECLARE CYCLES[16];
 DECLARE HALT[1];
 
 ############ Programmer registers
-DECLARE EAX[32];
-DECLARE EBX[32];
-DECLARE ECX[32];
-DECLARE	EDX[32];
+DECLARE EAX[32]	ALIAS	uEAX[16]:AX[16];
+DECLARE EBX[32]	ALIAS	uEBX[16]:BX[16];
+DECLARE ECX[32]	ALIAS	uECX[16]:CX[16];
+DECLARE	EDX[32]	ALIAS	uEDX[16]:DX[16];
 
-DECLARE	ESP[32];
-DECLARE	EBP[32];
-DECLARE	ESI[32];
-DECLARE	EDI[32];
+DECLARE	ESP[32]	ALIAS	uESP[16]:SP[16];
+DECLARE	EBP[32]	ALIAS	uEBP[16]:BP[16];
+DECLARE	ESI[32]	ALIAS	uESI[16]:SI[16];
+DECLARE	EDI[32]	ALIAS	uEDI[16]:DI[16];
 
 DECLARE	CS[16];
 DECLARE	DS[16];
@@ -563,14 +563,14 @@ MAPPING	flags[4]
 
 MAPPING	regw[3]
 {
-	%000	"AX"	EAX[0..15];
-	%001	"CX"	ECX[0..15];
-	%010	"DX"	EDX[0..15];
-	%011	"BX"	EBX[0..15];
-	%100	"SP"	ESP[0..15];
-	%101	"BP"	EBP[0..15];
-	%110	"SI"	ESI[0..15];
-	%111	"DI"	EDI[0..15];
+	%000	"AX"	AX;
+	%001	"CX"	CX;
+	%010	"DX"	DX;
+	%011	"BX"	BX;
+	%100	"SP"	SP;
+	%101	"BP"	BP;
+	%110	"SI"	SI;
+	%111	"DI"	DI;
 }
 
 #MAPPING	regwop2[3]
@@ -1232,33 +1232,47 @@ FUNCTION INTERNAL	res[8]		NegByte			val[8]
 	res<-CALL SubByte($00,val,0);
 }
 
-#FUNCTION INTERNAL			IMulWord		src[16]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[32];
-#	DECLARE rhs[32];
-#	DECLARE result[32]	ALIAS	upper[16]:lower[16];
-#	lhs<-$00000000++AX;
-#	rhs<-$00000000++src;
-#	result<-lhs * rhs;
-#	C<-~((upper==$0000) | (upper==$FFFF));
-#	O<-C;
-#	DX<-upper;
-#	AX<-lower;
-#}
-#
-#FUNCTION INTERNAL			IMulByte		src[8]					# No return, assigns value as intended by instruction implicitly
-#{
-#	DECLARE lhs[16];
-#	DECLARE rhs[16];
-#	DECLARE result[16]	ALIAS	upper[8]:lower[8];
-#	lhs<-$0000++AL;
-#	rhs<-$0000++src;
-#	result<-lhs * rhs;
-#	C<-~((upper==$00) | (upper==$FF));
-#	O<-C;
-#	
-#	AX<-result;
-#}
+FUNCTION INTERNAL			IMulLong		src[32]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[64];
+	DECLARE rhs[64];
+	DECLARE result[64]	ALIAS	upper[32]:lower[32];
+	lhs<-$0000000000000000++EAX;
+	rhs<-$0000000000000000++src;
+	result<-lhs * rhs;
+	CF<-~((upper==$00000000) | (upper==$FFFFFFFF));
+	OF<-CF;
+	upper->EDX;
+	lower->EAX;
+}
+
+FUNCTION INTERNAL			IMulWord		src[16]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[32];
+	DECLARE rhs[32];
+	DECLARE result[32]	ALIAS	upper[16]:lower[16];
+	lhs<-$00000000++(EAX[0..15]);
+	rhs<-$00000000++src;
+	result<-lhs * rhs;
+	CF<-~((upper==$0000) | (upper==$FFFF));
+	OF<-CF;
+	upper->EDX[0..15];
+	lower->EAX[0..15];
+}
+
+FUNCTION INTERNAL			IMulByte		src[8]					# No return, assigns value as intended by instruction implicitly
+{
+	DECLARE lhs[16];
+	DECLARE rhs[16];
+	DECLARE result[16]	ALIAS	upper[8]:lower[8];
+	lhs<-$0000++(EAX[0..7]);
+	rhs<-$0000++src;
+	result<-lhs * rhs;
+	CF<-~((upper==$00) | (upper==$FF));
+	OF<-CF;
+	
+	result->EAX[0..15];
+}
 
 FUNCTION INTERNAL			MulLong			src[32]					# No return, assigns value as intended by instruction implicitly
 {
@@ -2982,33 +2996,33 @@ INSTRUCTION	TABLE_MOV_MOD_SREG	""		direcOp[1]:mod[2]:sreg[3]:rm[3]
 }
 
 ##### MOD reg R/M instructions (2 operand)
-#
-#MAPPING leaMod[2]
-#{
-#	%00	""	%00;
-#	%01	""	%01;
-#	%10	""	%10;
-#}
-#
-#INSTRUCTION	"LEA #MODleaRM#"			%10001101
-#{
-#	#MEM to Register - MOD=11 not allowed
-#	# MOD(00,01,10) reg R/M
-#	DECLARE IR[8];
-#
-#	CALL GetImmediateByte()->IR;
-#
-#	EXECUTE TABLE_LEA IR;
-#}
-#
-#INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
-#	EFF->regw;
-#}
-#
+
+MAPPING leaMod[2]
+{
+	%00	""	%00;
+	%01	""	%01;
+	%10	""	%10;
+}
+
+INSTRUCTION	"LEA #MODleaRM#"			%10001101
+{
+	#MEM to Register - MOD=11 not allowed
+	# MOD(00,01,10) reg R/M
+	DECLARE IR[8];
+
+	CALL GetImmediateByte()->IR;
+
+	EXECUTE TABLE_LEA IR;
+}
+
+INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
+	EFF->regw;
+}
+
 #MAPPING LDESMap[1]
 #{
 #	%0	"ES"	%0;
@@ -4188,22 +4202,29 @@ INSTRUCTION	TABLE_SOP_MOD	"MUL #MODnnnRM#"		wordOp[1]:mod[2]:%100:rm[3]
 	}
 }
 
-#INSTRUCTION	TABLE_SOP_MOD	"IMUL #MODnnnRM#"		wordOp[1]:mod[2]:%101:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
-#	80+(wordOp*48)+CYCLES->CYCLES;										# 80-98 (128-154) cycles
-#
-#	IF wordOp
-#	{
-#		CALL IMulWord(CALL GetEffectiveAddressWord(mod,rm,SEG,EFF));
-#	}
-#	IF ~wordOp
-#	{
-#		CALL IMulByte(CALL GetEffectiveAddressByte(mod,rm,SEG,EFF));
-#	}
-#}
+INSTRUCTION	TABLE_SOP_MOD	"IMUL #MODnnnRM#"		wordOp[1]:mod[2]:%101:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+	80+(wordOp*48)+CYCLES->CYCLES;										# 80-98 (128-154) cycles
+
+	IF wordOp
+	{
+		IF oSize
+		{
+			CALL IMulLong(CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF));
+		}
+		IF ~oSize
+		{
+			CALL IMulWord(CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
+		}
+	}
+	IF ~wordOp
+	{
+		CALL IMulByte(CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF));
+	}
+}
 
 INSTRUCTION	TABLE_SOP_MOD	"NOT #MODnnnRM#"		wordOp[1]:mod[2]:%010:rm[3]
 {
@@ -4314,18 +4335,24 @@ INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
 }
 
-#INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
-#{
-#	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
-#	37+CYCLES->CYCLES;
-#
-#	CALL PushWord(CS);
-#	CALL PushWord(IP);
-#	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->IP;
-#	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF+2)->CS;
-#}
+INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "CALL FAR 32bit mode?";
+		CALL unimplemented(0);
+	}
+
+	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
+	37+CYCLES->CYCLES;
+
+	CALL PushWord(CS);
+	CALL PushWord(EIP);
+	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
+	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
+}
 
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
 {

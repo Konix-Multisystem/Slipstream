@@ -23,6 +23,13 @@ uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
 
+#define exit brkExit
+
+void brkExit(int dnc)
+{
+	__debugbreak();
+}
+
 uint8_t PeekByte(uint32_t addr)
 {
 #if ENABLE_DEBUG
@@ -156,7 +163,8 @@ void DebugWPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN %04X- TODO\n",port);
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 			break;
@@ -255,7 +263,8 @@ void DebugWPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 
@@ -361,7 +370,8 @@ void DebugWPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 			break;
@@ -526,7 +536,8 @@ void DebugRPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 
@@ -573,7 +584,8 @@ void DebugRPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 
@@ -596,7 +608,8 @@ void DebugRPort(uint16_t port)
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
-					exit(-1);
+					if (!disable_exit)
+						exit(-1);
 					break;
 			}
 			break;
@@ -1362,7 +1375,8 @@ int Disassemble8086(unsigned int address,int registers)
 		}
 		CONSOLE_OUTPUT("\n");
 		DUMP_REGISTERS8086();
-		exit(-1);
+		if (!disable_exit)
+			exit(-1);
 	}
 
 	if (registers)
@@ -1420,7 +1434,8 @@ int Disassemble80386(unsigned int address,int registers)
 		}
 		CONSOLE_OUTPUT("\n");
 		DUMP_REGISTERS80386();
-		exit(-1);
+		if (!disable_exit)
+			exit(-1);
 	}
 
 	if (registers)
@@ -1602,7 +1617,8 @@ int DoDisassembleZ80(unsigned int address,int registers,char* tmp)
 			CONSOLE_OUTPUT("%02X ",PeekByteZ80(address+a));
 		}
 		CONSOLE_OUTPUT("\n");
-		exit(-1);
+		if (!disable_exit)
+			exit(-1);
 	}
 
 	if (registers)
@@ -1662,7 +1678,9 @@ uint32_t missing(uint32_t opcode)
 		CONSOLE_OUTPUT("%02X ",PeekByte(SEGTOPHYS(CS,IP)+a-2));
 	}
 	CONSOLE_OUTPUT("\n");
-	exit(-1);
+	if (!disable_exit)
+		exit(-1);
+	return 0;
 }
 
 uint32_t MSU_missing(uint32_t opcode)
@@ -1685,7 +1703,9 @@ uint32_t MSU_missing(uint32_t opcode)
 		CONSOLE_OUTPUT("%02X ",PeekByte(MSU_GETPHYSICAL_EIP()+a-2));
 	}
 	CONSOLE_OUTPUT("\n");
-	exit(-1);
+	if (!disable_exit)
+		exit(-1);
+	return 0;
 }
 
 uint32_t MSU_unimplemented(uint32_t opcode)
