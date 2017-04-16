@@ -576,7 +576,7 @@ uint32_t FL1BLT_Step(uint8_t hold);
 
 void TickBlitterFL1()
 {
-#if 1
+#if 0
 
 /*	while (FL1BLT_Step(0))
 	{

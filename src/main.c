@@ -891,7 +891,8 @@ void ParseCommandLine(int argc,char** argv)
 
 	if (argc<2)
 	{
-		return Usage();
+		Usage();
+		return;
 	}
 
 	for (a=1;a<argc;a++)
@@ -936,7 +937,8 @@ void ParseCommandLine(int argc,char** argv)
 				}
 				else
 				{
-					return Usage();
+					Usage();
+					return;
 				}
 				a+=2;
 				continue;
@@ -953,7 +955,8 @@ void ParseCommandLine(int argc,char** argv)
 				}
 				else
 				{
-					return Usage();
+					Usage();
+					return;
 				}
 				a+=1;
 				continue;
@@ -967,7 +970,8 @@ void ParseCommandLine(int argc,char** argv)
 				}
 				else
 				{
-					return Usage();
+					Usage();
+					return;
 				}
 				a+=1;
 				continue;
@@ -1072,7 +1076,8 @@ int main(int argc,char**argv)
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
-			ttBltDebug=FL1BLT_Step(0);
+			numClocks+=CPU_STEP(doDebug);
+/*			ttBltDebug=FL1BLT_Step(0);
 			if (ttBltDebug==0)
 			{
 				numClocks+=CPU_STEP(doDebug);
@@ -1081,10 +1086,10 @@ int main(int argc,char**argv)
 			{
 				if (ttBltDebug==2)
 				{
-					pause=1;
+//					pause=1;
 				}
 				numClocks+=1;
-			}
+			}*/
 			switch (curSystem)
 			{
 				case ESS_MSU:
@@ -1198,7 +1203,7 @@ int main(int argc,char**argv)
 				}*/
 				if (CheckKey(GLFW_KEY_ESCAPE))
 				{
-					ClearKey(GLFW_KEY_ESCAPE);_
+					ClearKey(GLFW_KEY_ESCAPE);
 					break;
 				}
 				if (pause)//CheckKey(GLFW_KEY_F11))

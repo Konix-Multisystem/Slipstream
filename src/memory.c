@@ -684,7 +684,7 @@ void TickKeyboard()
 	static const int keyToJoy_JY[16]={	0,0,GLFW_KEY_KP_1,GLFW_KEY_KP_3,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_8,GLFW_KEY_KP_2,		// Joystick 2
 						0,0,0x10000002,0x10000001,0x1000000D,0x1000000B,0x1000000A,0x1000000C};				// Joystick 1 - Mapped to joysticks (hence special numbers)
 	static const int keyToJoy_KBFL1[16]={	0,0,GLFW_KEY_KP_8,GLFW_KEY_KP_2,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_3,GLFW_KEY_KP_1,		// Joystick 2
-						0,0,GLFW_KEY_UP,GLFW_KEY_DOWN,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_RCTRL,GLFW_KEY_RALT};			// Joystick 1
+						0,0,GLFW_KEY_UP,GLFW_KEY_DOWN,GLFW_KEY_LEFT,GLFW_KEY_RIGHT,GLFW_KEY_RIGHT_CONTROL,GLFW_KEY_RIGHT_ALT};			// Joystick 1
 	static const int keyToJoy_JYFL1[16]={	0,0,GLFW_KEY_KP_8,GLFW_KEY_KP_2,GLFW_KEY_KP_4,GLFW_KEY_KP_6,GLFW_KEY_KP_3,GLFW_KEY_KP_1,		// Joystick 2
 						0,0,0x1000000A,0x1000000C,0x1000000D,0x1000000B,0x10000001,0x10000002};				// Joystick 1 - Mapped to joysticks (hence special numbers)
 

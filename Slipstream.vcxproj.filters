@@ -48,6 +48,9 @@
     <ClCompile Include="src\host\video.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\fdisk.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\asic.h">
@@ -86,18 +89,29 @@
     <ClInclude Include="src\host\GL\glext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\fdisk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\chips\flare1DSP.edl">
+    <CustomBuild Include="src\chips\flare1Blitter.edl">
       <Filter>Chips</Filter>
-    </None>
-    <None Include="src\chips\i8086.edl">
+    </CustomBuild>
+    <CustomBuild Include="src\chips\flare1DSP.edl">
       <Filter>Chips</Filter>
-    </None>
-    <None Include="src\chips\slipDSP.edl">
+    </CustomBuild>
+    <CustomBuild Include="src\chips\i8086.edl">
       <Filter>Chips</Filter>
-    </None>
-    <None Include="src\chips\z80.edl">
+    </CustomBuild>
+    <CustomBuild Include="src\chips\slipDSP.edl">
+      <Filter>Chips</Filter>
+    </CustomBuild>
+    <CustomBuild Include="src\chips\z80.edl">
+      <Filter>Chips</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\chips\flare1Blitter_internal.edl">
       <Filter>Chips</Filter>
     </None>
   </ItemGroup>

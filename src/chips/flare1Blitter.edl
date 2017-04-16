@@ -16,10 +16,10 @@ FUNCTION cycles[32]	Step	hold[8]
 		{
 			cycles<-1;
 		}
-		IF Internal PIN_DEBUG
-		{
-			cycles<-2;
-		}
+#		IF Internal PIN_DEBUG
+#		{
+#			cycles<-2;
+#		}
 #		IF (Internal CMD & 1)==0
 #		{
 #			cycles<-0;
