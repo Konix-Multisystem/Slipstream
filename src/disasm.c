@@ -137,6 +137,7 @@ enum OperandMode
 	OM_Precision66,				// (S or D)Precision is decided by 0x66 prefix
 	OM_Precision66F3F2,			// Precision is decided by 0x66,0xF3,0xF2 prefix  (PS/PD/SS/SD)
 	OM_Cd,					// reg field is control register
+	OM_Dd,					// reg field is debug register
 	OM_Eb,					// byte Memory from MODRM
 	OM_Ep,					// FAR Ptr
 	OM_Ev,					// 16/32/64 Memory from MODRM
@@ -197,9 +198,10 @@ enum OperandMode
 	OM_Grp3_1,				// Grp3_1 from MODRM
 	OM_Grp4,				// Grp4 from MODRM
 	OM_Grp5,				// Grp5 from MODRM
-	OM_Grp7,				// Grp5 from MODRM
+	OM_Grp7,				// Grp7 from MODRM
 	OM_Grp11_0,				// Grp11_0 from MODRM
 	OM_Grp11_1,				// Grp11_1 from MODRM
+	OM_Grp12,				// Grp12 from MODRM
 	OM_WDEBW,				// 32bit - CWDE / 16bit CBW
 	OM_DQWD,				// 32bit - CDQ / 16bit CWD
 	OM_XLAT,				// BYTE PTR DS:[EBX]
@@ -555,7 +557,7 @@ const char* grp7Mnemonics[8]=	{
 					"SIDT",
 					"LGDT",
 					"LIDT",
-					"",
+					"SMSW",
 					"",
 					"",
 					""
@@ -566,7 +568,7 @@ Table grp7[8]=	{
 				{ 1, OF_None , { OM_Illegal } },
 				{ 2, OF_None , { OM_Mf, OM_NoOperands } },
 				{ 3, OF_None , { OM_Mf, OM_NoOperands } },
-				{ 4, OF_None , { OM_Illegal } },
+				{ 4, OF_None , { OM_Ew, OM_NoOperands } },
 				{ 5, OF_None , { OM_Illegal } },
 				{ 6, OF_None , { OM_Illegal } },
 				{ 7, OF_None , { OM_Illegal } }
@@ -615,6 +617,28 @@ Table grp11_0[8]=	{
 			{ 6, OF_None , { OM_Illegal } },
 			{ 7, OF_None , { OM_Jz, OM_NoOperands } }
 		};
+
+const char* grp12Mnemonics[8] = {
+	"",
+	"",
+	"",
+	"",
+	"BT",
+	"BTS",
+	"BTR",
+	"BTC"
+};
+
+Table grp12[8] = {
+	{ 0, OF_None ,{ OM_Illegal } },
+	{ 1, OF_None ,{ OM_Illegal } },
+	{ 2, OF_None ,{ OM_Illegal } },
+	{ 3, OF_None ,{ OM_Illegal } },
+	{ 4, OF_None ,{ OM_Ev, OM_Ib, OM_NoOperands } },
+	{ 5, OF_None ,{ OM_Ev, OM_Ib, OM_NoOperands } },
+	{ 6, OF_None ,{ OM_Ev, OM_Ib, OM_NoOperands } },
+	{ 7, OF_None ,{ OM_Ev, OM_Ib, OM_NoOperands } }
+};
 
 const Table _1byte[NUM_OPS]=	{
 					{ 1, OF_None , { OM_MODRM, OM_Eb, OM_Gb, OM_NoOperands } },		//0x00
@@ -908,10 +932,10 @@ const Table _2byte[NUM_OPS]=	{
 					{25, OF_None, { OM_Illegal } },							  	//0x0F1D
 					{25, OF_None, { OM_Illegal } },							  	//0x0F1E
 					{25, OF_None, { OM_Illegal } },							  	//0x0F1F
-					{25, OF_None, { OM_Illegal } },								//0x0F20
-					{25, OF_None, { OM_Illegal } },								//0x0F21
+					{28, OF_None, { OM_MODRM, OM_Rd, OM_Cd, OM_NoOperands } },				//0x0F20
+					{28, OF_None, { OM_MODRM, OM_Rd, OM_Dd, OM_NoOperands } },				//0x0F21
 					{28, OF_None, { OM_MODRM, OM_Cd, OM_Rd, OM_NoOperands } },				//0x0F22
-					{25, OF_None, { OM_Illegal } },								//0x0F23
+					{28, OF_None, { OM_MODRM, OM_Dd, OM_Rd, OM_NoOperands } },				//0x0F23
 					{25, OF_None, { OM_Illegal } },							  	//0x0F24
 					{25, OF_None, { OM_Illegal } },							  	//0x0F25
 					{25, OF_None, { OM_Illegal } },							  	//0x0F26
@@ -1062,7 +1086,7 @@ const Table _2byte[NUM_OPS]=	{
 					{70, OF_None, { OM_MODRM, OM_Gv, OM_Ew, OM_NoOperands } },				//0x0FB7
 					{25, OF_None, { OM_Illegal } },								//0x0FB8
 					{25, OF_None, { OM_Illegal } },								//0x0FB9
-					{25, OF_None, { OM_Illegal } },								//0x0FBA
+					{25, OF_None ,{ OM_MODRM, OM_Grp12, OM_NoOperands } },		//0x0FBA
 					{25, OF_None, { OM_Illegal } },								//0x0FBB
 					{25, OF_None, { OM_Illegal } },								//0x0FBC
 					{25, OF_None, { OM_Illegal } },								//0x0FBD
@@ -1224,6 +1248,17 @@ const char regCr[8][4]=	{
 						"ERR",
 						"ERR",
 						"ERR"
+					};
+
+const char regDr[8][4]=	{
+						"DR0",
+						"DR1",
+						"DR2",
+						"DR3",
+						"DR4",
+						"DR5",
+						"DR6",
+						"DR7"
 					};
 
 const char segReg[8][3]={
@@ -1668,6 +1703,11 @@ void ExtractCR(int r)
 	AddToOutput(regCr[r]);
 }
 
+void ExtractDR(int r)
+{
+	AddToOutput(regDr[r]);
+}
+
 void ExtractMOD(int seg,int rsize,int psize,int msize,int m,int rm,InStream* stream)
 {
 	switch (m)
@@ -1739,6 +1779,9 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 				break;
 			case OM_Cd:
 				ExtractCR(r);
+				break;
+			case OM_Dd:
+				ExtractDR(r);
 				break;
 			case OM_Eb:
 				ExtractMOD(seg,0,0,mSize,m,rm,stream);
@@ -1835,7 +1878,7 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 				ExtractMOD(seg,1,18,1,m,rm,stream);
 				break;
 			case OM_Rd:
-				ExtractR(2,r);
+				ExtractR(2,rm);
 				break;
 			case OM_Sw:
 				ExtractSR(r);
@@ -2139,6 +2182,13 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 				AddToOutput(" ");
 				a=-1;			// -1 since we will do the a++ at the start of the loop
 				break;
+			case OM_Grp12:
+				cur = grp12;
+				opcode = r;
+				AddToOutput(grp12Mnemonics[cur[opcode].mnemonic]);
+				AddToOutput(" ");
+				a = -1;			// -1 since we will do the a++ at the start of the loop
+				break;
 			case OM_NoOperands:
 				return;
 			case OM_OpcodeExtensionByte:
@@ -2162,10 +2212,10 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 	}
 }
 
-void Disassemble(InStream* stream, int code_size)
+void Disassemble(InStream* stream,int _32bitCode)
 {
-	int currSize=code_size?2:1;	// 16 bit mode
-	int curmSize=code_size?2:1;
+	int currSize=_32bitCode?2:1;	// 32/16 bit mode
+	int curmSize=_32bitCode?2:1;
 	int seg=-1;
 	int prefixCrude;
 	const Table* table = _1byte;
@@ -2182,10 +2232,10 @@ void Disassemble(InStream* stream, int code_size)
 			switch (table[nxtByte].operands[0])
 			{
 				case OM_OSize:
-					currSize=2;
+					currSize=_32bitCode?1:2;
 					break;
 				case OM_MSize:
-					curmSize=2;
+					curmSize=_32bitCode?1:2;
 					break;
 				case OM_ES:
 				case OM_CS:
