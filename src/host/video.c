@@ -120,7 +120,7 @@ void VideoInitialise()
 	atStart=glfwGetTime();
 }
 
-void VideoCreate(int width,int height,const char* name)
+void VideoCreate(int width,int height,const char* name,int fullscreen)
 {
 	windowWidth[maxWindow]=width;
 	windowHeight[maxWindow]=height;
@@ -130,7 +130,7 @@ void VideoCreate(int width,int height,const char* name)
 	{
 		fpsWindowName=name;
 	}
-	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,NULL,NULL)) ) 
+	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,(fullscreen?glfwGetPrimaryMonitor():NULL),NULL)) ) 
 	{ 
 /*		int glError = glfwGetError();
 		CONSOLE_OUTPUT("GLFW Create Window - %s - %d",glfwErrorString(glError),glError);*/

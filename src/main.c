@@ -35,6 +35,7 @@ int useJoystick=1;
 int use6MhzP88Cpu=1;
 int emulateDSP=1;
 int useRemoteDebugger=0;
+int useFullscreen = 0;
 
 char lastRomLoaded[1024];
 
@@ -1095,6 +1096,7 @@ int CPU_STEP(int doDebug)
 void Usage()
 {
 	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88/program.fl1\n");
+	CONSOLE_OUTPUT("-F Fullscreen");
 	CONSOLE_OUTPUT("-r [Startup in remote debugger mode]\n");
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
@@ -1163,6 +1165,11 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_P89;
 				LoadRom("roms/konixBios.bin",0);
+				continue;
+			}
+			if (strcmp(argv[a], "-F") == 0)
+			{
+				useFullscreen = 1;
 				continue;
 			}
 			if (strcmp(argv[a],"-M")==0)
@@ -1296,7 +1303,7 @@ int main(int argc,char**argv)
 
 	{
 		VideoInitialise();
-		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION);
+		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION,useFullscreen);
 #if TERMINAL
 		VideoCreate(640,480,"Terminal Emulation");
 #endif
