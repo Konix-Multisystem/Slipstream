@@ -2340,8 +2340,8 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 	static uint32_t lastCol;
 	uint32_t curCol;
 	uint32_t wrapOffset;
-	uint16_t StartL = ((ASIC_STARTH&1)<<8)|ASIC_STARTL;
-	uint16_t EndL = ((ASIC_ENDH&1)<<8)|ASIC_ENDL;
+	uint16_t StartL = curSystem != ESS_MSU ? ((ASIC_STARTH & 1) << 8) | ASIC_STARTL : ASIC_STARTL;
+	uint16_t EndL = curSystem != ESS_MSU ? ((ASIC_ENDH & 1) << 8) | ASIC_ENDL : ASIC_ENDL;
 	outputTexture+=vClock*WIDTH + hClock;
 
 	// Video addresses are expected to be aligned to 256/128 byte boundaries - this allows for wrap to occur for a given line
@@ -2472,12 +2472,12 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 	}
 }
 
-void ShowOffScreen(uint32_t(*conv)(uint16_t),int fl1)
+void ShowOffScreen(uint32_t(*conv)(uint16_t),uint32_t swapBuffer)
 {
 	uint8_t palIndex;
 	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
-	uint32_t screenPtr = ASIC_SCROLL^0x10000;
+	uint32_t screenPtr = ASIC_SCROLL^swapBuffer;
 	static uint32_t lastCol;
 	uint32_t curCol;
 	uint32_t wrapOffset;
@@ -2660,7 +2660,10 @@ void TickAsicFL1(int cycles)
 
 void DebugDrawOffScreen()
 {
-	ShowOffScreen(ConvPaletteP88,1);
+	if (curSystem==ESS_MSU)
+		ShowOffScreen(ConvPaletteMSU, 0x30000);
+	else
+		ShowOffScreen(ConvPaletteP88,0x10000);
 }
 
 void ASIC_INIT()
