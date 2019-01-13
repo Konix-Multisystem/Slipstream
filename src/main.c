@@ -640,6 +640,9 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 				CONSOLE_OUTPUT("Found Section Konix 8088\n");
 				curSystem=ESS_P88;
 				break;
+			case 0xB3:
+				// unknown
+				break;
 			case 0xF1:
 				CONSOLE_OUTPUT("Found Section Flare One\n");
 				curSystem=ESS_FL1;
