@@ -859,7 +859,7 @@ void DoCPU8086()
 				if (DX==0 && CX==0x1400)
 				{
 					CONSOLE_OUTPUT("Read Root Directory To ES:DI (Length in CX)\n");
-					LoadBinaryMaxSizeOffset("roms/ROBOCOD/CRUNCH/CD_DIR.BIN",SEGTOPHYS(ES,DI),CX,0);
+					LoadBinaryMaxSizeOffset("ROBOCOD/CRUNCH/CD_DIR.BIN",SEGTOPHYS(ES,DI),CX,0);
 					dirAddr=SEGTOPHYS(ES,DI);
 					//				doDebug=1;
 					//				debugWatchReads=1;
@@ -894,7 +894,7 @@ void DoCPU8086()
 						fileOffset+=25*2048;
 						//CONSOLE_OUTPUT("CONTINUATION : %s + %08X\n",&RAM[dirAddr+lastEntry*20],fileOffset);
 					}
-					sprintf(tmp,"roms/ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
+					sprintf(tmp,"ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
 					CONSOLE_OUTPUT("Loading : %s\n",tmp);
 					LoadBinaryMaxSizeOffset(tmp,SEGTOPHYS(ES,DI),CX,fileOffset);
 
@@ -969,7 +969,7 @@ void DoCPU80386sx()
 		{
 			CONSOLE_OUTPUT("Read Root Directory To ES:DI : %05X (Length in CX)\n",SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF));
 			CONSOLE_OUTPUT("Minute %02X, Second %02X, Block %02X, Length %04X\n",(MSU_EBX>>8)&0xFF,MSU_EBX&255,MSU_EAX&255,MSU_ECX&0xFFFF);
-			LoadBinaryMaxSizeOffset("roms/ROBOCOD/CRUNCH/CD_DIR.BIN",SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF),MSU_ECX&0xFFFF,0);
+			LoadBinaryMaxSizeOffset("ROBOCOD/CRUNCH/CD_DIR.BIN",SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF),MSU_ECX&0xFFFF,0);
 			dirAddr=SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF);
 //							doDebug=1;
 //							debugWatchReads=1;
@@ -1003,9 +1003,9 @@ void DoCPU80386sx()
 			if (a==211)
 			{
 				fileOffset+=25*2048;
-				//CONSOLE_OUTPUT("CONTINUATION : %s + %08X\n",&RAM[dirAddr+lastEntry*20],fileOffset);
+				CONSOLE_OUTPUT("CONTINUATION : %s + %08X\n",&RAM[dirAddr+lastEntry*20],fileOffset);
 			}
-			sprintf(tmp,"roms/ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
+			sprintf(tmp,"ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
 			CONSOLE_OUTPUT("Loading : %s\n",tmp);
 			LoadBinaryMaxSizeOffset(tmp,SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF),MSU_ECX&0xFFFF,fileOffset);
 
@@ -1183,7 +1183,7 @@ void ParseCommandLine(int argc,char** argv)
 			if (strcmp(argv[a],"-M")==0)
 			{
 				curSystem=ESS_MSU;
-				LoadRom("roms/MSUBios.bin",0);
+				LoadRom("roms/CARD1.bin",0);
 				continue;
 			}
 			if (strcmp(argv[a],"-b")==0)
