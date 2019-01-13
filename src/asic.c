@@ -93,6 +93,10 @@ uint8_t		ASIC_PALMASK=0xFF;
 
 uint8_t		ASIC_PALSTORE[3*256];
 
+uint32_t	ASIC_CP1_BLTPC = 0;
+uint16_t	ASIC_CP1_BLTCMD = 0;
+uint16_t	ASIC_CP1_MODE = 0;
+uint16_t	ASIC_CP1_MODE2 = 0;
 
 uint32_t	ASIC_BANK0=0;				// Z80 banking registers  (stored in upper 16bits)
 uint32_t	ASIC_BANK1=0;
@@ -101,14 +105,17 @@ uint32_t	ASIC_BANK3=0;
 
 uint8_t BLT_OUTER_SRC_FLAGS;
 uint8_t BLT_OUTER_DST_FLAGS;
-uint8_t BLT_OUTER_CMD;
+uint16_t BLT_OUTER_CMD;
 uint32_t BLT_OUTER_SRC;
 uint32_t BLT_OUTER_DST;
 uint8_t BLT_OUTER_MODE;
 uint8_t BLT_OUTER_CPLG;
-uint8_t BLT_OUTER_CNT;
+uint16_t BLT_OUTER_CNT;
 uint16_t BLT_INNER_CNT;
 uint8_t BLT_INNER_STEP;
+uint16_t BLT_SRC_STEP;
+uint16_t BLT_DST_STEP;
+uint8_t BLT_PATTERN;
 uint8_t BLT_INNER_PAT;
 uint8_t	BLT_ENH;				// upper 3 bits representing the enhancment to the step function : ENSTP8 ENSTPS ENSTEP  (89 and possibly MSU)
 
@@ -137,6 +144,179 @@ void SetByte(uint32_t addr,uint8_t byte);
 
 
 void DoBlit();
+
+void TickBlitterCP1()								// word blitter formats
+{
+	if (ASIC_CP1_BLTCMD & 1)
+	{
+	// Step one, make the blitter "free"
+#if ENABLE_DEBUG_BLITTER
+	if (doShowBlits)
+	{
+		CONSOLE_OUTPUT("BLTPC : %08X\n",ASIC_CP1_BLTPC);
+		CONSOLE_OUTPUT("Blitter Command : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d), PSIZE0-1 (%d), WIDTH0-1 (%d), LINDR (%d), YFRAC (%d), PATSEL (%d), SHADE (%d)\n",
+			ASIC_CP1_BLTCMD&0x02?1:0,
+			ASIC_CP1_BLTCMD&0x04?1:0,
+			ASIC_CP1_BLTCMD&0x08?1:0,
+			ASIC_CP1_BLTCMD&0x10?1:0,
+			ASIC_CP1_BLTCMD&0x20?1:0,
+			ASIC_CP1_BLTCMD&0x40?1:0,
+			ASIC_CP1_BLTCMD&0x80?1:0,
+			(ASIC_CP1_BLTCMD&0x300)>>8,
+			(ASIC_CP1_BLTCMD&0xC00)>>10,
+			ASIC_CP1_BLTCMD&0x1000?1:0,
+			ASIC_CP1_BLTCMD&0x2000?1:0,
+			ASIC_CP1_BLTCMD&0x4000?1:0,
+			ASIC_CP1_BLTCMD&0x8000?1:0);
+	}
+#endif
+
+		BLT_OUTER_CMD=ASIC_CP1_BLTCMD;
+		BLT_ENH=ASIC_BLTENH;
+		ASIC_CP1_BLTCMD=0;
+		ASIC_BLTENH=0;
+
+		do
+		{
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Starting Blit : COLST (%d) , PARRD (%d) , SCRUP (%d) , DSTUP (%d) , SRCEN (%d) , DSTEN (%d) , SCRENF (%d), PSIZE0-1 (%d), WIDTH0-1 (%d), LINDR (%d), YFRAC (%d), PATSEL (%d), SHADE (%d)\n",
+				BLT_OUTER_CMD&0x02?1:0,
+				BLT_OUTER_CMD&0x04?1:0,
+				BLT_OUTER_CMD&0x08?1:0,
+				BLT_OUTER_CMD&0x10?1:0,
+				BLT_OUTER_CMD&0x20?1:0,
+				BLT_OUTER_CMD&0x40?1:0,
+				BLT_OUTER_CMD&0x80?1:0,
+				(BLT_OUTER_CMD&0x300)>>8,
+				(BLT_OUTER_CMD&0xC00)>>10,
+				BLT_OUTER_CMD&0x1000?1:0,
+				BLT_OUTER_CMD&0x2000?1:0,
+				BLT_OUTER_CMD&0x4000?1:0,
+				BLT_OUTER_CMD&0x8000?1:0);
+		}
+
+		if (BLT_OUTER_CMD&0x02)
+		{
+			CONSOLE_OUTPUT("Unsupported BLT CMD type -- COLLISION STOP -- \n");
+		}
+
+
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Fetching Program Sequence :\n");
+		}
+#endif
+		BLT_OUTER_SRC=GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_SRC|=GetByte(ASIC_CP1_BLTPC)<<8;
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_SRC |= GetByte(ASIC_CP1_BLTPC) << 16;
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_SRC_FLAGS=GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		
+		BLT_OUTER_DST=GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_DST|=GetByte(ASIC_CP1_BLTPC)<<8;
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_DST|=GetByte(ASIC_CP1_BLTPC)<<16;
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_DST_FLAGS=GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+
+		uint16_t tWord = 0;
+		tWord = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		tWord |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+
+		BLT_OUTER_CNT = tWord & 0x03FF;
+		BLT_OUTER_CPLG = (tWord & 0xF000) >> 8;
+
+		tWord = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		tWord |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+
+		BLT_INNER_CNT = tWord & 0x03FF;
+
+
+		tWord = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		tWord |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+
+		BLT_SRC_STEP = tWord;
+
+		tWord = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		tWord |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+
+		BLT_DST_STEP = tWord;
+
+		tWord = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		tWord |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+
+		BLT_INNER_PAT = tWord;
+
+#if ENABLE_DEBUG_BLITTER
+		if (doShowBlits)
+		{
+			CONSOLE_OUTPUT("Src Address : %06X\n",BLT_OUTER_SRC&0xFFFFFF);
+/*			CONSOLE_OUTPUT("Outer Src Flags : SRCCMP (%d) , SWRAP (%d) , SSIGN (%d) , SRCA-1 (%d)\n",
+				BLT_OUTER_SRC_FLAGS&0x10?1:0,
+				BLT_OUTER_SRC_FLAGS&0x20?1:0,
+				BLT_OUTER_SRC_FLAGS&0x40?1:0,
+				BLT_OUTER_SRC_FLAGS&0x80?1:0);*/
+			CONSOLE_OUTPUT("Dst Address : %06X\n",BLT_OUTER_DST&0xFFFFFF);
+			/*CONSOLE_OUTPUT("Outer Dst Flags : DSTCMP (%d) , DWRAP (%d) , DSIGN (%d) , DSTA-1 (%d)\n",
+				BLT_OUTER_DST_FLAGS&0x10?1:0,
+				BLT_OUTER_DST_FLAGS&0x20?1:0,
+				BLT_OUTER_DST_FLAGS&0x40?1:0,
+				BLT_OUTER_DST_FLAGS&0x80?1:0);*/
+			CONSOLE_OUTPUT("Comp Logic : %02X\n",BLT_OUTER_CPLG);
+			CONSOLE_OUTPUT("Outer Cnt : %04X\n",BLT_OUTER_CNT);
+			CONSOLE_OUTPUT("Inner Count : %04X\n",BLT_INNER_CNT);
+			CONSOLE_OUTPUT("Src Step : %04X\n",BLT_SRC_STEP);
+			CONSOLE_OUTPUT("Dst Step : %04X\n",BLT_DST_STEP);
+			CONSOLE_OUTPUT("Pattern : %04X\n",BLT_PATTERN);
+		}
+#endif
+
+		// HACK - just enough to perform the needed copy
+		for (int a = 0;a < BLT_OUTER_CNT;a++)
+		{
+			for (int b = 0;b < BLT_INNER_CNT;b++)
+			{
+				uint8_t val = GetByte(BLT_OUTER_SRC);
+				BLT_OUTER_SRC++;
+				SetByte(BLT_OUTER_DST, val);
+				BLT_OUTER_DST++;
+			}
+			BLT_OUTER_SRC += BLT_SRC_STEP;
+			BLT_OUTER_DST += BLT_DST_STEP;
+		}
+
+		//DoBlit();
+		
+		BLT_OUTER_CMD = GetByte(ASIC_CP1_BLTPC);
+		ASIC_CP1_BLTPC++;
+		BLT_OUTER_CMD |= GetByte(ASIC_CP1_BLTPC) << 8;
+		ASIC_CP1_BLTPC++;
+		}
+		while (BLT_OUTER_CMD&1);
+
+//		exit(1);
+
+	}
+}
+
+
 
 void TickBlitterMSU()								// TODO - make this more modular!!!
 {
@@ -2291,6 +2471,14 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 
 uint8_t PeekByte(uint32_t addr);
 
+uint32_t ConvPaletteCP1(uint32_t pal)
+{
+	uint32_t fCol=0;
+	fCol |= (pal & 0x000000FC)<<0;
+	fCol |= (pal & 0x00FC0000)>>0;
+	fCol |= (pal & 0xFC000000)>>16;
+	return fCol;
+}
 uint32_t ConvPaletteMSU(uint16_t pal)
 {
 	return RGB565_RGB8(pal);
@@ -2305,11 +2493,15 @@ void DoScreenInterrupt()
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			MSU_INTERRUPT(0xA1);
+			break;//todo
 		case ESS_MSU:
+			MSU_INTERRUPT(0x21);
+			break;
 		case ESS_P89:
 		case ESS_P88:
 			INTERRUPT(0x21);
-			MSU_INTERRUPT(0x21);
 			break;
 		case ESS_FL1:
 			Z80_INTERRUPT(0x00);		// use a nop, which should mean we don't smack into uninitialised interrupt... maybe
@@ -2322,6 +2514,7 @@ void DoPeripheralInterrupt()
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
 		case ESS_MSU:
 		case ESS_P88:
 			break;
@@ -2587,11 +2780,92 @@ void ShowOffScreen(uint32_t(*conv)(uint16_t),uint32_t swapBuffer)
 			if (vClock==(HEIGHT))
 			{
 				vClock=0;
+				outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 			}
 		}
 
 		cycles--;
 	}
+}
+extern unsigned char CP1_PALETTE[256 * 4];
+
+void DoCP1Screen(int cycles)
+{
+	uint8_t palIndex;
+	uint32_t palEntry;
+	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	uint32_t screenPtr = ASIC_SCROLL&0x00FFFFFF;
+	uint32_t curCol;
+	uint32_t wrapOffset;
+	outputTexture+=vClock*WIDTH + hClock;
+	uint32_t* endOutput = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	endOutput += WIDTH * HEIGHT;
+
+	while (cycles)
+	{
+		// Quick and dirty video display no contention or bus cycles
+		if (hClock>=120 && hClock<632 && vClock>20 && vClock<=220)
+		{
+			int width = (ASIC_CP1_MODE & 0x70)>>4;
+			switch (width)
+			{
+			default:
+			case 1:
+				wrapOffset = (screenPtr + ((vClock - 20) - 1) * 256) & 0xFFFFFF00;
+				wrapOffset |= (screenPtr + ((hClock - 120) / 2)) & 0xFF;
+				break;
+			case 2:
+				wrapOffset = (screenPtr + ((vClock - 20) - 1) * 512) & 0xFFFFFE00;
+				wrapOffset |= (screenPtr + ((hClock - 120) / 1)) & 0x1FF;
+				break;
+			}
+
+			palIndex = PeekByte(wrapOffset);
+
+			palEntry = (CP1_PALETTE[palIndex * 4 + 3] << 24) | (CP1_PALETTE[palIndex * 4 + 2] << 16) | (CP1_PALETTE[palIndex * 4 + 1] << 8) | (CP1_PALETTE[palIndex * 4 + 0] << 0);
+
+			curCol=ConvPaletteCP1(palEntry);
+			*outputTexture++=curCol;
+		}
+		else
+		{
+			*outputTexture++=ConvPaletteMSU(ASIC_BORD);
+		}
+
+		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
+		if (VideoInterruptLatch)
+		{
+			DoScreenInterrupt();		
+		}
+
+		if (ASIC_CP1_MODE2 & 4)	// VIDEO TIMER ENABLED
+		{
+			hClock++;
+			if ((hClock == 631) && (ASIC_KINT == vClock) && ((ASIC_DIS & 0x1) == 1))			//  Docs state interrupt fires at end of active display of KINT line
+			{
+				VideoInterruptLatch = 1;
+			}
+			if (hClock == (WIDTH))
+			{
+				hClock = 0;
+				vClock++;
+				if (vClock == (HEIGHT))
+				{
+					vClock = 0;
+					outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+				}
+			}
+		}
+		cycles--;
+	}
+}
+
+
+void TickAsicCP1(int cycles)
+{
+	TickBlitterCP1();
+	DoCP1Screen(cycles);
+	//TickAsic(cycles,ConvPaletteMSU,0);
 }
 
 

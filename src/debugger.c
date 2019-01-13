@@ -16,7 +16,7 @@
 #include "memory.h"
 #include "disasm.h"
 
-int disable_exit=1;
+int disable_exit=0;
 int doDebug=0;
 int doShowPortStuff=0;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
@@ -268,6 +268,105 @@ void DebugWPort(uint16_t port)
 					break;
 			}
 
+			break;
+		case ESS_CP1:
+			switch (port)
+			{
+				// Video Timings
+				case 0x0002:
+					CONSOLE_OUTPUT("V_PERIOD - 000000vvvvvvvvvv\n");
+					break;
+				case 0x0004:
+					CONSOLE_OUTPUT("V_DIS_BEG - 000000vvvvvvvvvv\n");
+					break;
+				case 0x0006:
+					CONSOLE_OUTPUT("V_BLK_END - 000000vvvvvvvvvv\n");
+					break;
+				case 0x000A:
+					CONSOLE_OUTPUT("V_DIS_END - 000000vvvvvvvvvv\n");
+					break;
+				case 0x000E:
+					CONSOLE_OUTPUT("V_BLK_BEG - 000000vvvvvvvvvv\n");
+					break;
+				case 0x0014:
+					CONSOLE_OUTPUT("V_SYNC - 000000vvvvvvvvvv\n");
+					break;
+				case 0x001C:
+					CONSOLE_OUTPUT("H_PERIOD - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0022:
+					CONSOLE_OUTPUT("H_BLK_END - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0024:
+					CONSOLE_OUTPUT("H_FCH_BEG - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x002E:
+					CONSOLE_OUTPUT("H_DIS_BEG - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0030:
+					CONSOLE_OUTPUT("H_FCH_END - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0032:
+					CONSOLE_OUTPUT("H_DIS_END - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0034:
+					CONSOLE_OUTPUT("H_BLK_BEG - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0036:
+					CONSOLE_OUTPUT("H_SYNC - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x0038:
+					CONSOLE_OUTPUT("H_VSYNC - 00000hhhhhhhhhhh\n");
+					break;
+				case 0x003C:
+					CONSOLE_OUTPUT("CHR - 000000000000dddd\n");
+					break;
+				// Rest
+				case 0x0010:
+					CONSOLE_OUTPUT("SCROLL0 - aaaaaaaaaaaaaaaa\n");
+					break;
+				case 0x0012:
+					CONSOLE_OUTPUT("SCROLL1 - 00000000aaaaaaaa\n");
+					break;
+				case 0x0016:
+					CONSOLE_OUTPUT("ACKW -");
+					break;
+				case 0x0018:
+					CONSOLE_OUTPUT("MODE - 0HXXXvvvaaabccmm\n");
+					break;
+				case 0x001A:
+					CONSOLE_OUTPUT("BORDER - rrrrrggggggbbbbb\n");
+					break;
+				case 0x001E:
+					CONSOLE_OUTPUT("MASK - \n");
+					break;
+				case 0x0020:
+					CONSOLE_OUTPUT("INDEX - \n");
+					break;
+				case 0x0026:
+					CONSOLE_OUTPUT("MEM - 00000000000000tt\n");
+					break;
+				case 0x002A:
+					CONSOLE_OUTPUT("MODE2 - 000000NHVmTrrvTo\n");
+					break;
+				case 0x002C:
+					CONSOLE_OUTPUT("INT - \n");
+					break;
+				case 0x0040:
+					CONSOLE_OUTPUT("BLTPC0 - \n");
+					break;
+				case 0x0042:
+					CONSOLE_OUTPUT("BLTPC1 - \n");
+					break;
+				case 0x0044:
+					CONSOLE_OUTPUT("BLTCMD - \n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT WRITE UNKNOWN - TODO\n");
+					if (!disable_exit)
+						exit(-1);
+					break;
+			}
 			break;
 		case ESS_MSU:
 			switch (port)
@@ -590,6 +689,19 @@ void DebugRPort(uint16_t port)
 			}
 
 			break;
+		case ESS_CP1:
+			switch (port)
+			{
+				case 0x0C:
+					CONSOLE_OUTPUT("STAT - 00000000000000LP\n");
+					break;
+				default:
+					CONSOLE_OUTPUT("PORT READ UNKNOWN - TODO\n");
+					if (!disable_exit)
+						exit(-1);
+					break;
+			}
+			break;
 		case ESS_MSU:
 
 			switch (port)
@@ -686,6 +798,17 @@ void DebugRPort(uint16_t port)
 
 #if ENABLE_DEBUG || MEMORY_MAPPED_DEBUGGER
 
+int GetILength80386(unsigned int address)
+{
+	InStream disMe;
+	disMe.bytesRead = 0;
+	disMe.curAddress = address;
+	disMe.useAddress = 1;
+	Disassemble(&disMe, MSU_cSize);
+
+	return disMe.bytesRead;
+}
+
 void FETCH_REGISTERS8086(char* tmp)
 {
 	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
@@ -706,7 +829,7 @@ void FETCH_REGISTERS8086(char* tmp)
 
 void FETCH_REGISTERS80386(char* tmp)
 {
-	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nFS= %04X\nGS= %04X\n\nEIP= %08X\n\nCR0= %08X\n--------\n",
+	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nFS= %04X\nGS= %04X\n\nEIP= %08X\n\nCR0= %08X\nDR7= %08X\n--------\n",
 			MSU_EFLAGS&0x800 ? "1" : "0",
 			MSU_EFLAGS&0x400 ? "1" : "0",
 			MSU_EFLAGS&0x200 ? "1" : "0",
@@ -719,7 +842,7 @@ void FETCH_REGISTERS80386(char* tmp)
 			MSU_EFLAGS&0x004 ? "1" : "0",
 			MSU_EFLAGS&0x002 ? "1" : "0",
 			MSU_EFLAGS&0x001 ? "1" : "0",
-			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_FS,MSU_GS,MSU_EIP,MSU_CR0);
+			MSU_EAX,MSU_EBX,MSU_ECX,MSU_EDX,MSU_ESP,MSU_EBP,MSU_ESI,MSU_EDI,MSU_CS,MSU_DS,MSU_ES,MSU_SS,MSU_FS,MSU_GS,MSU_EIP,MSU_CR0,MSU_DR7);
 }
 
 void FETCH_REGISTERS80386_8086(char* tmp)
@@ -767,7 +890,7 @@ void DUMP_REGISTERS8086()
 void DUMP_REGISTERS80386()
 {
 	char tmp[1024];
-	FETCH_REGISTERS80386_8086(tmp);
+	FETCH_REGISTERS80386(tmp);
 	CONSOLE_OUTPUT(tmp);
 }
 
@@ -1429,6 +1552,8 @@ int Disassemble8086(unsigned int address,int registers)
 #endif
 }
 
+
+
 int Disassemble80386(unsigned int address,int registers)
 {
 	char tmp[2048];
@@ -1443,7 +1568,7 @@ int Disassemble80386(unsigned int address,int registers)
 
 	if (disMe.bytesRead==0)
 	{
-		CONSOLE_OUTPUT("UNKNOWN AT : %05X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
+		CONSOLE_OUTPUT("UNKNOWN AT : %06X\n",address);		// TODO this will fail to wrap which may show up bugs that the CPU won't see
 		CONSOLE_OUTPUT("\nNext 7 Bytes : ");
 		for (a=0;a<7;a++)
 		{
@@ -1459,14 +1584,14 @@ int Disassemble80386(unsigned int address,int registers)
 	{
 		DUMP_REGISTERS80386();
 	}
-	sprintf(tmp,"%05X : ",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+	sprintf(tmp,"%06X : ",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
 
 	for (a=0;a<disMe.bytesRead;a++)
 	{
 		sprintf(tBuffer,"%02X ",PeekByte(address+a));
 		strcat(tmp,tBuffer);
 	}
-	for (a=0;a<8-disMe.bytesRead;a++)
+	for (a=0;a<15-disMe.bytesRead;a++)
 	{
 		strcat(tmp,"   ");
 	}

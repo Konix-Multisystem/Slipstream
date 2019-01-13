@@ -22,7 +22,9 @@
 
 unsigned char ROM[ROM_SIZE];							
 unsigned char RAM[RAM_SIZE];							
-unsigned char PALETTE[256*2];			
+unsigned char RAM_HI[RAM_SIZE];								// 2Mb
+unsigned char PALETTE[256*2];
+unsigned char CP1_PALETTE[256 * 4];
 
 uint8_t numPadRowSelect=0;
 uint16_t numPadState=0;
@@ -88,6 +90,58 @@ uint8_t Z80_GetPort(uint16_t addr)
 void Z80_SetPort(uint16_t addr,uint8_t byte)
 {
 	SetPortB(addr&0xFF,byte);
+}
+
+int TODOMemMap = 1;
+
+uint8_t DSPCP1RAM[0x1000];
+uint8_t FLASHRAM[0x10000];
+uint8_t GetByteCP1(uint32_t addr)
+{
+	addr&=0xFFFFFF;		// 16Mb address space - linear (aka hardware address)
+
+	if (addr>=0xFE0000 || TODOMemMap)
+	{
+		return ROM[addr & 0x1FFFF];
+	}
+	if (addr >= 0xF00000 && addr <= 0xF0FFFF)
+	{
+		CONSOLE_OUTPUT("Flash Read : %06X -> %02X\n", addr, FLASHRAM[addr-0xF00000]);
+		return FLASHRAM[addr - 0xF00000];
+	}
+	if (addr >= 0xF10000 && addr <= 0xF103FF)
+	{
+		return CP1_PALETTE[addr - 0xF10000];
+	}
+	if (addr >= 0xF18000 && addr <= 0xF18FFF)
+	{
+		// Hack - this is DSP interface
+		return DSPCP1RAM[addr - 0xF18000];
+	}
+
+	if (addr < RAM_SIZE)
+	{
+#if ENABLE_DEBUG
+		if (debugWatchReads)
+		{
+			CONSOLE_OUTPUT("GetByte RAM: %05X - %02X\n",addr,RAM[addr]);
+		}
+#endif
+		return RAM[addr];
+	}
+
+	if (addr >= 0x700000 && addr < 0x800000)
+	{
+		return RAM[addr-0x700000];
+	}
+
+	if (addr >= 0x800000 && addr < 0x900000)
+	{
+		return RAM_HI[addr-0x800000];
+	}
+
+	CONSOLE_OUTPUT("GetByte : %06X - TODO\n",addr);
+	return 0xAA;
 }
 
 
@@ -216,6 +270,8 @@ uint8_t GetByte(uint32_t addr)
 	uint8_t retVal;
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			return GetByteCP1(addr);
 		case ESS_MSU:
 			return GetByteMSU(addr);
 		case ESS_P89:
@@ -233,6 +289,67 @@ uint8_t GetByte(uint32_t addr)
 			return GetByteFL1(addr);
 	}
 	return 0xBB;
+}
+
+void SetByteCP1(uint32_t addr,uint8_t byte)
+{
+	addr&=0xFFFFFF;
+	if (addr>=0xFE0000 || TODOMemMap)
+	{
+		if (debugWatchWrites)
+		{
+			CONSOLE_OUTPUT("Write To ROM : %06X,%02X\n", addr, byte);
+		}
+		return;
+	}
+	if (addr >= 0xF00000 && addr <= 0xF0FFFF)
+	{
+		CONSOLE_OUTPUT("Flash Write : %06X,%02X\n", addr, byte);
+		FLASHRAM[addr - 0xF00000]=byte;
+		return;
+	}
+
+	if (addr >= 0xF10000 && addr <= 0xF103FF)
+	{
+		CP1_PALETTE[addr - 0xF10000]=byte;
+		return;
+	}
+	if (addr >= 0xF18000 && addr <= 0xF18FFF)
+	{
+		// Hack - this is DSP interface
+		DSPCP1RAM[addr - 0xF18000] = byte;
+		return;
+	}
+	if (addr<RAM_SIZE)
+	{
+		if (debugWatchWrites)
+		{
+			CONSOLE_OUTPUT("Write To RAM : %06X,%02X\n", addr, byte);
+		}
+		RAM[addr]=byte;
+		return;
+	}
+	if (addr >= 0x700000 && addr < 0x800000)
+	{
+		if (debugWatchWrites)
+		{
+			CONSOLE_OUTPUT("Write To LO RAM (mirror): %06X,%02X\n", addr, byte);
+		}
+		RAM[addr-0x700000]=byte;
+		return;
+	}
+
+	if (addr >= 0x800000 && addr < 0x900000)
+	{
+		if (debugWatchWrites)
+		{
+			CONSOLE_OUTPUT("Write To HI RAM : %06X,%02X\n", addr, byte);
+		}
+		RAM_HI[addr-0x800000]=byte;
+		return;
+	}
+
+	CONSOLE_OUTPUT("SetByte : %06X,%02X - TODO\n",addr,byte);
 }
 
 void SetByteMSU(uint32_t addr,uint8_t byte)
@@ -373,6 +490,9 @@ void SetByte(uint32_t addr,uint8_t byte)
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			SetByteCP1(addr,byte);
+			break;
 		case ESS_MSU:
 			SetByteMSU(addr,byte);
 			break;
@@ -399,6 +519,9 @@ uint8_t GetPortB(uint16_t port)
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			CONSOLE_OUTPUT("CP1 Port Read %04X\n", port);
+			return 0xFF;	// TODO
 		case ESS_MSU:
 			if (port==0x0C)
 			{
@@ -513,6 +636,9 @@ void SetPortB(uint16_t port,uint8_t byte)
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			CONSOLE_OUTPUT("CP1 Port Write : %04X %02X", port, byte);
+			break;
 		case ESS_MSU:
 			switch (port)
 			{
@@ -607,6 +733,50 @@ void SetPortB(uint16_t port,uint8_t byte)
 #endif
 }
 
+extern int hClock;
+extern int vClock;
+
+extern volatile unsigned char* pMapIO;
+
+uint16_t HACK_PDATA = 0xFFFF;
+uint16_t HACK_PSTAT = 0x0000;
+uint16_t HACK_BIOS = 0xFFFF;
+
+int cnt = 0;
+uint8_t sequence[9+64*1024+1] = { 128,0,0,0,0,0xCB,0x15,0,0 };
+int onetime=1;
+uint16_t CP1_GetNextREXThing()
+{
+	if (onetime)
+	{
+		onetime = 0;
+		FILE *tFile = fopen("E:\\NewWork\\GEOFF6.REX", "rb");
+		fseek(tFile, 0, SEEK_END);
+		uint32_t length = ftell(tFile);
+
+		sequence[5] = (length >> 0) & 0xFF;
+		sequence[6] = (length >> 8) & 0xFF;
+		sequence[7] = (length >> 16) & 0xFF;
+		sequence[8] = (length >> 24) & 0xFF;
+
+		fseek(tFile, 0, SEEK_SET);
+		fread(&sequence[9], 1, length, tFile);
+		fclose(tFile);
+		// calc checksum and store
+		uint8_t sum = 0;
+		for (int a = 0; a < length; a++)
+		{
+			sum ^= sequence[9 + a];
+		}
+		sequence[9 + length] = sum;
+	}
+	uint16_t t = sequence[cnt];
+	cnt++;
+	return t;
+}
+
+uint16_t MSU_JOYIN = 0xFFFF;
+
 uint16_t GetPortW(uint16_t port)
 {
 #if ENABLE_DEBUG
@@ -618,6 +788,49 @@ uint16_t GetPortW(uint16_t port)
 #endif
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			switch (port)
+			{
+			case 0x0000:
+				return hClock;
+			case 0x0002:
+				return vClock;
+			case 0x000C:	// STAT
+				return 0;// bit 0 pal/ntsc, bit 1 lpen signalled
+			case 0x0080:
+				return MSU_JOYIN;
+			case 0x0084:
+				return 0;
+			case 0x0086:	// MCommsPort
+				return 0x0002;		// bit 0 = 0 can send , bit 1 = 1 can read
+			case 0x0088:
+				return CP1_GetNextREXThing();
+				//return HACK_PDATA;
+			case 0x008A:
+				return HACK_PSTAT;
+			case 0x008C:
+				return HACK_BIOS;
+			case 0xE0:
+			case 0xE2:
+			case 0xE4:
+			case 0xE6:
+			case 0xE8:
+			case 0xEA:
+			case 0xEC:
+			case 0xEE:
+			{
+				uint16_t word = pMapIO[2];
+				word += pMapIO[3] << 8;
+				return word;
+			}
+			default:
+				if (doShowPortStuff)
+				{
+					CONSOLE_OUTPUT("CP1 Read Port : %04X\n", port);
+				}
+				return 0xFFFF;
+			}
+			break;
 		case ESS_MSU:
 			if (port==0xC0)
 			{
@@ -657,11 +870,92 @@ uint16_t GetPortW(uint16_t port)
 	}
 	return 0x0000;
 }
+extern uint16_t	ASIC_BORD;
+extern uint16_t	ASIC_KINT;
+extern uint32_t	ASIC_CP1_BLTPC;
+extern uint16_t	ASIC_CP1_BLTCMD;
+extern int VideoInterruptLatch;
+extern uint8_t	ASIC_DIS;
+extern uint32_t	ASIC_SCROLL;
+extern uint16_t	ASIC_CP1_MODE;
+extern uint16_t	ASIC_CP1_MODE2;
+
+uint16_t ASIC_CP1_DEB_PORTS[128];
 
 void SetPortW(uint16_t port,uint16_t word)
 {
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			ASIC_CP1_DEB_PORTS[port / 2] = word;
+			switch (port)
+			{
+			case 0x00:
+				ASIC_KINT = word;
+				break;
+			case 0x10:
+				ASIC_SCROLL &= 0xFFFF0000;
+				ASIC_SCROLL |= word;
+				break;
+			case 0x12:
+				ASIC_SCROLL &= 0x0000FFFF;
+				ASIC_SCROLL |= word << 16;
+				break;
+			case 0x16:
+				//INT_ACK
+				VideoInterruptLatch = 0;
+				break;
+			case 0x18:
+				ASIC_CP1_MODE = word;
+				break;
+			case 0x1A:
+				ASIC_BORD = word;
+				break;
+			case 0x26:
+				TODOMemMap = 0;
+				break;
+			case 0x2A:
+				ASIC_CP1_MODE2 = word;
+				break;
+			case 0x2C:
+				ASIC_DIS = word & 0x01;
+				break;
+			case 0x40:
+				ASIC_CP1_BLTPC &= 0xFFFF0000;
+				ASIC_CP1_BLTPC |= word;
+				break;
+			case 0x42:
+				ASIC_CP1_BLTPC &= 0x0000FFFF;
+				ASIC_CP1_BLTPC |= word << 16;
+				break;
+			case 0x44:
+				ASIC_CP1_BLTCMD = word;
+				break;
+			case 0x84:
+				break;
+			case 0x8C:
+				HACK_BIOS = word;
+				break;
+			case 0xE0:
+			case 0xE2:
+			case 0xE4:
+			case 0xE6:
+			case 0xE8:
+			case 0xEA:
+			case 0xEC:
+			case 0xEE:
+				for (int a = 0xE0; a < 0xF0; a += 2)
+				{
+					ASIC_CP1_DEB_PORTS[a / 2] = word;
+				}
+				pMapIO[0] = word & 0xFF;
+				pMapIO[1] = (word & 0xFF00) >> 8;
+				break;
+			default:
+				CONSOLE_OUTPUT("CP1 Port Write : %04X,%04X\n", port, word);
+				break;
+			}
+			break;
 		case ESS_MSU:
 			ASIC_WriteMSU(port,word&0xFF,doShowPortStuff);
 			ASIC_WriteMSU(port+1,word>>8,doShowPortStuff);
@@ -942,6 +1236,8 @@ void VECTORS_INIT()
 	int a;
 	switch (curSystem)
 	{
+		case ESS_CP1:
+			break;
 		case ESS_P89:
 			break;
 		case ESS_MSU:

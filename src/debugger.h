@@ -32,16 +32,18 @@ extern uint32_t	MSU_EBP;				// FROM EDL
 extern uint32_t	MSU_ESI;				// FROM EDL
 extern uint32_t	MSU_EDI;				// FROM EDL
 extern uint32_t	MSU_CR0;				// FROM EDL
+extern uint32_t	MSU_DR7;				// FROM EDL
 extern uint16_t	MSU_CS;					// FROM EDL
 extern uint16_t	MSU_DS;					// FROM EDL
 extern uint16_t	MSU_ES;					// FROM EDL
 extern uint16_t	MSU_SS;					// FROM EDL
 extern uint16_t	MSU_FS;					// FROM EDL
 extern uint16_t	MSU_GS;					// FROM EDL
-extern uint16_t	MSU_EIP;				// FROM EDL
+extern uint32_t	MSU_EIP;				// FROM EDL
 extern uint16_t MSU_EFLAGS;				// FROM EDL
 extern uint16_t MSU_CYCLES;				// FROM EDL
 extern uint32_t MSU_GETPHYSICAL_EIP();
+extern uint8_t MSU_cSize;
 
 extern uint8_t MSU_cSize;
 
@@ -122,6 +124,7 @@ int Disassemble80386(unsigned int address,int registers);
 int Disassemble8086(unsigned int address,int registers);
 int DisassembleZ80(unsigned int address,int registers);
 
+void FETCH_REGISTERS80386(char* tmp);
 void FETCH_REGISTERS8086(char* tmp);
 void FETCH_REGISTERSZ80(char* tmp);
 

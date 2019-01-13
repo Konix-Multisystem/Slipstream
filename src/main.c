@@ -28,6 +28,7 @@ int numClocks;
 int masterClock=0;
 int pause=0;
 int single=0;
+int framestep = 0;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
@@ -931,12 +932,16 @@ void DoCPU8086()
 void DoCPU80386sx()
 {
 #if ENABLE_DEBUG
-	/*if ((MSU_GETPHYSICAL_EIP()&0xFFFFF)==0x78000)
+//	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF00ED)
+//	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF01ee)
+//	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF6ccd)
+/*	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF0781)
 	{
 		doDebug=1;
 		debugWatchWrites=1;
 		debugWatchReads=1;
 		doShowPortStuff=1;
+		doShowBlits = 1;
 	}*/
 //	{
 //		FILE *dump = fopen("e:\\newwork\\msuUpper.bin", "wb");
@@ -950,7 +955,6 @@ void DoCPU80386sx()
  		int vov = 0;
 	}
 #endif
-
 	if (MSU_GETPHYSICAL_EIP()==0xE001C)
 	{
 		CONSOLE_OUTPUT("port_init called\n");
@@ -1082,6 +1086,7 @@ int CPU_STEP(int doDebug)
 		switch (curSystem)
 		{
 			case ESS_MSU:
+			case ESS_CP1:
 				DoCPU80386sx();
 				return MSU_CYCLES;			// Assuming clock speed same as hardware chips
 			case ESS_P88:
@@ -1111,6 +1116,7 @@ void Usage()
 	CONSOLE_OUTPUT("-n [disable DSP emulation]\n");
 	CONSOLE_OUTPUT("-K boot production konix bios\n");
 	CONSOLE_OUTPUT("-M load MSU bios\n");
+	CONSOLE_OUTPUT("-C load CARD1 bios (developer bios)\n");
 	CONSOLE_OUTPUT("-D [floppy] load [floppy]\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
@@ -1180,10 +1186,17 @@ void ParseCommandLine(int argc,char** argv)
 				useFullscreen = 1;
 				continue;
 			}
+			if (strcmp(argv[a],"-C")==0)
+			{
+				curSystem=ESS_CP1;
+				LoadRom("roms/card1.bin",0);
+				//LoadRom("roms/easy.bin",0);
+				continue;
+			}
 			if (strcmp(argv[a],"-M")==0)
 			{
 				curSystem=ESS_MSU;
-				LoadRom("roms/CARD1.bin",0);
+				LoadRom("roms/MSUBios.bin",0);
 				continue;
 			}
 			if (strcmp(argv[a],"-b")==0)
@@ -1274,6 +1287,10 @@ void ResetHardware()
 
 void DebugDrawOffScreen();
 uint32_t FL1BLT_Step(uint8_t hold);
+int GetILength80386(unsigned int address);
+
+int bp = 0;
+int bpaddress = 0;
 
 int main(int argc,char**argv)
 {
@@ -1330,20 +1347,37 @@ int main(int argc,char**argv)
 	//	pause=1;
 	/*	extern int doShowDMA;
 		doDebug=1;*/
-//		debugWatchWrites=1;
-//		debugWatchReads=1;
-//		doShowPortStuff=1;
-//		doDSPDisassemble=1;
-//		doDebug=1;
+/*		debugWatchWrites=1;
+		debugWatchReads=1;
+		doShowPortStuff=1;
+		doDSPDisassemble=1;
+		doDebug=1;*/
 /*		doShowDMA=1;
 		doShowBlits=1;*/
+
+	//pause = 1;
+	bp = 0;
+//	bpaddress = 0xFE0DD5;
+//	bpaddress = 0xFE2223;		// Flash/PC communications (could be interesting)
+//	bpaddress = 0x725563;		// FRONT.REX goes wrong
+	bpaddress = 0x726A9B;		// CART.REX goes wrong
+//	bpaddress = 0xFFE350;		// JAMES5.BIN 
 	while (1==1)
 	{
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
 			numClocks+=CPU_STEP(doDebug);
-/*			ttBltDebug=FL1BLT_Step(0);
+			if (bp)
+			{
+				if (MSU_GETPHYSICAL_EIP() == bpaddress)
+				{
+					pause = 1;
+					bp = 0;
+					debugWatchWrites = 1;
+				}
+			}
+			/*			ttBltDebug=FL1BLT_Step(0);
 			if (ttBltDebug==0)
 			{
 				numClocks+=CPU_STEP(doDebug);
@@ -1358,6 +1392,9 @@ int main(int argc,char**argv)
 			}*/
 			switch (curSystem)
 			{
+				case ESS_CP1:
+					TickAsicCP1(numClocks);
+					break;
 				case ESS_MSU:
 					TickAsicMSU(numClocks);
 					break;
@@ -1392,7 +1429,39 @@ int main(int argc,char**argv)
 			if (masterClock>=WIDTH*HEIGHT)
 			{
 				masterClock-=WIDTH*HEIGHT;
+				if (framestep)
+				{
+					framestep = 0;
+					pause = 1;
+				}
 			}
+#if MEMORY_MAPPED_DEBUGGER
+			switch (UpdateMemoryMappedDebuggerViews())
+			{
+			case 0:
+				pause = 1;
+				break;
+			case 1:
+				pause = 0;
+				break;
+			case 2:
+				pause = 0;
+				single = 1;
+				break;
+			case 3:
+				// Get Length of current instruction and set a global bp on it
+				pause = 0;
+				bp = 1;
+				bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP());
+				break;
+			case 4:
+				pause = 0;
+				framestep = 1;
+			default:
+				break;
+			}
+#endif
+
 #if ENABLE_REMOTE_DEBUG
 			if (useRemoteDebugger)
 			{
@@ -1443,32 +1512,6 @@ int main(int argc,char**argv)
 						break;
 					}
 				}
-			}
-#endif
-#if MEMORY_MAPPED_DEBUGGER
-			switch (UpdateMemoryMappedDebuggerViews())
-			{
-			case 0:
-				pause = 1;
-				break;
-			case 1:
-				pause = 0;
-				break;
-			case 2:
-				pause = 0;
-				single = 1;
-				break;
-			case 3:
-				// Get Length of current instruction and set a global bp on it
-				pause = 0;
-		//		bp = 1;
-	//			bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP());
-				break;
-			case 4:
-				pause = 0;
-//				framestep = 1;
-			default:
-				break;
 			}
 #endif
 			{
