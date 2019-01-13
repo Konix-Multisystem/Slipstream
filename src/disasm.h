@@ -14,7 +14,7 @@ struct InStream
 
 typedef struct InStream InStream;
 
-void Disassemble(InStream* stream);
+void Disassemble(InStream* stream,int code_size);
 const char* GetOutputBuffer();
 
 unsigned char PeekByte(unsigned int addr);

@@ -85,7 +85,7 @@ DECLARE SegSS[3]	ALIAS	%101;
 DECLARE INTERNAL GDT[48]	ALIAS	GDT_base[32]:GDT_limit[16];
 DECLARE INTERNAL IDT[48]	ALIAS	IDT_base[32]:IDT_limit[16];
 
-DECLARE INTERNAL cSize[1];		## Current Code Page size -- currrently 16bit always
+DECLARE cSize[1];		## Current Code Page size -- currrently 16bit always
 DECLARE INTERNAL sSize[1];		## Current Stack Address size
 DECLARE INTERNAL oSize[1];
 DECLARE INTERNAL aSize[1];
@@ -102,6 +102,9 @@ DECLARE INTERNAL interruptVector[8];
 DECLARE INTERNAL IRQBlock[1];
 
 DECLARE INTERNAL EXIP[32];		# Exceptions store this value rather than IP
+
+DECLARE INTERNAL TMPB[8];
+DECLARE INTERNAL TMPW[16];
 
 ############ Debug functions
 
@@ -620,14 +623,14 @@ MAPPING portVariable[1]
 
 MAPPING DecIncB[1]
 {
-	%0	"INC"	CALL IncrementByte(T);
-	%1	"DEC"	CALL DecrementByte(T);
+	%0	"INC"	CALL IncrementByte(TMPB);
+	%1	"DEC"	CALL DecrementByte(TMPB);
 }
 
 MAPPING DecIncW[1]
 {
-	%0	"INC"	CALL IncrementWord(T);
-	%1	"DEC"	CALL DecrementWord(T);
+	%0	"INC"	CALL IncrementWord(TMPW);
+	%1	"DEC"	CALL DecrementWord(TMPW);
 }
 
 MAPPING loopcond[2]
@@ -2298,12 +2301,15 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 
 INSTRUCTION	"CBW"			%10011000
 {
+	DECLARE TMP[16] ALIAS UPPER[8]:LOWER[8];
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "CBW long";
 		CALL unimplemented(0);	
 	}
-	$0000++(EAX[0..7])->EAX[0..15];
+	LOWER<-EAX[0..7];
+	TMP<-$0000++LOWER;
+	TMP->EAX[0..15];
 	2+CYCLES->CYCLES;
 }
 
@@ -2317,7 +2323,8 @@ INSTRUCTION	"CWD"			%10011001
 		CALL unimplemented(0);	
 	}
 
-	TMP<-$00000000++(EAX[0..15]);
+	LOWER<-EAX[0..15];
+	TMP<-$00000000++LOWER;
 	UPPER->EDX[0..15];
 	5+CYCLES->CYCLES;
 }
@@ -2929,7 +2936,6 @@ INSTRUCTION	"#TABLE2#"	%11111110
 INSTRUCTION	TABLE_DECINC_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncB:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
-	DECLARE T[8];
 
 	IF oSize | aSize
 	{
@@ -2940,11 +2946,11 @@ INSTRUCTION	TABLE_DECINC_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncB:rm[3]
 	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
 	3+CYCLES->CYCLES;
 
-	CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF)->T;
+	CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF)->TMPB;
 
-	DecIncB->T;
+	DecIncB->TMPB;
 
-	CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,T);
+	CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,TMPB);
 }
 
 #INSTRUCTION	"POP #MODnnnRM#"	%10001111
@@ -3019,8 +3025,16 @@ INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
 
+	IF cSize | oSize
+	{
+		DEBUG_TRACE "LEA 32 bit issue";
+		CALL unimplemented(0);
+	}
 	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
-	EFF->regw;
+	
+	DECLARE valsplit[32] ALIAS valu[16]:vall[16];
+	valsplit<-EFF;
+	vall->regw;
 }
 
 #MAPPING LDESMap[1]
@@ -3566,12 +3580,12 @@ FUNCTION INTERNAL	res[8]	Do1ShiftOperationByte	operation[4],dst[8]
 	IF operation==$3			# RCR
 	{
 		res<-ROR(dst,CF,CF,1);
-		OF<-res[7..7]^res[6..6];
+		OF<-(res[7..7])^(res[6..6]);
 	}
 	IF operation==$4			# SHL/SAL
 	{
 		AFFECT SF AS SIGN,ZF AS ZERO,PF AS PARITYEVEN { ROL(dst,CF,$00,1) }->res;
-		OF<-~(CF==res[7..7]);
+		OF<-~(CF==(res[7..7]));
 	}
 	IF operation==$5			# SHR
 	{
@@ -4357,7 +4371,6 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
-	DECLARE T[16];
 
 	IF oSize | aSize
 	{
@@ -4368,11 +4381,11 @@ INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
 	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
 	3+CYCLES->CYCLES;
 
-	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->T;
+	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->TMPW;
 
-	DecIncW->T;
+	DecIncW->TMPW;
 
-	CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,T);
+	CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,TMPW);
 }
 
 #INSTRUCTION	TABLE_OP_MOD	"PUSH #MODnnnRM#"	mod[2]:%110:rm[3]

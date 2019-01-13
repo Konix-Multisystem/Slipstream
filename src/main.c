@@ -42,6 +42,11 @@ char lastRomLoaded[1024];
 uint8_t dskABuffer[720*1024];
 uint8_t dskBBuffer[720*1024];
 
+#if MEMORY_MAPPED_DEBUGGER
+void InitMemoryMappedDebugger();
+int UpdateMemoryMappedDebuggerViews();
+#endif
+
 #if ENABLE_REMOTE_DEBUG
 
 #include <winsock2.h>
@@ -1293,6 +1298,10 @@ int main(int argc,char**argv)
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
+#if MEMORY_MAPPED_DEBUGGER
+	InitMemoryMappedDebugger();
+#endif
+
 #if ENABLE_REMOTE_DEBUG
 	if (useRemoteDebugger)
 	{
@@ -1431,6 +1440,32 @@ int main(int argc,char**argv)
 						break;
 					}
 				}
+			}
+#endif
+#if MEMORY_MAPPED_DEBUGGER
+			switch (UpdateMemoryMappedDebuggerViews())
+			{
+			case 0:
+				pause = 1;
+				break;
+			case 1:
+				pause = 0;
+				break;
+			case 2:
+				pause = 0;
+				single = 1;
+				break;
+			case 3:
+				// Get Length of current instruction and set a global bp on it
+				pause = 0;
+		//		bp = 1;
+	//			bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP());
+				break;
+			case 4:
+				pause = 0;
+//				framestep = 1;
+			default:
+				break;
 			}
 #endif
 			{

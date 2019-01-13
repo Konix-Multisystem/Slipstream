@@ -2162,10 +2162,10 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 	}
 }
 
-void Disassemble(InStream* stream)
+void Disassemble(InStream* stream, int code_size)
 {
-	int currSize=1;	// 16 bit mode
-	int curmSize=1;
+	int currSize=code_size?2:1;	// 16 bit mode
+	int curmSize=code_size?2:1;
 	int seg=-1;
 	int prefixCrude;
 	const Table* table = _1byte;

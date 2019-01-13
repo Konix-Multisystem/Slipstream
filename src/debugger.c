@@ -684,7 +684,7 @@ void DebugRPort(uint16_t port)
 #endif
 }
 
-#if ENABLE_DEBUG
+#if ENABLE_DEBUG || MEMORY_MAPPED_DEBUGGER
 
 void FETCH_REGISTERS8086(char* tmp)
 {
@@ -702,13 +702,6 @@ void FETCH_REGISTERS8086(char* tmp)
 			FLAGS&0x002 ? "1" : "0",
 			FLAGS&0x001 ? "1" : "0",
 			AX,BX,CX,DX,SP,BP,SI,DI,CS,DS,ES,SS);
-}
-
-void DUMP_REGISTERS8086()
-{
-	char tmp[1024];
-	FETCH_REGISTERS8086(tmp);
-	CONSOLE_OUTPUT(tmp);
 }
 
 void FETCH_REGISTERS80386(char* tmp)
@@ -745,6 +738,30 @@ void FETCH_REGISTERS80386_8086(char* tmp)
 			MSU_EFLAGS&0x002 ? "1" : "0",
 			MSU_EFLAGS&0x001 ? "1" : "0",
 			MSU_EAX&0xFFFF,MSU_EBX&0xFFFF,MSU_ECX&0xFFFF,MSU_EDX&0xFFFF,MSU_ESP&0xFFFF,MSU_EBP&0xFFFF,MSU_ESI&0xFFFF,MSU_EDI&0xFFFF,MSU_CS,MSU_DS,MSU_ES,MSU_SS);
+}
+
+void FETCH_REGISTERSZ80(char* tmp)
+{
+	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\nPC\t%04X",
+			Z80_AF&0x80 ? "1" : "0",
+			Z80_AF&0x40 ? "1" : "0",
+			Z80_AF&0x20 ? "1" : "0",
+			Z80_AF&0x10 ? "1" : "0",
+			Z80_AF&0x08 ? "1" : "0",
+			Z80_AF&0x04 ? "1" : "0",
+			Z80_AF&0x02 ? "1" : "0",
+			Z80_AF&0x01 ? "1" : "0",
+			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP,Z80_PC);
+}
+
+#endif
+
+#if ENABLE_DEBUG
+void DUMP_REGISTERS8086()
+{
+	char tmp[1024];
+	FETCH_REGISTERS8086(tmp);
+	CONSOLE_OUTPUT(tmp);
 }
 
 void DUMP_REGISTERS80386()
@@ -1363,7 +1380,7 @@ int Disassemble8086(unsigned int address,int registers)
 	disMe.bytesRead=0;
 	disMe.curAddress=address;
 	disMe.useAddress=1;
-	Disassemble(&disMe);
+	Disassemble(&disMe,0);
 
 	if (disMe.bytesRead==0)
 	{
@@ -1422,7 +1439,7 @@ int Disassemble80386(unsigned int address,int registers)
 	disMe.bytesRead=0;
 	disMe.curAddress=address;
 	disMe.useAddress=1;
-	Disassemble(&disMe);
+	Disassemble(&disMe,MSU_cSize);
 
 	if (disMe.bytesRead==0)
 	{
@@ -1465,20 +1482,6 @@ int Disassemble80386(unsigned int address,int registers)
 int FETCH_DISASSEMBLE8086(unsigned int address,char* tmp)
 {
 	return DoDisassemble8086(address,0,tmp);
-}
-
-void FETCH_REGISTERSZ80(char* tmp)
-{
-	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\nPC\t%04X",
-			Z80_AF&0x80 ? "1" : "0",
-			Z80_AF&0x40 ? "1" : "0",
-			Z80_AF&0x20 ? "1" : "0",
-			Z80_AF&0x10 ? "1" : "0",
-			Z80_AF&0x08 ? "1" : "0",
-			Z80_AF&0x04 ? "1" : "0",
-			Z80_AF&0x02 ? "1" : "0",
-			Z80_AF&0x01 ? "1" : "0",
-			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP,Z80_PC);
 }
 
 void DUMP_REGISTERSZ80()

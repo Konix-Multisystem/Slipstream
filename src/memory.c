@@ -700,23 +700,46 @@ void MSU_SetByte(uint32_t addr,uint8_t byte)
 	SetByte(addr,byte);
 }
 
+#if MEMORY_MAPPED_DEBUGGER
+extern uint16_t ASIC_DEB_PORTS[128];
+#endif
+
 uint16_t MSU_GetPortW(uint16_t port)
 {
-	return GetPortW(port);
+    return GetPortW(port & 0xFF);
 }
 
 uint8_t MSU_GetPortB(uint16_t port)
 {
-	return GetPortB(port);
+    return GetPortB(port & 0xFF);
 }
 
 void MSU_SetPortW(uint16_t port,uint16_t word)
 {
-	SetPortW(port,word);
+    port &= 0xFF;
+#if MEMORY_MAPPED_DEBUGGER
+    ASIC_DEB_PORTS[port >> 1] = word;
+#endif
+    SetPortW(port, word);
 }
 
 void MSU_SetPortB(uint16_t port,uint8_t byte)
 {
+    port &= 0xFF;
+#if MEMORY_MAPPED_DEBUGGER
+    uint16_t t = ASIC_DEB_PORTS[port >> 1];
+    if (port&1)
+    {
+        t &= 0x00FF;
+        t |= ((uint16_t)byte)<<8;
+    }
+    else
+    {
+        t &= 0xFF00;
+        t |= byte;
+    }
+    ASIC_DEB_PORTS[port >> 1] = t;
+#endif
 	SetPortB(port,byte);
 }
 

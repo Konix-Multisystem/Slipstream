@@ -70,6 +70,9 @@ DECLARE INTERNAL IRQBlock[1];
 
 DECLARE INTERNAL EXIP[16];		# Exceptions store this value rather than IP
 
+DECLARE INTERNAL TMPB[8];
+DECLARE INTERNAL TMPW[16];
+
 ############ Helper functions
 
 FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segment[16],offset[16]
@@ -351,22 +354,22 @@ MAPPING regs[2]
 
 MAPPING cond[4]
 {
-	%0000	"O"	O;
+	%0000	"O"		O;
 	%0001	"NO"	~O;
-	%0010	"C"	C;
+	%0010	"C"		C;
 	%0011	"AE"	~C;
-	%0100	"E"	Z;
+	%0100	"E"		Z;
 	%0101	"NE"	~Z;
 	%0110	"BE"	C | Z;
-	%0111	"A"	(~C) & (~Z);
-	%1000	"S"	S;
+	%0111	"A"		(~C) & (~Z);
+	%1000	"S"		S;
 	%1001	"NS"	~S;
-	%1010	"P"	P;
+	%1010	"P"		P;
 	%1011	"PO"	~P;
-	%1100	"L"	S!=O;
+	%1100	"L"		S!=O;
 	%1101	"GE"	S==O;
 	%1110	"LE"	Z | (S!=O);
-	%1111	"G"	(~Z) & (S==O);
+	%1111	"G"		(~Z) & (S==O);
 }
 
 MAPPING wrdbyte[1]
@@ -389,21 +392,21 @@ MAPPING portVariable[1]
 
 MAPPING DecIncB[1]
 {
-	%0	"INC"	CALL IncrementByte(T);
-	%1	"DEC"	CALL DecrementByte(T);
+	%0	"INC"	CALL IncrementByte(TMPB);
+	%1	"DEC"	CALL DecrementByte(TMPB);
 }
 
 MAPPING DecIncW[1]
 {
-	%0	"INC"	CALL IncrementWord(T);
-	%1	"DEC"	CALL DecrementWord(T);
+	%0	"INC"	CALL IncrementWord(TMPW);
+	%1	"DEC"	CALL DecrementWord(TMPW);
 }
 
 MAPPING loopcond[2]
 {
-	%00	"NZ"	(~Z);
-	%01	"Z"	Z;
-	%10	""	1;
+	%00	"NZ"	~Z;
+	%01	"Z"		Z;
+	%10	""		1;
 }
 
 ############ Table executors
@@ -1854,16 +1857,15 @@ INSTRUCTION	"#TABLE2#"	%11111110
 INSTRUCTION	TABLE_DECINC_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncB:rm[3]
 {
 	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-	DECLARE T[8];
 
 	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
 	3+CYCLES->CYCLES;
 
-	CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)->T;
+	CALL GetEffectiveAddressByte(mod,rm,SEG,EFF)->TMPB;
 
-	DecIncB->T;
+	DecIncB->TMPB;
 
-	CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,T);
+	CALL SetEffectiveAddressByte(mod,rm,SEG,EFF,TMPB);
 }
 
 INSTRUCTION	"POP #MODnnnRM#"	%10001111
@@ -2367,12 +2369,12 @@ FUNCTION INTERNAL	res[8]	Do1ShiftOperationByte	operation[4],dst[8]
 	IF operation==$3			# RCR
 	{
 		res<-ROR(dst,C,C,1);
-		O<-res[7..7]^res[6..6];
+		O<-(res[7..7])^(res[6..6]);
 	}
 	IF operation==$4			# SHL/SAL
 	{
 		AFFECT S AS SIGN,Z AS ZERO,P AS PARITYEVEN { ROL(dst,C,$00,1) }->res;
-		O<-~(C==res[7..7]);
+		O<-~(C==(res[7..7]));
 	}
 	IF operation==$5			# SHR
 	{
@@ -2405,13 +2407,13 @@ FUNCTION INTERNAL	res[16]	Do1ShiftOperationWord	operation[4],dst[16]
 	IF operation==$3			# RCR
 	{
 		res<-ROR(dst,C,C,1);
-		O<-res[15..15]^res[14..14];
+		O<-(res[15..15])^(res[14..14]);
 	}
 	IF operation==$4			# SHL/SAL
 	{
 		AFFECT S AS SIGN,Z AS ZERO { ROL(dst,C,$0000,1) }->res;
 		AFFECT P AS PARITYEVEN { res[0..7] };
-		O<-~(C==res[15..15]);
+		O<-~(C==(res[15..15]));
 	}
 	IF operation==$5			# SHR
 	{
@@ -2959,16 +2961,15 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecIncW:rm[3]
 {
 	DECLARE SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-	DECLARE T[16];
 
 	CALL CalcEffectiveAddress(mod,rm,12)->SEGEA;
 	3+CYCLES->CYCLES;
 
-	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->T;
+	CALL GetEffectiveAddressWord(mod,rm,SEG,EFF)->TMPW;
 
-	DecIncW->T;
+	DecIncW->TMPW;
 
-	CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,T);
+	CALL SetEffectiveAddressWord(mod,rm,SEG,EFF,TMPW);
 }
 
 INSTRUCTION	TABLE_OP_MOD	"PUSH #MODnnnRM#"	mod[2]:%110:rm[3]

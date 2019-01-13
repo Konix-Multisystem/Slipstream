@@ -43,6 +43,8 @@ extern uint16_t MSU_EFLAGS;				// FROM EDL
 extern uint16_t MSU_CYCLES;				// FROM EDL
 extern uint32_t MSU_GETPHYSICAL_EIP();
 
+extern uint8_t MSU_cSize;
+
 extern uint8_t *DIS_[256];				// FROM EDL
 extern uint32_t DIS_max_;				// FROM EDL
 extern uint8_t *DIS_TABLE_DECINC_MOD[256];		// FROM EDL

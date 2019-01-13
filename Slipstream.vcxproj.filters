@@ -54,6 +54,9 @@
     <ClCompile Include="src\disasm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\MemoryMappedDebugger.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\asic.h">
