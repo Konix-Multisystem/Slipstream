@@ -1015,7 +1015,7 @@ void DoCPU80386sx()
 	}
 	if (MSU_GETPHYSICAL_EIP()==0xE0004)
 	{
-		MSU_EAX = (MSU_EAX & 0xFFFFFF00 ) | ((joyPadState^0xFF)&0xFF);// ^ 0xFFFF;
+		MSU_EAX = (MSU_EAX & 0xFFFF0000 ) | ((joyPadState^0xFFFF)&0xFFFF);// ^ 0xFFFF;
 		//CONSOLE_OUTPUT("read_kmssjoy called\n");
 	}
 	if (MSU_GETPHYSICAL_EIP()==0xE000C)
