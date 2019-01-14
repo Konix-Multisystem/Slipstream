@@ -2465,6 +2465,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 			if (vClock==(HEIGHT))
 			{
 				vClock=0;
+				outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
 			}
 		}
 
