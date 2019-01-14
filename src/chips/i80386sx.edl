@@ -58,7 +58,7 @@ DECLARE	ES[16];
 DECLARE	FS[16];
 DECLARE	GS[16];
 
-DECLARE	EIP[32];
+DECLARE	EIP[32]	ALIAS	uEIP[16]:IP[16];
 
 DECLARE UpperALinesHeldHigh[32];
 
@@ -133,7 +133,7 @@ FUNCTION addr[32] GETPHYSICAL_EIP
 
 		pageOffset<-CS;
 		physical<-ROL(physical,dummy,%0000,4);
-		addr<-physical+(EIP[0..15]);
+		addr<-physical+IP;
 		addr<-addr|UpperALinesHeldHigh;
 	}
 }
@@ -312,26 +312,54 @@ FUNCTION INTERNAL	byt[8]		FetchByteNoOveride	segReg[3],seg[16],off[32]
 
 FUNCTION INTERNAL	PushWord	wrd[16]
 {
-	ESP<-ESP - 2;
+	IF sSize
+	{
+		ESP<-ESP - 2;
+	}
+	ELSE
+	{
+		SP<-SP - 2;
+	}
 	CALL StoreWordNoOveride(SegSS,SS,ESP,wrd);
 }
 
 FUNCTION INTERNAL	PushLong	lng[32]
 {
-	ESP<-ESP - 4;
+	IF sSize
+	{
+		ESP<-ESP - 4;
+	}
+	ELSE
+	{
+		SP<-SP - 4;
+	}
 	CALL StoreLongNoOveride(SegSS,SS,ESP,lng);
 }
 
 FUNCTION INTERNAL	lng[32]		PopLong
 {
 	CALL FetchLongNoOveride(SegSS,SS,ESP)->lng;
-	ESP<-ESP + 4;
+	IF sSize
+	{
+		ESP<-ESP + 4;
+	}
+	ELSE
+	{
+		SP<-SP + 4;
+	}
 }
 
 FUNCTION INTERNAL	wrd[16]		PopWord
 {
 	CALL FetchWordNoOveride(SegSS,SS,ESP)->wrd;
-	ESP<-ESP + 2;
+	IF sSize
+	{
+		ESP<-ESP + 2;
+	}
+	ELSE
+	{
+		SP<-SP + 2;
+	}
 }
 
 FUNCTION INTERNAL	byt[8]		GetImmediateByte
@@ -343,7 +371,7 @@ FUNCTION INTERNAL	byt[8]		GetImmediateByte
 	}
 	IF ~CR_PE
 	{
-		EIP + 1 -> EIP[0..15];
+		IP + 1 -> IP;
 	}
 }
 
@@ -461,7 +489,7 @@ FUNCTION INTERNAL 		Exception			vector[8]
 		CALL PushWord(CS);
 		CALL PushWord(EXIP);
 		TMP<-vector*$0004;
-		CALL FetchWordNoOveride(SegCS,$0000,TMP)->EIP;
+		CALL FetchWordNoOveride(SegCS,$0000,TMP)->IP;
 		CALL FetchWordNoOveride(SegCS,$0000,TMP+2)->CS;
 
 		51+CYCLES->CYCLES;
@@ -504,6 +532,7 @@ FUNCTION STEP
 
 	IF interruptPending
 	{
+		EXIP<-EIP;					# CACHE IP FOR EXCEPTION/REPEAT HANDLING
 		HALT<-0;
 		interruptPending<-0;
 		# Standard interrupt procedure
@@ -791,15 +820,15 @@ FUNCTION INTERNAL	proceed[1]	DoRepeat
 		}
 		IF ~aSize
 		{
-			IF ((ECX[0..15])==0)
+			IF (CX==0)
 			{
 				9+CYCLES->CYCLES;
 				REPEAT<-0;
 				proceed<-0;
 			}
-			IF ((ECX[0..15])!=0)
+			IF (CX!=0)
 			{
-				(ECX[0..15]) - 1->ECX[0..15];
+				CX - 1->CX;
 				2+CYCLES->CYCLES;
 				proceed<-1;
 			}
@@ -869,35 +898,35 @@ FUNCTION INTERNAL	res[16]		GetWordRegister		reg[3]		## Because we can't look up 
 {
 	IF reg==%000
 	{
-		res<-EAX[0..15];
+		res<-AX;
 	}
 	IF reg==%001
 	{
-		res<-ECX[0..15];
+		res<-CX;
 	}
 	IF reg==%010
 	{
-		res<-EDX[0..15];
+		res<-DX;
 	}
 	IF reg==%011
 	{
-		res<-EBX[0..15];
+		res<-BX;
 	}
 	IF reg==%100
 	{
-		res<-ESP[0..15];
+		res<-SP;
 	}
 	IF reg==%101
 	{
-		res<-EBP[0..15];
+		res<-BP;
 	}
 	IF reg==%110
 	{
-		res<-ESI[0..15];
+		res<-SI;
 	}
 	IF reg==%111
 	{
-		res<-EDI[0..15];
+		res<-DI;
 	}
 }
 
@@ -978,35 +1007,35 @@ FUNCTION INTERNAL	SetWordRegister		reg[3],val[16]		## Because we can't look up a
 {
 	IF reg==%000
 	{
-		val->EAX[0..15];
+		val->AX;
 	}
 	IF reg==%001
 	{
-		val->ECX[0..15];
+		val->CX;
 	}
 	IF reg==%010
 	{
-		val->EDX[0..15];
+		val->DX;
 	}
 	IF reg==%011
 	{
-		val->EBX[0..15];
+		val->BX;
 	}
 	IF reg==%100
 	{
-		val->ESP[0..15];
+		val->SP;
 	}
 	IF reg==%101
 	{
-		val->EBP[0..15];
+		val->BP;
 	}
 	IF reg==%110
 	{
-		val->ESI[0..15];
+		val->SI;
 	}
 	IF reg==%111
 	{
-		val->EDI[0..15];
+		val->DI;
 	}
 }
 
@@ -1392,13 +1421,13 @@ FUNCTION INTERNAL			IMulWord		src[16]					# No return, assigns value as intended
 	DECLARE lhs[32];
 	DECLARE rhs[32];
 	DECLARE result[32]	ALIAS	upper[16]:lower[16];
-	lhs<-$00000000++(EAX[0..15]);
+	lhs<-$00000000++AX;
 	rhs<-$00000000++src;
 	result<-lhs * rhs;
 	CF<-~((upper==$0000) | (upper==$FFFF));
 	OF<-CF;
-	upper->EDX[0..15];
-	lower->EAX[0..15];
+	upper->DX;
+	lower->AX;
 }
 
 FUNCTION INTERNAL			IMulByte		src[8]					# No return, assigns value as intended by instruction implicitly
@@ -1412,7 +1441,7 @@ FUNCTION INTERNAL			IMulByte		src[8]					# No return, assigns value as intended 
 	CF<-~((upper==$00) | (upper==$FF));
 	OF<-CF;
 	
-	result->EAX[0..15];
+	result->AX;
 }
 
 FUNCTION INTERNAL			MulLong			src[32]					# No return, assigns value as intended by instruction implicitly
@@ -1434,13 +1463,13 @@ FUNCTION INTERNAL			MulWord			src[16]					# No return, assigns value as intended
 	DECLARE lhs[32];
 	DECLARE rhs[32];
 	DECLARE result[32]	ALIAS	upper[16]:lower[16];
-	lhs<-EAX[0..15];
+	lhs<-AX;
 	rhs<-src;
 	result<-lhs * rhs;
 	CF<-upper!=$0000;
 	OF<-CF;
-	upper->EDX[0..15];
-	lower->EAX[0..15];
+	upper->DX;
+	lower->AX;
 }
 
 FUNCTION INTERNAL			MulByte			src[8]					# No return, assigns value as intended by instruction implicitly
@@ -1454,7 +1483,7 @@ FUNCTION INTERNAL			MulByte			src[8]					# No return, assigns value as intended 
 	CF<-upper!=$00;
 	OF<-CF;
 	
-	result->EAX[0..15];
+	result->AX;
 }
 
 FUNCTION INTERNAL			DivLong			src[32]					# No return, assigns value as intended by instruction implicitly
@@ -1491,8 +1520,8 @@ FUNCTION INTERNAL			DivWord			src[16]					# No return, assigns value as intended
 {
 	DECLARE lhs[32];
 	DECLARE rhs[32];
-	EDX[0..15]->lhs[16..31];
-	EAX[0..15]->lhs[0..15];
+	DX->lhs[16..31];
+	AX->lhs[0..15];
 	rhs<-src;
 	IF rhs!=0
 	{
@@ -1503,8 +1532,8 @@ FUNCTION INTERNAL			DivWord			src[16]					# No return, assigns value as intended
 
 		IF quo<=$0000FFFF
 		{
-			quo->EAX[0..15];
-			rem->EDX[0..15];
+			quo->AX;
+			rem->DX;
 		}
 		IF quo>$0000FFFF
 		{
@@ -1521,7 +1550,7 @@ FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended 
 {
 	DECLARE lhs[16];
 	DECLARE rhs[16];
-	lhs<-EAX[0..15];
+	lhs<-AX;
 	rhs<-src;
 	IF rhs!=0
 	{
@@ -2079,11 +2108,11 @@ INSTRUCTION	"PUSH #IMM"			%01101000
 
 INSTRUCTION	"PUSH #IMM"			%01101010
 {
-	IF sSize
+	IF oSize
 	{
 		CALL PushLong(CALL GetImmediateByte());
 	}
-	IF ~sSize
+	IF ~oSize
 	{
 		CALL PushWord(CALL GetImmediateByte());
 	}
@@ -2105,14 +2134,14 @@ INSTRUCTION	"POPA"			%01100001
 	}
 	IF ~oSize
 	{
-		CALL PopWord()->EDI[0..15];
-		CALL PopWord()->ESI[0..15];
-		CALL PopWord()->EBP[0..15];
+		CALL PopWord()->DI;
+		CALL PopWord()->SI;
+		CALL PopWord()->BP;
 		ESP+2->ESP;
-		CALL PopWord()->EBX[0..15];
-		CALL PopWord()->EDX[0..15];
-		CALL PopWord()->ECX[0..15];
-		CALL PopWord()->EAX[0..15];
+		CALL PopWord()->BX;
+		CALL PopWord()->DX;
+		CALL PopWord()->CX;
+		CALL PopWord()->AX;
 	}
 	11*8+CYCLES->CYCLES;
 }
@@ -2132,8 +2161,8 @@ INSTRUCTION	"XCHG AX,%M0"		%10010:reg[3]
 	{
 		DECLARE tmp[16];
 		CALL GetWordRegister(reg)->tmp;
-		CALL SetWordRegister(reg,EAX[0..15]);
-		tmp->EAX[0..15];
+		CALL SetWordRegister(reg,AX);
+		tmp->AX;
 		3+CYCLES->CYCLES;
 	}
 }
@@ -2144,7 +2173,7 @@ INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
 
 	IF portVariable
 	{
-		port<-EDX[0..15];
+		port<-DX;
 		8+CYCLES->CYCLES;
 	}
 	IF ~portVariable
@@ -2160,7 +2189,7 @@ INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
 			CALL unimplemented(0);	
 		}
 
-		CALL GetPortW(port)->EAX[0..15];
+		CALL GetPortW(port)->AX;
 	}
 	IF ~accword
 	{
@@ -2174,7 +2203,7 @@ INSTRUCTION	"OUT %M0,%M1"		%1110:portVariable:%11:accword
 
 	IF portVariable
 	{
-		port<-EDX[0..15];
+		port<-DX;
 		8+CYCLES->CYCLES;
 	}
 	IF ~portVariable
@@ -2205,7 +2234,7 @@ INSTRUCTION	"XLAT"			%11010111
 		DEBUG_TRACE "XLAT long";
 		CALL unimplemented(0);	
 	}
-	CALL FetchByte(SegDS,DS,(EBX[0..15])+(EAX[0..7]))->EAX[0..7];
+	CALL FetchByte(SegDS,DS,BX+(AX[0..7]))->AX[0..7];
 	11+CYCLES->CYCLES;
 }
 
@@ -2300,7 +2329,7 @@ INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
 		}
 		IF ~oSize
 		{
-			CALL FetchWord(SegDS,DS,Addr)->EAX[0..15];
+			CALL FetchWord(SegDS,DS,Addr)->AX;
 		}
 	}
 	IF ~accword
@@ -2330,7 +2359,7 @@ INSTRUCTION	"MOV #ADDR#,%M0"	%1010001:accword
 		}
 		IF ~oSize
 		{
-			CALL StoreWord(SegDS,DS,Addr,EAX[0..15]);
+			CALL StoreWord(SegDS,DS,Addr,AX);
 		}
 	}
 	IF ~accword
@@ -2350,7 +2379,7 @@ INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
 		}
 		IF ~oSize
 		{
-			CALL AddWord(EAX[0..15],CALL GetImmediateWord(),0)->EAX[0..15];
+			CALL AddWord(AX,CALL GetImmediateWord(),0)->AX;
 		}
 	}
 	IF ~accword
@@ -2371,7 +2400,7 @@ INSTRUCTION	"ADC %M0,#IMM0#"	%0001010:accword
 		}
 		IF ~oSize
 		{
-			CALL AddWord(EAX[0..15],CALL GetImmediateWord(),CF)->EAX[0..15];
+			CALL AddWord(AX,CALL GetImmediateWord(),CF)->AX;
 		}
 	}
 	IF ~accword
@@ -2404,7 +2433,7 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 		}
 		IF ~oSize
 		{
-			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),0)->EAX[0..15];
+			CALL SubWord(AX,CALL GetImmediateWord(),0)->AX;
 		}
 	}
 	IF ~accword
@@ -2425,7 +2454,7 @@ INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
 		}
 		IF ~oSize
 		{
-			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),CF)->EAX[0..15];
+			CALL SubWord(AX,CALL GetImmediateWord(),CF)->AX;
 		}
 	}
 	IF ~accword
@@ -2458,7 +2487,7 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 		}
 		IF ~oSize
 		{
-			CALL SubWord(EAX[0..15],CALL GetImmediateWord(),0);
+			CALL SubWord(AX,CALL GetImmediateWord(),0);
 		}
 	}
 	IF ~accword
@@ -2577,7 +2606,7 @@ INSTRUCTION	"CBW"			%10011000
 	}
 	LOWER<-EAX[0..7];
 	TMP<-$0000++LOWER;
-	TMP->EAX[0..15];
+	TMP->AX;
 	2+CYCLES->CYCLES;
 }
 
@@ -2591,9 +2620,9 @@ INSTRUCTION	"CWD"			%10011001
 		CALL unimplemented(0);	
 	}
 
-	LOWER<-EAX[0..15];
+	LOWER<-AX;
 	TMP<-$00000000++LOWER;
-	UPPER->EDX[0..15];
+	UPPER->DX;
 	5+CYCLES->CYCLES;
 }
 
@@ -2607,7 +2636,7 @@ INSTRUCTION	"AND %M0,#IMM0#"	%0010010:accword
 		}
 		IF ~oSize
 		{
-			CALL AndWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+			CALL AndWord(AX,CALL GetImmediateWord())->AX;
 		}
 	}
 	IF ~accword
@@ -2627,7 +2656,7 @@ INSTRUCTION	"TEST %M0,#IMM0#"	%1010100:accword
 		}
 		IF ~oSize
 		{
-			CALL AndWord(EAX[0..15],CALL GetImmediateWord());
+			CALL AndWord(AX,CALL GetImmediateWord());
 		}
 	}
 	IF ~accword
@@ -2647,7 +2676,7 @@ INSTRUCTION	"OR %M0,#IMM0#"		%0000110:accword
 		}
 		IF ~oSize
 		{
-			CALL OrWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+			CALL OrWord(AX,CALL GetImmediateWord())->AX;
 		}
 	}
 	IF ~accword
@@ -2667,7 +2696,7 @@ INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
 		}
 		IF ~oSize
 		{
-			CALL XorWord(EAX[0..15],CALL GetImmediateWord())->EAX[0..15];
+			CALL XorWord(AX,CALL GetImmediateWord())->AX;
 		}
 	}
 	IF ~accword
@@ -2715,8 +2744,8 @@ INSTRUCTION	"MOVS%M0"		%1010010:wrdbyte[1]
 
 		IF ~aSize
 		{
-			(ESI[0..15])+adjust->ESI[0..15];
-			(EDI[0..15])+adjust->EDI[0..15];
+			SI+adjust->SI;
+			DI+adjust->DI;
 		}
 		IF aSize
 		{
@@ -2752,7 +2781,7 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 				}
 				IF ~aSize
 				{
-					CALL FetchLong(SegDS,DS,ESI[0..15])->EAX;
+					CALL FetchLong(SegDS,DS,SI)->EAX;
 				}
 				adjust<-4;
 			}
@@ -2760,11 +2789,11 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 			{
 				IF aSize
 				{
-					CALL FetchWord(SegDS,DS,ESI)->EAX[0..15];
+					CALL FetchWord(SegDS,DS,ESI)->AX;
 				}
 				IF ~aSize
 				{
-					CALL FetchWord(SegDS,DS,ESI[0..15])->EAX[0..15];
+					CALL FetchWord(SegDS,DS,SI)->AX;
 				}
 				adjust<-2;
 			}
@@ -2777,7 +2806,7 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 			}
 			IF ~aSize
 			{
-				CALL FetchByte(SegDS,DS,ESI[0..15])->EAX[0..7];
+				CALL FetchByte(SegDS,DS,SI)->EAX[0..7];
 			}
 			adjust<-1;
 		}
@@ -2793,7 +2822,7 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 		}
 		IF ~aSize
 		{
-			(ESI[0..15])+adjust->ESI[0..15];
+			SI+adjust->SI;
 		}
 		IF ~REPEAT
 		{
@@ -2824,7 +2853,7 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 				}
 				IF ~aSize
 				{
-					CALL StoreLongNoOveride(SegES,ES,EDI[0..15],EAX);
+					CALL StoreLongNoOveride(SegES,ES,DI,EAX);
 				}
 				adjust<-4;
 			}
@@ -2832,11 +2861,11 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 			{
 				IF aSize
 				{
-					CALL StoreWordNoOveride(SegES,ES,EDI,EAX[0..15]);
+					CALL StoreWordNoOveride(SegES,ES,EDI,AX);
 				}
 				IF ~aSize
 				{
-					CALL StoreWordNoOveride(SegES,ES,EDI[0..15],EAX[0..15]);
+					CALL StoreWordNoOveride(SegES,ES,DI,AX);
 				}
 				adjust<-2;
 			}
@@ -2849,7 +2878,7 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 			}
 			IF ~aSize
 			{
-				CALL StoreByteNoOveride(SegES,ES,EDI[0..15],EAX[0..7]);
+				CALL StoreByteNoOveride(SegES,ES,DI,EAX[0..7]);
 			}
 			adjust<-1;
 		}
@@ -2865,7 +2894,7 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 		}
 		IF ~aSize
 		{
-			(EDI[0..15])+adjust->EDI[0..15];
+			DI+adjust->DI;
 		}
 		IF ~REPEAT
 		{
@@ -3002,7 +3031,7 @@ INSTRUCTION	"JMP #16DISP#"		%11101001
 	{
 		DECLARE disp[16];
 		disp<-CALL GetImmediateWord();
-		EIP++disp->EIP[0..15];			##check for 16/32 mode
+		IP ++ disp -> IP;
 		15+CYCLES->CYCLES;
 	}
 	IF oSize
@@ -3193,13 +3222,13 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 	}
 	IF ~aSize
 	{
-		(ECX[0..15])-1->ECX[0..15];
-		IF ((ECX[0..15])!=0) & (loopcond)
+		CX-1->CX;
+		IF (CX!=0) & (loopcond)
 		{
 			EIP++disp->EIP;
 			17+CYCLES->CYCLES;
 		}
-		IF ((ECX[0..15])==0) & (~loopcond)
+		IF (CX==0) & (~loopcond)
 		{
 			5+CYCLES->CYCLES;
 		}
@@ -3238,7 +3267,7 @@ INSTRUCTION	"IRET"			%11001111
 	}
 	IF ~oSize
 	{
-		CALL PopWord()->EIP[0..15];
+		CALL PopWord()->IP;
 		CALL PopWord()->CS;
 		CALL PopWord()->EFLAGS[0..15];
 	}
@@ -3347,11 +3376,11 @@ INSTRUCTION	TABLE_POP_MOD		""		mod[2]:dc[3]:rm[3]
 	CALL CalcEffectiveAddress(mod,rm,9)->SEGEA;
 	8+CYCLES->CYCLES;
 
-	IF sSize
+	IF oSize
 	{
 		CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL PopLong());
 	}
-	IF ~sSize
+	IF ~oSize
 	{
 		CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL PopWord());
 	}
@@ -4765,7 +4794,7 @@ INSTRUCTION	TABLE_OP_MOD	"JMP #MODnnnRM#"	mod[2]:%100:rm[3]
 
 	IF ~CR_PE
 	{
-		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
+		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
 	}
 	IF CR_PE
 	{
@@ -4787,21 +4816,15 @@ INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
 	CALL CalcEffectiveAddress(mod,rm,5)->SEGEA;
 	16+CYCLES->CYCLES;
 
-	IF sSize
-	{
-		CALL PushLong(EIP);
-	}
-	IF ~sSize
-	{
-		CALL PushWord(EIP);
-	}
 	IF oSize
 	{
+		CALL PushLong(EIP);
 		CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF)->EIP;
 	}
 	IF ~oSize
 	{
-		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
+		CALL PushWord(IP);
+		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
 	}
 }
 
@@ -4870,7 +4893,7 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 
 	CALL PushWord(CS);
 	CALL PushWord(EIP);
-	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->EIP[0..15];
+	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
 }
 
@@ -5121,7 +5144,7 @@ INSTRUCTION	FTABLE "J%M0 #16/32DISP#"		%1000:cond
 		}
 		IF ~CR_PE
 		{
-			EIP++disp->EIP[0..15];
+			IP++disp->IP;
 		}
 		16+CYCLES->CYCLES;
 	}
