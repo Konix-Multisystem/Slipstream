@@ -89,7 +89,7 @@ const char* ReadPortInfo[128] =
 	"GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ",*/
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
-#endif
+#else
 
 const char* WritePortInfo[128] =
 {
@@ -126,6 +126,7 @@ const char* ReadPortInfo[128] =
 	"GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ",*/
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
+#endif
 
 int UpdateMemoryMappedDebuggerViews()
 {
@@ -133,6 +134,7 @@ int UpdateMemoryMappedDebuggerViews()
 	char* tmp2 = (char*)pMapRegisters;
 	switch (curSystem)
 	{
+        case ESS_CP1:
 		case ESS_MSU:
 			FETCH_REGISTERS80386(tmp2);
 			break;

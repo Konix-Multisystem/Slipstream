@@ -750,7 +750,7 @@ uint16_t CP1_GetNextREXThing()
 	if (onetime)
 	{
 		onetime = 0;
-		FILE *tFile = fopen("E:\\NewWork\\GEOFF6.REX", "rb");
+		FILE *tFile = fopen("GEOFF6.REX", "rb");
 		fseek(tFile, 0, SEEK_END);
 		uint32_t length = ftell(tFile);
 
