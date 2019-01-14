@@ -41,15 +41,15 @@ DECLARE CYCLES[16];
 DECLARE HALT[1];
 
 ############ Programmer registers
-DECLARE EAX[32]	ALIAS	uEAX[16]:AX[16];
-DECLARE EBX[32]	ALIAS	uEBX[16]:BX[16];
-DECLARE ECX[32]	ALIAS	uECX[16]:CX[16];
-DECLARE	EDX[32]	ALIAS	uEDX[16]:DX[16];
+DECLARE EAX[32]	ALIAS	[16]:AX[16]		ALIAS	[16]:AH[8]:AL[8];
+DECLARE EBX[32]	ALIAS	[16]:BX[16]		ALIAS	[16]:BH[8]:BL[8];
+DECLARE ECX[32]	ALIAS	[16]:CX[16]		ALIAS	[16]:CH[8]:CL[8];
+DECLARE	EDX[32]	ALIAS	[16]:DX[16]		ALIAS	[16]:DH[8]:DL[8];
 
-DECLARE	ESP[32]	ALIAS	uESP[16]:SP[16];
-DECLARE	EBP[32]	ALIAS	uEBP[16]:BP[16];
-DECLARE	ESI[32]	ALIAS	uESI[16]:SI[16];
-DECLARE	EDI[32]	ALIAS	uEDI[16]:DI[16];
+DECLARE	ESP[32]	ALIAS	[16]:SP[16];
+DECLARE	EBP[32]	ALIAS	[16]:BP[16];
+DECLARE	ESI[32]	ALIAS	[16]:SI[16];
+DECLARE	EDI[32]	ALIAS	[16]:DI[16];
 
 DECLARE	CS[16];
 DECLARE	DS[16];
@@ -58,7 +58,7 @@ DECLARE	ES[16];
 DECLARE	FS[16];
 DECLARE	GS[16];
 
-DECLARE	EIP[32]	ALIAS	uEIP[16]:IP[16];
+DECLARE	EIP[32]	ALIAS	[16]:IP[16];
 
 DECLARE UpperALinesHeldHigh[32];
 
@@ -116,7 +116,7 @@ DECLARE INTERNAL EXIP[32];		# Exceptions store this value rather than IP
 
 DECLARE INTERNAL TMPB[8];
 DECLARE INTERNAL TMPW[16];
-DECLARE INTERNAL TMPL[16];
+DECLARE INTERNAL TMPL[32];
 
 ############ Debug functions
 
@@ -144,10 +144,6 @@ FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segReg[3],segment[16],offse
 {
 	IF CR_PE
 	{
-		IF ~aSize
-		{
-			CALL unimplemented(0);
-		}
 		byte<-CALL GetByte(SegBase[[segReg]]+offset);
 	}
 	IF ~CR_PE
@@ -862,35 +858,35 @@ FUNCTION INTERNAL	res[8]		GetByteRegister		reg[3]		## Because we can't look up a
 {
 	IF reg==%000
 	{
-		res<-EAX[0..7];
+		res<-AL;
 	}
 	IF reg==%001
 	{
-		res<-ECX[0..7];
+		res<-CL;
 	}
 	IF reg==%010
 	{
-		res<-EDX[0..7];
+		res<-DL;
 	}
 	IF reg==%011
 	{
-		res<-EBX[0..7];
+		res<-BL;
 	}
 	IF reg==%100
 	{
-		res<-EAX[8..15];
+		res<-AH;
 	}
 	IF reg==%101
 	{
-		res<-ECX[8..15];
+		res<-CH;
 	}
 	IF reg==%110
 	{
-		res<-EDX[8..15];
+		res<-DH;
 	}
 	IF reg==%111
 	{
-		res<-EBX[8..15];
+		res<-BH;
 	}
 }
 
@@ -971,35 +967,35 @@ FUNCTION INTERNAL	SetByteRegister		reg[3],val[8]		## Because we can't look up ar
 {
 	IF reg==%000
 	{
-		val->EAX[0..7];
+		val->AL;
 	}
 	IF reg==%001
 	{
-		val->ECX[0..7];
+		val->CL;
 	}
 	IF reg==%010
 	{
-		val->EDX[0..7];
+		val->DL;
 	}
 	IF reg==%011
 	{
-		val->EBX[0..7];
+		val->BL;
 	}
 	IF reg==%100
 	{
-		val->EAX[8..15];
+		val->AH;
 	}
 	IF reg==%101
 	{
-		val->ECX[8..15];
+		val->CH;
 	}
 	IF reg==%110
 	{
-		val->EDX[8..15];
+		val->DH;
 	}
 	IF reg==%111
 	{
-		val->EBX[8..15];
+		val->BH;
 	}
 }
 
@@ -1435,7 +1431,7 @@ FUNCTION INTERNAL			IMulByte		src[8]					# No return, assigns value as intended 
 	DECLARE lhs[16];
 	DECLARE rhs[16];
 	DECLARE result[16]	ALIAS	upper[8]:lower[8];
-	lhs<-$0000++(EAX[0..7]);
+	lhs<-$0000++AL;
 	rhs<-$0000++src;
 	result<-lhs * rhs;
 	CF<-~((upper==$00) | (upper==$FF));
@@ -1477,7 +1473,7 @@ FUNCTION INTERNAL			MulByte			src[8]					# No return, assigns value as intended 
 	DECLARE lhs[16];
 	DECLARE rhs[16];
 	DECLARE result[16]	ALIAS	upper[8]:lower[8];
-	lhs<-EAX[0..7];
+	lhs<-AL;
 	rhs<-src;
 	result<-lhs * rhs;
 	CF<-upper!=$00;
@@ -1560,8 +1556,8 @@ FUNCTION INTERNAL			DivByte			src[8]					# No return, assigns value as intended 
 		rem<-lhs % rhs;
 		IF quo<=$00FF
 		{
-			quo->EAX[0..7];
-			rem->EAX[8..15];
+			quo->AL;
+			rem->AH;
 		}
 		IF quo>$00FF
 		{
@@ -2193,7 +2189,7 @@ INSTRUCTION	"IN %M1,%M0"		%1110:portVariable:%10:accword
 	}
 	IF ~accword
 	{
-		CALL GetPortB(port)->EAX[0..7];
+		CALL GetPortB(port)->AL;
 	}
 }
 
@@ -2234,7 +2230,7 @@ INSTRUCTION	"XLAT"			%11010111
 		DEBUG_TRACE "XLAT long";
 		CALL unimplemented(0);	
 	}
-	CALL FetchByte(SegDS,DS,BX+(AX[0..7]))->AX[0..7];
+	CALL FetchByte(SegDS,DS,BX+AL)->AL;
 	11+CYCLES->CYCLES;
 }
 
@@ -2245,7 +2241,7 @@ INSTRUCTION	"LAHF"			%10011111
 		DEBUG_TRACE "LAHF long";
 		CALL unimplemented(0);	
 	}
-	EFLAGS[0..7]->EAX[8..15];
+	EFLAGS[0..7]->AH;
 	4+CYCLES->CYCLES;
 }
 
@@ -2258,7 +2254,7 @@ INSTRUCTION	"SAHF"			%10011110
 	}
 	DECLARE TMP[16];
 	TMP<-EFLAGS;
-	EAX[8..15]->TMP[0..7];			# Work around for EDL bug, FLAGS does not get masked if updating using bitrange
+	AH->TMP[0..7];			# Work around for EDL bug, FLAGS does not get masked if updating using bitrange
 	TMP->EFLAGS;
 	4+CYCLES->CYCLES;
 }
@@ -2334,7 +2330,7 @@ INSTRUCTION	"MOV %M0,#ADDR#"	%1010000:accword
 	}
 	IF ~accword
 	{
-		CALL FetchByte(SegDS,DS,Addr)->EAX[0..7];
+		CALL FetchByte(SegDS,DS,Addr)->AL;
 	}
 	10+CYCLES->CYCLES;
 }
@@ -2364,7 +2360,7 @@ INSTRUCTION	"MOV #ADDR#,%M0"	%1010001:accword
 	}
 	IF ~accword
 	{
-		CALL StoreByte(SegDS,DS,Addr,EAX[0..7]);
+		CALL StoreByte(SegDS,DS,Addr,AL);
 	}
 	10+CYCLES->CYCLES;
 }
@@ -2384,7 +2380,7 @@ INSTRUCTION	"ADD %M0,#IMM0#"	%0000010:accword
 	}
 	IF ~accword
 	{
-		CALL AddByte(EAX[0..7],CALL GetImmediateByte(),0)->EAX[0..7];
+		CALL AddByte(AL,CALL GetImmediateByte(),0)->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2405,7 +2401,7 @@ INSTRUCTION	"ADC %M0,#IMM0#"	%0001010:accword
 	}
 	IF ~accword
 	{
-		CALL AddByte(EAX[0..7],CALL GetImmediateByte(),CF)->EAX[0..7];
+		CALL AddByte(AL,CALL GetImmediateByte(),CF)->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2438,7 +2434,7 @@ INSTRUCTION	"SUB %M0,#IMM0#"	%0010110:accword
 	}
 	IF ~accword
 	{
-		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),0)->EAX[0..7];
+		CALL SubByte(AL,CALL GetImmediateByte(),0)->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2459,7 +2455,7 @@ INSTRUCTION	"SBB %M0,#IMM0#"	%0001110:accword
 	}
 	IF ~accword
 	{
-		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),CF)->EAX[0..7];
+		CALL SubByte(AL,CALL GetImmediateByte(),CF)->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2492,7 +2488,7 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 	}
 	IF ~accword
 	{
-		CALL SubByte(EAX[0..7],CALL GetImmediateByte(),0);
+		CALL SubByte(AL,CALL GetImmediateByte(),0);
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2604,7 +2600,7 @@ INSTRUCTION	"CBW"			%10011000
 		DEBUG_TRACE "CBW long";
 		CALL unimplemented(0);	
 	}
-	LOWER<-EAX[0..7];
+	LOWER<-AL;
 	TMP<-$0000++LOWER;
 	TMP->AX;
 	2+CYCLES->CYCLES;
@@ -2641,7 +2637,7 @@ INSTRUCTION	"AND %M0,#IMM0#"	%0010010:accword
 	}
 	IF ~accword
 	{
-		CALL AndByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+		CALL AndByte(AL,CALL GetImmediateByte())->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2661,7 +2657,7 @@ INSTRUCTION	"TEST %M0,#IMM0#"	%1010100:accword
 	}
 	IF ~accword
 	{
-		CALL AndByte(EAX[0..7],CALL GetImmediateByte());
+		CALL AndByte(AL,CALL GetImmediateByte());
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2681,7 +2677,7 @@ INSTRUCTION	"OR %M0,#IMM0#"		%0000110:accword
 	}
 	IF ~accword
 	{
-		CALL OrByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+		CALL OrByte(AL,CALL GetImmediateByte())->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2701,7 +2697,7 @@ INSTRUCTION	"XOR %M0,#IMM0#"	%0011010:accword
 	}
 	IF ~accword
 	{
-		CALL XorByte(EAX[0..7],CALL GetImmediateByte())->EAX[0..7];
+		CALL XorByte(AL,CALL GetImmediateByte())->AL;
 	}
 	4+CYCLES->CYCLES;
 }
@@ -2802,11 +2798,11 @@ INSTRUCTION	"LODS%M0"		%1010110:wrdbyte[1]
 		{
 			IF aSize
 			{
-				CALL FetchByte(SegDS,DS,ESI)->EAX[0..7];
+				CALL FetchByte(SegDS,DS,ESI)->AL;
 			}
 			IF ~aSize
 			{
-				CALL FetchByte(SegDS,DS,SI)->EAX[0..7];
+				CALL FetchByte(SegDS,DS,SI)->AL;
 			}
 			adjust<-1;
 		}
@@ -2874,11 +2870,11 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 		{
 			IF aSize
 			{
-				CALL StoreByteNoOveride(SegES,ES,EDI,EAX[0..7]);
+				CALL StoreByteNoOveride(SegES,ES,EDI,AL);
 			}
 			IF ~aSize
 			{
-				CALL StoreByteNoOveride(SegES,ES,DI,EAX[0..7]);
+				CALL StoreByteNoOveride(SegES,ES,DI,AL);
 			}
 			adjust<-1;
 		}
@@ -3435,20 +3431,19 @@ INSTRUCTION	"LEA #MODleaRM#"			%10001101
 	EXECUTE TABLE_LEA IR;
 }
 
-INSTRUCTION	TABLE_LEA	""		leaMod:regw:rm[3]
+INSTRUCTION	TABLE_LEA	""		leaMod:reg[3]:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
 
-	IF cSize | oSize
-	{
-		DEBUG_TRACE "LEA 32 bit issue";
-		CALL unimplemented(0);
-	}
-	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
-	
-	DECLARE valsplit[32] ALIAS valu[16]:vall[16];
-	valsplit<-EFF;
-	vall->regw;
+    CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
+    IF oSize
+    {
+        CALL SetLongRegister(reg,EFF);
+    }
+    ELSE
+    {
+	    CALL SetWordRegister(reg,EFF);
+    }
 }
 
 #MAPPING LDESMap[1]
@@ -4564,16 +4559,16 @@ INSTRUCTION	TABLE_SHV_MOD	"%M0 #MODnnnRM#,CL"		wordOp[1]:mod[2]:shiftVarModOp:rm
 	{
 		IF oSize
 		{
-			CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationLong(shiftVarModOp,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+			CALL SetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationLong(shiftVarModOp,CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF),CL & $1F));
 		}
 		IF ~oSize
 		{
-			CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+			CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationWord(shiftVarModOp,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF),CL & $1F));
 		}
 	}
 	IF ~wordOp
 	{
-		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),(ECX[0..7])&$1F));
+		CALL SetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF,CALL DoVariableShiftOperationByte(shiftVarModOp,CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF),CL & $1F));
 	}
 }
 

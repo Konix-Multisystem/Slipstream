@@ -22,7 +22,7 @@ PIN OUT			PIN_DEBUG[1];
 PIN OUT			PIN_DSTLO[8];
 PIN OUT			PIN_DSTMI[8];
 
-DECLARE 		PROGADDR[21]	ALIAS	PROGBYTEADDR[20]:dc[1];
+DECLARE 		PROGADDR[21]	ALIAS	PROGBYTEADDR[20]:[1];
 
 # These are in the same order as the command sequence - although slightly compacted;
 DECLARE 		CMD[8]		ALIAS	LINDR[1]:LT[2]:DSTUP[1]:SRCUP[1]:PARRD[1]:COLST[1]:RUN[1];	#RUN|PARRD|SRCUP|DSTUP|LT - missing COLST|LINDR
@@ -214,7 +214,7 @@ HANDLER PIN__TICK	ALWAYS
 
 				STATE LDSRCHI
 				{
-					DECLARE Tmp[8]	ALIAS	dc[3]:lo[1]:hi[4];
+					DECLARE Tmp[8]	ALIAS	[3]:lo[1]:hi[4];
 					CALL GetNextProgByte()->Tmp;
 					hi->SRCADDR[17..20];
 					lo->SRCNIBBLEADDR;
