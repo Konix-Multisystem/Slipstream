@@ -1190,12 +1190,14 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_CP1;
 				LoadRom("roms/card1.bin",0);
+				//LoadRom("roms/james5.bin",0);
 				//LoadRom("roms/easy.bin",0);
+				//LoadRom("roms/devsys5.bin",0);
 				continue;
 			}
 			if (strcmp(argv[a],"-M")==0)
 			{
-				curSystem=ESS_MSU;
+				curSystem=ESS_CP1;
 				LoadRom("roms/MSUBios.bin",0);
 				continue;
 			}

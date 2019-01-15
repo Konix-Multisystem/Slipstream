@@ -95,7 +95,7 @@ void Z80_SetPort(uint16_t addr,uint8_t byte)
 int TODOMemMap = 1;
 
 uint8_t DSPCP1RAM[0x1000];
-uint8_t FLASHRAM[0x10000];
+uint8_t FLASHRAM[0x40000];
 uint8_t GetByteCP1(uint32_t addr)
 {
 	addr&=0xFFFFFF;		// 16Mb address space - linear (aka hardware address)
@@ -118,6 +118,12 @@ uint8_t GetByteCP1(uint32_t addr)
 		// Hack - this is DSP interface
 		return DSPCP1RAM[addr - 0xF18000];
 	}
+
+    if (addr >= 0xF40000 && addr < 0xF80000)
+    {
+        // FLASH !?
+        return FLASHRAM[addr - 0xF40000];
+    }
 
 	if (addr < RAM_SIZE)
 	{
@@ -302,12 +308,13 @@ void SetByteCP1(uint32_t addr,uint8_t byte)
 		}
 		return;
 	}
+    /*
 	if (addr >= 0xF00000 && addr <= 0xF0FFFF)
 	{
 		CONSOLE_OUTPUT("Flash Write : %06X,%02X\n", addr, byte);
 		FLASHRAM[addr - 0xF00000]=byte;
 		return;
-	}
+	}*/
 
 	if (addr >= 0xF10000 && addr <= 0xF103FF)
 	{
@@ -320,6 +327,19 @@ void SetByteCP1(uint32_t addr,uint8_t byte)
 		DSPCP1RAM[addr - 0xF18000] = byte;
 		return;
 	}
+    if (addr >= 0xF00000 && addr < 0xF10000)
+    {
+        // FLASH !?
+        FLASHRAM[addr - 0xF00000] = byte;// TODO - banking?
+        return;
+    }
+    if (addr >= 0xF40000 && addr < 0xF80000)
+    {
+        // FLASH !?
+        FLASHRAM[addr - 0xF40000]=byte;
+        return;
+    }
+
 	if (addr<RAM_SIZE)
 	{
 		if (debugWatchWrites)
@@ -743,14 +763,18 @@ uint16_t HACK_PSTAT = 0x0000;
 uint16_t HACK_BIOS = 0xFFFF;
 
 int cnt = 0;
-uint8_t sequence[9+64*1024+1] = { 128,0,0,0,0,0xCB,0x15,0,0 };
-int onetime=1;
+
+// 128 - PCTOMS ?  ?
+//uint8_t sequence[9+64*1024+1] = { 128,0,0,0,0,0xCB,0x15,0,0 };
+int HACK_startComms = 0;
+uint8_t sequence[9+64*1024+1] = { 154,0,0,2,0,0,0,0,0 };
 uint16_t CP1_GetNextREXThing()
 {
-	if (onetime)
+    if (!HACK_startComms)
+        return 0;
+	if ((cnt==0) && (sequence[0]==128))
 	{
-		onetime = 0;
-		FILE *tFile = fopen("GEOFF6.REX", "rb");
+		FILE *tFile = fopen("CART.REX", "rb");
 		fseek(tFile, 0, SEEK_END);
 		uint32_t length = ftell(tFile);
 
@@ -777,6 +801,9 @@ uint16_t CP1_GetNextREXThing()
 
 uint16_t MSU_JOYIN = 0xFFFF;
 
+uint16_t HACK_uC_DATA = 0;
+uint16_t HACK_uC_STAT = 2;
+
 uint16_t GetPortW(uint16_t port)
 {
 #if ENABLE_DEBUG
@@ -800,9 +827,9 @@ uint16_t GetPortW(uint16_t port)
 			case 0x0080:
 				return MSU_JOYIN;
 			case 0x0084:
-				return 0;
+                return HACK_uC_DATA;
 			case 0x0086:	// MCommsPort
-				return 0x0002;		// bit 0 = 0 can send , bit 1 = 1 can read
+				return HACK_uC_STAT;		// bit 0 = 0 can send , bit 1 = 1 can read
 			case 0x0088:
 				return CP1_GetNextREXThing();
 				//return HACK_PDATA;
@@ -1005,7 +1032,10 @@ uint16_t MSU_GetPortW(uint16_t port)
 
 uint8_t MSU_GetPortB(uint16_t port)
 {
-    return GetPortB(port & 0xFF);
+    uint16_t wordVal = GetPortW(port & 0xFFFE);
+    if (port & 1)
+        return wordVal >> 8;
+    return wordVal & 0xFF;
 }
 
 void MSU_SetPortW(uint16_t port,uint16_t word)
@@ -1034,7 +1064,7 @@ void MSU_SetPortB(uint16_t port,uint8_t byte)
     }
     ASIC_DEB_PORTS[port >> 1] = t;
 #endif
-	SetPortB(port,byte);
+	SetPortW(port&0xFFFE,t);
 }
 
 uint32_t joy89state;
