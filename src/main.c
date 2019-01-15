@@ -1027,7 +1027,7 @@ void DoCPU80386sx()
 	}
 	if (MSU_GETPHYSICAL_EIP()==0xE000C)
 	{
-		MSU_EAX = (MSU_EAX & 0xFFFF0000) | (numPadState ^ 0xFFFF);
+        MSU_EAX = (MSU_EAX & 0xFFFF0000) | (numPadState/* ^ 0xFFFF*/);
 		//CONSOLE_OUTPUT("read_keypad called\n");
 	}
 	if (MSU_GETPHYSICAL_EIP()==0x0D000)

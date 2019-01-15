@@ -1082,9 +1082,14 @@ void TickKeyboard()
 		}
 	}
 
-	for (a=0;a<16;a++)
+	for (a=0;a<12;a++)
 	{
-		if (KeyDown(GLFW_KEY_F1+a))
+        int key = GLFW_KEY_F1 + a;
+
+        if (a == 11)
+            key = GLFW_KEY_BACKSPACE;
+
+		if (KeyDown(key))
 		{
 			numPadState|=(1<<a);
 		}
