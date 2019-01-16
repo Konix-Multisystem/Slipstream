@@ -758,14 +758,6 @@ uint32_t FL1BLT_Step(uint8_t hold);
 
 void TickBlitterFL1()
 {
-#if 0
-
-/*	while (FL1BLT_Step(0))
-	{
-		pause=1;
-	}*/
-
-#else
 	// Flare One blitter seems to be quite different - Going to try some hackery to make it work on a case by case basis for now
 
 	if (ASIC_BLTCMD & 1)
@@ -1012,7 +1004,6 @@ void TickBlitterFL1()
 //		exit(1);
 
 	}
-#endif
 }
 
 
@@ -2252,10 +2243,6 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0020:
 			FL1BLT_SetCmd(byte);
 			ASIC_BLTCMD=byte;
-			if (useRemoteDebugger)
-			{
-				//pause=1;
-			}
 		case 0x0050:
 			ASIC_PALAW=byte;
 			ASIC_PALCNT=0;

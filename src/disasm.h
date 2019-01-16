@@ -5,8 +5,15 @@
 #ifndef _DISASM_H
 #define _DISASM_H
 
+enum CPU
+{
+    CPU_X86,
+    CPU_Z80
+};
+
 struct InStream
 {
+    enum CPU cpu;
 	unsigned int bytesRead;
 	unsigned int curAddress;
 	unsigned int useAddress;

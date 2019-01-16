@@ -235,6 +235,12 @@ unsigned char GetNextByteFromStream(InStream* stream)
 	return byte;
 }
 
+unsigned char PeekByteFromStreamOffset(InStream* stream, int offset)
+{
+    unsigned char byte = PeekByte(stream->curAddress + offset);
+    return byte;
+}
+
 #define TOTAL_OPERANDS	(6)
 
 struct Table
@@ -1172,6 +1178,18 @@ void AddToOutput(const char* text)
 	{
 		*insertAt++=*text++;
 	}
+	*insertAt=0;
+}
+
+void AddToOutputChar(const char c)
+{
+	char* insertAt=outputDis;
+	while (*insertAt!=0)
+	{
+		insertAt++;
+	}
+
+    *insertAt++ = c;
 	*insertAt=0;
 }
 
@@ -2212,15 +2230,38 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 	}
 }
 
+extern const char *Z80_DIS_[256];			// FROM EDL
+extern const char *Z80_DIS_CB[256];			// FROM EDL
+extern const char *Z80_DIS_DD[256];			// FROM EDL
+extern const char *Z80_DIS_DDCB[256];		// FROM EDL
+extern const char *Z80_DIS_ED[256];			// FROM EDL
+extern const char *Z80_DIS_FD[256];			// FROM EDL
+extern const char *Z80_DIS_FDCB[256];		// FROM EDL
+extern unsigned int Z80_DIS_max_;			// FROM EDL
+extern unsigned int Z80_DIS_max_ED;			// FROM EDL
+extern unsigned int Z80_DIS_max_FD;			// FROM EDL
+extern unsigned int Z80_DIS_max_FDCB;		// FROM EDL
+extern unsigned int Z80_DIS_max_CB;			// FROM EDL
+extern unsigned int Z80_DIS_max_DD;			// FROM EDL
+extern unsigned int Z80_DIS_max_DDCB;		// FROM EDL
+void DisassembleZ80(InStream* stream, unsigned char *table[256], int realLength);
+
 void Disassemble(InStream* stream,int _32bitCode)
 {
+	outputDis[0]=0;
+
+    if (stream->cpu == CPU_Z80)
+    {
+        DisassembleZ80(stream, Z80_DIS_,Z80_DIS_max_);
+        return;
+    }
+
 	int currSize=_32bitCode?2:1;	// 32/16 bit mode
 	int curmSize=_32bitCode?2:1;
 	int seg=-1;
 	int prefixCrude;
 	const Table* table = _1byte;
 
-	outputDis[0]=0;
 
 	for (prefixCrude=0;prefixCrude<4;prefixCrude++)
 	{
@@ -2269,5 +2310,88 @@ void Disassemble(InStream* stream,int _32bitCode)
 const char* GetOutputBuffer()
 {
 	return outputDis;
+}
+
+//// Z80
+
+
+void DisassembleZ80(InStream* stream, unsigned char *table[256], int realLength)
+{
+    unsigned char byte = GetNextByteFromStream(stream);
+    if (byte>realLength)
+    {
+        AddToOutput("Unknown Opcode");
+        stream->bytesRead = 0;
+        return;
+    }
+
+    const char* mnemonic = (char*)table[byte];
+	
+    if (!mnemonic)
+    {
+        AddToOutput("Unknown Opcode");
+        stream->bytesRead = 0;
+        return;
+    }
+
+    if (strcmp(mnemonic, "CB") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_CB, Z80_DIS_max_CB);
+    }
+    else if (strcmp(mnemonic, "DD") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_DD, Z80_DIS_max_DD);
+    }
+    else if (strcmp(mnemonic, "DDCB") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_DDCB, Z80_DIS_max_DDCB);
+    }
+    else if (strcmp(mnemonic, "FDCB") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_FDCB, Z80_DIS_max_FDCB);
+    }
+    else if (strcmp(mnemonic, "ED") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_ED, Z80_DIS_max_ED);
+    }
+    else if (strcmp(mnemonic, "FD") == 0)
+    {
+        DisassembleZ80(stream, Z80_DIS_FD, Z80_DIS_max_FD);
+    }
+    else
+    {
+        char sprintBuffer[3];
+        const char *sPtr = mnemonic;
+        int doingDecode = 0;
+        while (*sPtr)
+        {
+            if (!doingDecode)
+            {
+                if (*sPtr == '%')
+                {
+                    doingDecode = 1;
+                }
+                else
+                {
+                    AddToOutputChar(*sPtr);
+                }
+            }
+            else
+            {
+                int negOffs = 1;
+                if (*sPtr == '-')
+                {
+                    sPtr++;
+                    negOffs = -1;
+                }
+                int offset = (*sPtr - '0')*negOffs;
+                sprintf(sprintBuffer, "%02X", PeekByteFromStreamOffset(stream, offset));
+                AddToOutputChar(sprintBuffer[0]);
+                AddToOutputChar(sprintBuffer[1]);
+                doingDecode = 0;
+            }
+            sPtr++;
+        }
+    }
 }
 

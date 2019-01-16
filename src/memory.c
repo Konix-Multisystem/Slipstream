@@ -907,14 +907,11 @@ extern uint32_t	ASIC_SCROLL;
 extern uint16_t	ASIC_CP1_MODE;
 extern uint16_t	ASIC_CP1_MODE2;
 
-uint16_t ASIC_CP1_DEB_PORTS[128];
-
 void SetPortW(uint16_t port,uint16_t word)
 {
 	switch (curSystem)
 	{
 		case ESS_CP1:
-			ASIC_CP1_DEB_PORTS[port / 2] = word;
 			switch (port)
 			{
 			case 0x00:
@@ -971,10 +968,6 @@ void SetPortW(uint16_t port,uint16_t word)
 			case 0xEA:
 			case 0xEC:
 			case 0xEE:
-				for (int a = 0xE0; a < 0xF0; a += 2)
-				{
-					ASIC_CP1_DEB_PORTS[a / 2] = word;
-				}
 				pMapIO[0] = word & 0xFF;
 				pMapIO[1] = (word & 0xFF00) >> 8;
 				break;
@@ -1274,6 +1267,11 @@ void VECTORS_INIT()
 		case ESS_CP1:
 			break;
 		case ESS_P89:
+            /*	ROM[0xAE]=0x90;
+	        ROM[0xAF]=0x90;
+	        ROM[0xB0]=0x90;*/
+            ROM[0xB1] = 0xEB;
+            /*	ROM[0xB2]=0x90;*/
 			break;
 		case ESS_MSU:
 			// Add CB to vectors used by msu emulation
