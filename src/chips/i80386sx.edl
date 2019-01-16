@@ -60,13 +60,11 @@ DECLARE	GS[16];
 
 DECLARE	EIP[32]	ALIAS	[16]:IP[16];
 
-DECLARE UpperALinesHeldHigh[32];
-
 DECLARE	EFLAGS[32]	ALIAS	%00000000000000:VM[1]:RF[1]:%0:NT[1]:IOPL[2]:OF[1]:DF[1]:I[1]:TF[1]:SF[1]:ZF[1]:%0:AF[1]:%0:PF[1]:%1:CF[1];
 
 ############ Internal CPU state registers - should match hardware
 
-DECLARE CR0[32]		ALIAS	%0000000000000000000000000000000:CR_PE[1];
+DECLARE CR0[32]		ALIAS	CR_PG[1]:%000000000000000000000000001:CR_TS[1]:CR_EM[1]:CR_MP[1]:CR_PE[1];
 DECLARE CR1[32];
 DECLARE CR2[32];
 DECLARE CR3[32];
@@ -128,13 +126,7 @@ FUNCTION addr[32] GETPHYSICAL_EIP
 	}
 	IF ~CR_PE
 	{
-		DECLARE dummy[4];
-		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
-
-		pageOffset<-CS;
-		physical<-ROL(physical,dummy,%0000,4);
-		addr<-physical+IP;
-		addr<-addr|UpperALinesHeldHigh;
+        addr<-SegBase[[SegCS]]+IP;
 	}
 }
 
@@ -148,17 +140,7 @@ FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segReg[3],segment[16],offse
 	}
 	IF ~CR_PE
 	{
-		DECLARE dummy[4];
-		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
-
-		pageOffset<-segment;
-		physical<-ROL(physical,dummy,%0000,4);
-		physical<-physical+(offset[0..15]);
-		IF segReg==SegCS
-		{
-			physical<-physical|UpperALinesHeldHigh;
-		}
-		byte<-CALL GetByte(physical);
+        byte<-CALL GetByte(SegBase[[segReg]]+(offset[0..15]));
 	}
 }
 
@@ -170,13 +152,7 @@ FUNCTION INTERNAL	SetByteAtPhysicalAddress	segReg[3],segment[16],offset[32],byte
 	}
 	IF ~CR_PE
 	{
-		DECLARE dummy[4];
-		DECLARE physical[24]	ALIAS	page[8]:pageOffset[16];
-
-		pageOffset<-segment;
-		physical<-ROL(physical,dummy,%0000,4);
-		physical<-physical+(offset[0..15]);
-		CALL SetByte(physical,byte);
+        CALL SetByte(SegBase[[segReg]]+(offset[0..15]),byte);
 	}
 }
 
@@ -407,38 +383,46 @@ FUNCTION INTERNAL	descriptor[64]	GetGDTEntry	offs[16]
 	CALL GetByte(GDT_base+offs+7)->descriptor[56..63];
 }
 
-FUNCTION INTERNAL	SetSegByDescriptor	segReg[3],seg[16],idescriptor[64]
+FUNCTION INTERNAL	SetSegByDescriptor	segReg[3],seg[16]
 {
-	DECLARE descriptor[64]	ALIAS	baseHi[8]:Gran[1]:Use[1]:rsrv1[1]:rsrv2[1]:limitHi[4]:present[1]:priv[2]:desBit[1]:exe[1]:dir[1]:rw[1]:accessed[1]:baseLo[24]:limitLo[16];
-	DECLARE	base[32] ALIAS bHi[8]:bLo[24];
-	DECLARE limit[32] ALIAS lHi[12]:lMi[4]:lLo[16];
+    IF ~CR_PE
+    {
+        SegBase[[segReg]]<-seg;
+        SegBase[[segReg]]<-SegBase[[segReg]]*16;
+    }
+    ELSE
+    {
+	    DECLARE descriptor[64]	ALIAS	baseHi[8]:Gran[1]:Use[1]:rsrv1[1]:rsrv2[1]:limitHi[4]:present[1]:priv[2]:desBit[1]:exe[1]:dir[1]:rw[1]:accessed[1]:baseLo[24]:limitLo[16];
+	    DECLARE	base[32] ALIAS bHi[8]:bLo[24];
+	    DECLARE limit[32] ALIAS lHi[12]:lMi[4]:lLo[16];
 
-	descriptor<-idescriptor;
+	    descriptor<-CALL GetGDTEntry(seg);
 
-	bHi<-baseHi;
-	bLo<-baseLo;
-	lMi<-limitHi;
-	lLo<-limitLo;
+	    bHi<-baseHi;
+	    bLo<-baseLo;
+	    lMi<-limitHi;
+	    lLo<-limitLo;
 
-	IF Gran
-	{
-		limit<-limit*4096;
-		limit<-limit|$00000FFF;
-	}
+	    IF Gran
+	    {
+		    limit<-limit*4096;
+	    	limit<-limit|$00000FFF;
+    	}   
 
-	DEBUG_TRACE BASE 16,base,limit,Gran,Use,present,priv,desBit,exe,dir,rw,accessed;
+	    DEBUG_TRACE BASE 16,base,limit,Gran,Use,present,priv,desBit,exe,dir,rw,accessed;
 
-	SegBase[[segReg]]<-base;
-	SegLimit[[segReg]]<-limit;
+	    SegBase[[segReg]]<-base;
+    	SegLimit[[segReg]]<-limit;
 
-	IF segReg==SegSS
-	{
-		sSize<-Use;
-	}
-	IF segReg==SegCS
-	{
-		cSize<-Use;
-	}
+    	IF segReg==SegSS
+    	{
+    		sSize<-Use;
+	    }
+	    IF segReg==SegCS
+	    {
+		    cSize<-Use;
+	    }
+    }
 }
 
 FUNCTION INTERNAL 		Exception			vector[8]
@@ -474,8 +458,8 @@ FUNCTION INTERNAL 		Exception			vector[8]
 			CALL PushLong(EXIP);
 		}
 		I<-0;
-		CALL SetSegByDescriptor(SegCS,selector,CALL GetGDTEntry(selector));
 		EIP<-offs;
+        CS<-selector;
 	}
 	IF ~CR_PE
 	{
@@ -490,6 +474,8 @@ FUNCTION INTERNAL 		Exception			vector[8]
 
 		51+CYCLES->CYCLES;
 	}
+		
+    CALL SetSegByDescriptor(SegCS,CS);
 }
 
 
@@ -559,9 +545,10 @@ FUNCTION RESET
 	DS<-0;
 	SS<-0;
 	ES<-0;
+    DX<-$2304;
 	EFLAGS<-0;
 	HALT<-0;
-	CR_PE<-0;
+	CR0<-0;
 	cSize<-0;
 	sSize<-0;
 	SegBase[[SegCS]]<-$FFFF0000;
@@ -576,8 +563,6 @@ FUNCTION RESET
 	SegLimit[[SegGS]]<-$0000FFFF;
 	SegBase[[SegSS]]<-$00000000;
 	SegLimit[[SegSS]]<-$0000FFFF;
-	
-	UpperALinesHeldHigh<-$F00000;
 }
 
 ############# Various Mappings
@@ -1232,10 +1217,7 @@ FUNCTION INTERNAL	SetSegmentRegister		reg[3],val[16]		## Because we can't look u
 		DEBUG_TRACE "SetSeg ",reg;
 		CALL unimplemented(0);
 	}
-	IF CR_PE
-	{
-		CALL SetSegByDescriptor(SegReg,seg,CALL GetGDTEntry(seg));
-	}
+	CALL SetSegByDescriptor(SegReg,seg);
 }
 
 FUNCTION INTERNAL	val[16]	GetSegmentRegister		reg[3]		## Because we can't look up arbitrary mappings in EDL at moment
@@ -3008,7 +2990,6 @@ INSTRUCTION	"CALL #FAR#"		%10011010
 		DEBUG_TRACE "CALL FAR long mode";
 		CALL unimplemented(0);
 	}
-	UpperALinesHeldHigh<-$00;
 
 	DECLARE offset[16];
 	DECLARE segment[16];
@@ -3050,11 +3031,10 @@ INSTRUCTION	"JMP #8DISP#"		%11101011
 
 INSTRUCTION	"JMP #FAR#"		%11101010
 {
-	UpperALinesHeldHigh<-$00;
+	DECLARE seg[16];
 	IF ~CR_PE
 	{
 		DECLARE off[16];
-		DECLARE seg[16];
 		off<-CALL GetImmediateWord();
 		seg<-CALL GetImmediateWord();
 		EIP<-$00000000 | off;
@@ -3066,11 +3046,8 @@ INSTRUCTION	"JMP #FAR#"		%11101010
 		IF oSize
 		{
 			DECLARE off[32];
-			DECLARE seg[16];
 			off<-CALL GetImmediateLong();
 			seg<-CALL GetImmediateWord();
-
-			CALL SetSegByDescriptor(SegCS,seg,CALL GetGDTEntry(seg));
 
 			EIP<-off;
 			CS<-seg;
@@ -3079,17 +3056,16 @@ INSTRUCTION	"JMP #FAR#"		%11101010
 		IF ~oSize
 		{
 			DECLARE off[16];
-			DECLARE seg[16];
 			off<-CALL GetImmediateWord();
 			seg<-CALL GetImmediateWord();
-
-			CALL SetSegByDescriptor(SegCS,seg,CALL GetGDTEntry(seg));
 
 			EIP<-off;
 			CS<-seg;
 			15+CYCLES->CYCLES;
 		}
 	}
+			
+    CALL SetSegByDescriptor(SegCS,seg);
 }
 
 INSTRUCTION	"RET"			%11000011
@@ -3156,6 +3132,7 @@ INSTRUCTION	"RETF"			%11001011
 {
 	EIP<-CALL PopWord();
 	CS<-CALL PopWord();
+    CALL SetSegByDescriptor(SegCS,CS);
 	18+CYCLES->CYCLES;
 }
 
@@ -3267,10 +3244,8 @@ INSTRUCTION	"IRET"			%11001111
 		CALL PopWord()->CS;
 		CALL PopWord()->EFLAGS[0..15];
 	}
-	IF CR_PE
-	{
-		CALL SetSegByDescriptor(SegCS,CS,CALL GetGDTEntry(CS));
-	}
+	
+    CALL SetSegByDescriptor(SegCS,CS);
 
 	24+CYCLES->CYCLES;
 }
@@ -4826,15 +4801,14 @@ INSTRUCTION	TABLE_OP_MOD	"CALL #MODnnnRM#"	mod[2]:%010:rm[3]
 INSTRUCTION	TABLE_OP_MOD	"JMP FAR #MODnnnRM#"	mod[2]:%101:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+	DECLARE seg[16];
 
-	UpperALinesHeldHigh<-$00;
 	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
 	37+CYCLES->CYCLES;
 
 	IF ~CR_PE
 	{
 		DECLARE off[16];
-		DECLARE seg[16];
 		off<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF);
 		seg<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2);
 		EIP<-$00000000 | off;
@@ -4846,11 +4820,8 @@ INSTRUCTION	TABLE_OP_MOD	"JMP FAR #MODnnnRM#"	mod[2]:%101:rm[3]
 		IF oSize
 		{
 			DECLARE off[32];
-			DECLARE seg[16];
 			off<-CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF);
 			seg<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+4);
-
-			CALL SetSegByDescriptor(SegCS,seg,CALL GetGDTEntry(seg));
 
 			EIP<-off;
 			CS<-seg;
@@ -4859,17 +4830,16 @@ INSTRUCTION	TABLE_OP_MOD	"JMP FAR #MODnnnRM#"	mod[2]:%101:rm[3]
 		IF ~oSize
 		{
 			DECLARE off[16];
-			DECLARE seg[16];
 			off<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF);
 			seg<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2);
-
-			CALL SetSegByDescriptor(SegCS,seg,CALL GetGDTEntry(seg));
 
 			EIP<-off;
 			CS<-seg;
 			15+CYCLES->CYCLES;
 		}
 	}
+    
+    CALL SetSegByDescriptor(SegCS,seg);
 }
 
 INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
@@ -4882,7 +4852,6 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 		CALL unimplemented(0);
 	}
 
-	UpperALinesHeldHigh<-$00;
 	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
 	37+CYCLES->CYCLES;
 
@@ -4890,6 +4859,8 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 	CALL PushWord(EIP);
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
+
+    CALL SetSegByDescriptor(SegCS,CS);
 }
 
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecInc[1]:rm[3]
