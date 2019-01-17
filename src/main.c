@@ -596,6 +596,7 @@ int HandleExecuteSection(FILE* inFile)
 
 	MSU_EIP=offset;
 	MSU_CS=segment;
+    MSU_SegBase[0] = segment * 16;
 	CS=segment;
 	IP=offset;
 	Z80_PC=offset;

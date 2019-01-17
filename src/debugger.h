@@ -45,6 +45,8 @@ extern uint16_t MSU_CYCLES;				// FROM EDL
 extern uint32_t MSU_GETPHYSICAL_EIP();
 extern uint8_t MSU_cSize;
 
+extern uint32_t MSU_SegBase[8];
+
 extern uint8_t MSU_cSize;
 
 extern uint8_t *DIS_[256];				// FROM EDL
