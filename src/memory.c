@@ -846,9 +846,13 @@ uint16_t GetPortW(uint16_t port)
 			case 0xEC:
 			case 0xEE:
 			{
+#if MEMORY_MAPPED_DEBUGGER
 				uint16_t word = pMapIO[2];
 				word += pMapIO[3] << 8;
 				return word;
+#else
+                return 0xFFFF;
+#endif
 			}
 			default:
 				if (doShowPortStuff)
@@ -968,8 +972,10 @@ void SetPortW(uint16_t port,uint16_t word)
 			case 0xEA:
 			case 0xEC:
 			case 0xEE:
+#if MEMORY_MAPPED_DEBUGGER
 				pMapIO[0] = word & 0xFF;
 				pMapIO[1] = (word & 0xFF00) >> 8;
+#endif
 				break;
 			default:
 				CONSOLE_OUTPUT("CP1 Port Write : %04X,%04X\n", port, word);
@@ -1057,7 +1063,7 @@ void MSU_SetPortB(uint16_t port,uint8_t byte)
     }
     ASIC_DEB_PORTS[port >> 1] = t;
 #endif
-	SetPortW(port&0xFFFE,t);
+	SetPortB(port,byte);
 }
 
 uint32_t joy89state;
