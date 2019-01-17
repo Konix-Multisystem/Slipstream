@@ -126,7 +126,7 @@ FUNCTION addr[32] GETPHYSICAL_EIP
 	}
 	IF ~CR_PE
 	{
-        addr<-SegBase[[SegCS]]+IP;
+		addr<-SegBase[[SegCS]]+IP;
 	}
 }
 
@@ -140,7 +140,7 @@ FUNCTION INTERNAL byte[8]	GetByteFromPhysicalAddress	segReg[3],segment[16],offse
 	}
 	IF ~CR_PE
 	{
-        byte<-CALL GetByte(SegBase[[segReg]]+(offset[0..15]));
+		byte<-CALL GetByte(SegBase[[segReg]]+(offset[0..15]));
 	}
 }
 
@@ -152,7 +152,7 @@ FUNCTION INTERNAL	SetByteAtPhysicalAddress	segReg[3],segment[16],offset[32],byte
 	}
 	IF ~CR_PE
 	{
-        CALL SetByte(SegBase[[segReg]]+(offset[0..15]),byte);
+		CALL SetByte(SegBase[[segReg]]+(offset[0..15]),byte);
 	}
 }
 
@@ -385,44 +385,44 @@ FUNCTION INTERNAL	descriptor[64]	GetGDTEntry	offs[16]
 
 FUNCTION INTERNAL	SetSegByDescriptor	segReg[3],seg[16]
 {
-    IF ~CR_PE
-    {
-        SegBase[[segReg]]<-seg;
-        SegBase[[segReg]]<-SegBase[[segReg]]*16;
-    }
-    ELSE
-    {
-	    DECLARE descriptor[64]	ALIAS	baseHi[8]:Gran[1]:Use[1]:rsrv1[1]:rsrv2[1]:limitHi[4]:present[1]:priv[2]:desBit[1]:exe[1]:dir[1]:rw[1]:accessed[1]:baseLo[24]:limitLo[16];
-	    DECLARE	base[32] ALIAS bHi[8]:bLo[24];
-	    DECLARE limit[32] ALIAS lHi[12]:lMi[4]:lLo[16];
+	IF ~CR_PE
+	{
+		SegBase[[segReg]]<-seg;
+		SegBase[[segReg]]<-SegBase[[segReg]]*16;
+	}
+	ELSE
+	{
+		DECLARE descriptor[64]	ALIAS	baseHi[8]:Gran[1]:Use[1]:rsrv1[1]:rsrv2[1]:limitHi[4]:present[1]:priv[2]:desBit[1]:exe[1]:dir[1]:rw[1]:accessed[1]:baseLo[24]:limitLo[16];
+		DECLARE	base[32] ALIAS bHi[8]:bLo[24];
+		DECLARE limit[32] ALIAS lHi[12]:lMi[4]:lLo[16];
 
-	    descriptor<-CALL GetGDTEntry(seg);
+		descriptor<-CALL GetGDTEntry(seg);
 
-	    bHi<-baseHi;
-	    bLo<-baseLo;
-	    lMi<-limitHi;
-	    lLo<-limitLo;
+		bHi<-baseHi;
+		bLo<-baseLo;
+		lMi<-limitHi;
+		lLo<-limitLo;
 
-	    IF Gran
-	    {
-		    limit<-limit*4096;
-	    	limit<-limit|$00000FFF;
-    	}   
+		IF Gran
+		{
+			limit<-limit*4096;
+			limit<-limit|$00000FFF;
+		}   
 
-	    DEBUG_TRACE BASE 16,base,limit,Gran,Use,present,priv,desBit,exe,dir,rw,accessed;
+		DEBUG_TRACE BASE 16,base,limit,Gran,Use,present,priv,desBit,exe,dir,rw,accessed;
 
-	    SegBase[[segReg]]<-base;
-    	SegLimit[[segReg]]<-limit;
+		SegBase[[segReg]]<-base;
+		SegLimit[[segReg]]<-limit;
 
-    	IF segReg==SegSS
-    	{
-    		sSize<-Use;
-	    }
-	    IF segReg==SegCS
-	    {
-		    cSize<-Use;
-	    }
-    }
+		IF segReg==SegSS
+		{
+			sSize<-Use;
+		}
+		IF segReg==SegCS
+		{
+			cSize<-Use;
+		}
+	}
 }
 
 FUNCTION INTERNAL 		Exception			vector[8]
@@ -459,25 +459,25 @@ FUNCTION INTERNAL 		Exception			vector[8]
 		}
 		I<-0;
 		EIP<-offs;
-        CS<-selector;
+		CS<-selector;
 	}
 	IF ~CR_PE
 	{
 		DECLARE TMP[32];
-        DECLARE WORD[16];
+		DECLARE WORD[16];
 
 		CALL PushWord(EFLAGS);
 		I<-0;
 		CALL PushWord(CS);
 		CALL PushWord(EXIP);
-        TMP<-IDT_base + (vector*$0004);
+		TMP<-IDT_base + (vector*$0004);
 
-        CALL GetByte(TMP+0)->WORD[0..7];
-        CALL GetByte(TMP+1)->WORD[8..15];
-        WORD->IP;
-        CALL GetByte(TMP+2)->WORD[0..7];
-        CALL GetByte(TMP+3)->WORD[8..15];
-        WORD->CS;
+		CALL GetByte(TMP+0)->WORD[0..7];
+		CALL GetByte(TMP+1)->WORD[8..15];
+		WORD->IP;
+		CALL GetByte(TMP+2)->WORD[0..7];
+		CALL GetByte(TMP+3)->WORD[8..15];
+		WORD->CS;
 
 		51+CYCLES->CYCLES;
 	}
@@ -488,11 +488,6 @@ FUNCTION INTERNAL 		Exception			vector[8]
 
 
 ############ CPU Step/Reset/Interrupt 
-
-FUNCTION INTERNAL	DoExecute	IR[8]				#Workaround for bug in table generation when more than one execute exists in 2 different instructions
-{
-	EXECUTE IR;
-}
 
 FUNCTION STEP
 {
@@ -511,7 +506,7 @@ FUNCTION STEP
 			EXIP<-EIP;					# CACHE IP FOR EXCEPTION/REPEAT HANDLING
 			IR<-CALL GetImmediateByte();
 
-			CALL DoExecute(IR);
+			EXECUTE IR;
 		}
 		IF HALT
 		{
@@ -552,7 +547,7 @@ FUNCTION RESET
 	DS<-0;
 	SS<-0;
 	ES<-0;
-    DX<-$2304;
+	DX<-$2304;
 	EFLAGS<-0;
 	HALT<-0;
 	CR0<-0;
@@ -570,7 +565,7 @@ FUNCTION RESET
 	SegLimit[[SegGS]]<-$0000FFFF;
 	SegBase[[SegSS]]<-$00000000;
 	SegLimit[[SegSS]]<-$0000FFFF;
-    IDT<-$3FF;
+	IDT<-$3FF;
 }
 
 ############# Various Mappings
@@ -735,7 +730,7 @@ INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs[2]:%110
 
 	CALL SetSegmentOveride(regs);
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -745,7 +740,7 @@ INSTRUCTION	"SegFS"					%01100100
 
 	CALL SetSegmentOveride(%100);
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -755,7 +750,7 @@ INSTRUCTION	"SegGS"					%01100101
 
 	CALL SetSegmentOveride(%101);
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -764,7 +759,7 @@ INSTRUCTION	"OSIZE"					%01100110
 	DECLARE IR[8];
 	oSize<-~cSize;
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -773,7 +768,7 @@ INSTRUCTION	"ASIZE"					%01100111
 	DECLARE IR[8];
 	aSize<-~cSize;
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -833,7 +828,7 @@ INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this p
 	REPEAT<-1;
 	REPEATZ<-repne;
 
-	CALL DoExecute(IR);
+	EXECUTE IR;
 }
 
 ##### Unimplemented
@@ -2584,31 +2579,24 @@ INSTRUCTION	"CMP %M0,#IMM0#"	%0011110:accword
 
 INSTRUCTION	"CBW"			%10011000
 {
-	DECLARE TMP[16] ALIAS UPPER[8]:LOWER[8];
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "CBW long";
 		CALL unimplemented(0);	
 	}
-	LOWER<-AL;
-	TMP<-$0000++LOWER;
-	TMP->AX;
+	AX<-$0000++AL;
 	2+CYCLES->CYCLES;
 }
 
 INSTRUCTION	"CWD"			%10011001
 {
-	DECLARE TMP[32] ALIAS UPPER[16]:LOWER[16];
-	
 	IF oSize|aSize
 	{
 		DEBUG_TRACE "CWD long";
 		CALL unimplemented(0);	
 	}
 
-	LOWER<-AX;
-	TMP<-$00000000++LOWER;
-	UPPER->DX;
+	DX<-($00000000++AX)[16..31];
 	5+CYCLES->CYCLES;
 }
 
@@ -3007,7 +2995,7 @@ INSTRUCTION	"CALL #FAR#"		%10011010
 	CALL PushWord(EIP);
 	CS<-segment;
 	EIP<-offset;
-    CALL SetSegByDescriptor(SegCS,CS);
+	CALL SetSegByDescriptor(SegCS,CS);
 	28+CYCLES->CYCLES;
 }
 
@@ -3141,7 +3129,7 @@ INSTRUCTION	"RETF"			%11001011
 {
 	EIP<-CALL PopWord();
 	CS<-CALL PopWord();
-    CALL SetSegByDescriptor(SegCS,CS);
+	CALL SetSegByDescriptor(SegCS,CS);
 	18+CYCLES->CYCLES;
 }
 
@@ -3170,20 +3158,50 @@ INSTRUCTION	"J%M0 #8DISP#"		%0111:cond
 	}
 }
 
-#INSTRUCTION	"JCXZ #8DISP#"		%11100011
-#{
-#	DECLARE disp[8];
-#	disp<-CALL GetImmediateByte();
-#	IF CX==0
-#	{
-#		IP<-IP++disp;
-#		18+CYCLES->CYCLES;
-#	}
-#	IF CX!=0
-#	{
-#		6+CYCLES->CYCLES;
-#	}
-#}
+INSTRUCTION	"JCXZ #8DISP#"		%11100011
+{
+	DECLARE disp[8];
+	disp<-CALL GetImmediateByte();
+	
+	IF aSize
+	{
+		IF ECX==0
+		{
+			IF oSize
+			{
+				EIP<-EIP++disp;
+			}
+			ELSE
+			{
+				IP<-IP++disp;
+			}
+			18+CYCLES->CYCLES;
+		}
+		ELSE
+		{
+			6+CYCLES->CYCLES;
+		}
+	}
+	ELSE
+	{
+		IF CX==0
+		{
+			IF oSize
+			{
+				EIP<-EIP++disp;
+			}
+			ELSE
+			{
+				IP<-IP++disp;
+			}
+			18+CYCLES->CYCLES;
+		}
+		ELSE
+		{
+			6+CYCLES->CYCLES;
+		}
+	}
+}
 
 INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 {
@@ -3194,7 +3212,14 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 		ECX-1->ECX;
 		IF (ECX!=0) & (loopcond)
 		{
-			EIP++disp->EIP;
+			IF oSize
+			{
+				EIP<-EIP++disp;
+			}
+			ELSE
+			{
+				IP<-IP++disp;
+			}
 			17+CYCLES->CYCLES;
 		}
 		IF (ECX==0) & (~loopcond)
@@ -3207,7 +3232,14 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 		CX-1->CX;
 		IF (CX!=0) & (loopcond)
 		{
-			EIP++disp->EIP;
+			IF oSize
+			{
+				EIP<-EIP++disp;
+			}
+			ELSE
+			{
+				IP<-IP++disp;
+			}
 			17+CYCLES->CYCLES;
 		}
 		IF (CX==0) & (~loopcond)
@@ -3272,11 +3304,11 @@ INSTRUCTION	"STI"			%11111011
 	2+CYCLES->CYCLES;
 }
 
-#INSTRUCTION	"HLT"			%11110100
-#{
-#	HALT<-1;
-#	2+CYCLES->CYCLES;
-#}
+INSTRUCTION	"HLT"			%11110100
+{
+	HALT<-1;
+	2+CYCLES->CYCLES;
+}
 
 ####
 #### MOD nnn R/M instructions (immediate/implied register)
@@ -3419,48 +3451,53 @@ INSTRUCTION	TABLE_LEA	""		leaMod:reg[3]:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
 
-    CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
-    IF oSize
-    {
-        CALL SetLongRegister(reg,EFF);
-    }
-    ELSE
-    {
-	    CALL SetWordRegister(reg,EFF);
-    }
+	CALL CalcEffectiveAddress(leaMod,rm,2)->SEGEA;
+	IF oSize
+	{
+		CALL SetLongRegister(reg,EFF);
+	}
+	ELSE
+	{
+		CALL SetWordRegister(reg,EFF);
+	}
+}
+MAPPING LDESMap[1]
+{
+	%0	"ES"	%0;
+	%1	"DS"	%1;
 }
 
-#MAPPING LDESMap[1]
-#{
-#	%0	"ES"	%0;
-#	%1	"DS"	%1;
-#}
-#
-#MAPPING ldsReg[1]
-#{
-#	%0	"ES"	ES;
-#	%1	"DS"	DS;
-#}
-#
-#INSTRUCTION	"L%M0 #MODleaRM#"		%1100010:LDESMap
-#{
-#	DECLARE IR[9]	ALIAS	lds[1]:opcode[8];
-#
-#	CALL GetImmediateByte()->opcode;
-#	LDESMap->lds;
-#
-#	EXECUTE TABLE_LDES IR;
-#}
-#
-#INSTRUCTION	TABLE_LDES	""		ldsReg:leaMod:regw:rm[3]
-#{
-#	DECLARE	SEGEA[32]	ALIAS	SEG[16]:EFF[16];
-#
-#	CALL CalcEffectiveAddress(leaMod,rm,16)->SEGEA;
-#
-#	CALL GetEffectiveAddressWord(leaMod,rm,SEG,EFF)->regw;
-#	CALL GetEffectiveAddressWord(leaMod,rm,SEG,EFF+2)->ldsReg;
-#}
+MAPPING ldsReg[1]
+{
+	%0	"ES"	%000;
+	%1	"DS"	%011;
+}
+
+INSTRUCTION	"L%M0 #MODleaRM#"		%1100010:LDESMap
+{
+	DECLARE IR[9]	ALIAS	lds[1]:opcode[8];
+
+	CALL GetImmediateByte()->opcode;
+	LDESMap->lds;
+
+	EXECUTE TABLE_LDES IR;
+}
+
+INSTRUCTION	TABLE_LDES	""		ldsReg:leaMod:regw:rm[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "LDES FAR 32bit mode?";
+		CALL unimplemented(0);
+	}
+
+	CALL CalcEffectiveAddress(leaMod,rm,16)->SEGEA;
+
+	CALL GetEffectiveAddressWord(leaMod,rm,SEGREG,SEG,EFF)->regw;
+	CALL SetSegmentRegister(ldsReg,CALL GetEffectiveAddressWord(leaMod,rm,SEGREG,SEG,EFF+2));
+}
 
 MAPPING operationMapping[6]
 {
@@ -4869,7 +4906,7 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
 	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
 
-    CALL SetSegByDescriptor(SegCS,CS);
+	CALL SetSegByDescriptor(SegCS,CS);
 }
 
 INSTRUCTION	TABLE_OP_MOD	"%M0 #MODnnnRM#"	mod[2]:%00:DecInc[1]:rm[3]

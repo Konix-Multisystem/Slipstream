@@ -210,11 +210,6 @@ FUNCTION INTERNAL 		Exception			vector[16]
 }
 ############ CPU Step/Reset/Interrupt 
 
-FUNCTION INTERNAL	DoExecute	IR[8]				#Workaround for bug in table generation when more than one execute exists in 2 different instructions
-{
-	EXECUTE IR;
-}
-
 FUNCTION STEP
 {
 	DECLARE	IR[8];
@@ -231,7 +226,7 @@ FUNCTION STEP
 			EXIP<-IP;					# CACHE IP FOR EXCEPTION/REPEAT HANDLING
 			IP<-IP+1;
 
-			CALL DoExecute(IR);
+			EXECUTE IR;
 		}
 		IF HALT
 		{
@@ -419,7 +414,7 @@ INSTRUCTION	"XX001__110(Segment Overide %M0)"	%001:regs:%110
 	SegOverideValue<-regs;
 	SegOveride<-1;
 	IR<-CALL GetImmediateByte();
-	CALL DoExecute(IR);
+	EXECUTE IR;
 	2+CYCLES->CYCLES;
 }
 
@@ -460,7 +455,7 @@ INSTRUCTION	"REP%M0"	%1111001:repne,B2[8]			# interrupts must not fire on this p
 	REPEAT<-1;
 	REPEATZ<-repne;
 
-	CALL DoExecute(IR);
+	EXECUTE IR;
 }
 
 #### Unimplemented
@@ -1394,9 +1389,7 @@ INSTRUCTION	"CBW"			%10011000
 
 INSTRUCTION	"CWD"			%10011001
 {
-	DECLARE TMP[32] ALIAS UPPER[16]:LOWER[16];
-	TMP<-$00000000++AX;
-	DX<-UPPER;
+	DX<-($00000000++AX)[16..31];
 	5+CYCLES->CYCLES;
 }
 
