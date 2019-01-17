@@ -463,14 +463,21 @@ FUNCTION INTERNAL 		Exception			vector[8]
 	}
 	IF ~CR_PE
 	{
-		DECLARE TMP[16];
+		DECLARE TMP[32];
+        DECLARE WORD[16];
+
 		CALL PushWord(EFLAGS);
 		I<-0;
 		CALL PushWord(CS);
 		CALL PushWord(EXIP);
-		TMP<-vector*$0004;
-		CALL FetchWordNoOveride(SegCS,$0000,TMP)->IP;
-		CALL FetchWordNoOveride(SegCS,$0000,TMP+2)->CS;
+        TMP<-IDT_base + (vector*$0004);
+
+        CALL GetByte(TMP+0)->WORD[0..7];
+        CALL GetByte(TMP+1)->WORD[8..15];
+        WORD->IP;
+        CALL GetByte(TMP+2)->WORD[0..7];
+        CALL GetByte(TMP+3)->WORD[8..15];
+        WORD->CS;
 
 		51+CYCLES->CYCLES;
 	}
@@ -563,6 +570,7 @@ FUNCTION RESET
 	SegLimit[[SegGS]]<-$0000FFFF;
 	SegBase[[SegSS]]<-$00000000;
 	SegLimit[[SegSS]]<-$0000FFFF;
+    IDT<-$3FF;
 }
 
 ############# Various Mappings
@@ -2999,6 +3007,7 @@ INSTRUCTION	"CALL #FAR#"		%10011010
 	CALL PushWord(EIP);
 	CS<-segment;
 	EIP<-offset;
+    CALL SetSegByDescriptor(SegCS,CS);
 	28+CYCLES->CYCLES;
 }
 
