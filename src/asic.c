@@ -29,7 +29,7 @@
 
 #if ENABLE_DEBUG
 #define ENABLE_DEBUG_BLITTER	1
-#define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
+#define BLTDDBG(...)		if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #else
 #define ENABLE_DEBUG_BLITTER	0
 #define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
