@@ -334,6 +334,7 @@ const char* Mnemonics[]= 		{
 						"VDIV",			//76
 						"VMUL",			//77
 						"VADD",			//78
+                        "WBINVD",		//79
 					};
 
 const char* grp1Mnemonics[8]=	{
@@ -915,7 +916,7 @@ const Table _2byte[NUM_OPS]=	{
 					{25, OF_None, { OM_Illegal } },								//0x0F06
 					{25, OF_None, { OM_Illegal } },								//0x0F07
 					{25, OF_None, { OM_Illegal } },								//0x0F08
-					{25, OF_None, { OM_Illegal } },								//0x0F09
+					{79, OF_None, { OM_NoOperands } },								//0x0F09
 					{25, OF_None, { OM_Illegal } },								//0x0F0A
 					{25, OF_None, { OM_Illegal } },								//0x0F0B
 					{25, OF_None, { OM_Illegal } },								//0x0F0C
@@ -1904,31 +1905,31 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 			case OM_Yb:
 				if (mSize==1)
 				{
-					OutputMemoryReference(0,0,0,mSize,5,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,0,0,mSize,5,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(0,0,0,mSize,7,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,0,0,mSize,7,0,stream);
 				}
 				break;
 			case OM_Yv:
 				if (mSize==1)
 				{
-					OutputMemoryReference(0,rSize,rSize,mSize,5,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,rSize,rSize,mSize,5,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(0,rSize,rSize,mSize,7,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,rSize,rSize,mSize,7,0,stream);
 				}
 				break;
 			case OM_Yz:
 				if (mSize==1)
 				{
-					OutputMemoryReference(0,rSize,rSize,mSize,5,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,rSize,rSize,mSize,5,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(0,rSize,rSize,mSize,7,0,stream);
+					OutputMemoryReference(seg!=-1?seg:0,rSize,rSize,mSize,7,0,stream);
 				}
 				break;
 			case OM_DX:
@@ -1937,31 +1938,31 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 			case OM_Xb:
 				if (mSize==1)
 				{
-					OutputMemoryReference(3,0,0,mSize,4,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,0,0,mSize,4,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(3,0,0,mSize,6,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,0,0,mSize,6,0,stream);
 				}
 				break;
 			case OM_Xv:
 				if (mSize==1)
 				{
-					OutputMemoryReference(3,rSize,rSize,mSize,4,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,rSize,rSize,mSize,4,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(3,rSize,rSize,mSize,6,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,rSize,rSize,mSize,6,0,stream);
 				}
 				break;
 			case OM_Xz:
 				if (mSize==1)
 				{
-					OutputMemoryReference(3,rSize,rSize,mSize,4,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,rSize,rSize,mSize,4,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(3,rSize,rSize,mSize,6,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,rSize,rSize,mSize,6,0,stream);
 				}
 				break;
 			case OM_Precision66:
@@ -2074,11 +2075,11 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 				AddToOutput(" ");
 				if (mSize==1)
 				{
-					OutputMemoryReference(3,0,0,mSize,7,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,0,0,mSize,7,0,stream);
 				}
 				else
 				{
-					OutputMemoryReference(3,0,0,mSize,3,0,stream);
+					OutputMemoryReference(seg!=-1?seg:3,0,0,mSize,3,0,stream);
 				}
 				break;
 			case OM_Grp1_0:
@@ -2218,12 +2219,10 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 
 			case OM_Illegal:
 				AddToOutput("Illegal Opcode Sequence");
-				stream->bytesRead=0;
 				return;
 
 			default:
 				AddToOutput("Operand Unknown");
-				stream->bytesRead=0;
 				break;
 
 		}
@@ -2244,7 +2243,7 @@ extern unsigned int Z80_DIS_max_FDCB;		// FROM EDL
 extern unsigned int Z80_DIS_max_CB;			// FROM EDL
 extern unsigned int Z80_DIS_max_DD;			// FROM EDL
 extern unsigned int Z80_DIS_max_DDCB;		// FROM EDL
-void DisassembleZ80(InStream* stream, unsigned char *table[256], int realLength);
+void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength);
 
 void Disassemble(InStream* stream,int _32bitCode)
 {
@@ -2294,7 +2293,6 @@ void Disassemble(InStream* stream,int _32bitCode)
 					break;
 				default:
 					AddToOutput("Unhandled prefix");		// NOTE, F2/F3 need to be flagged forward for mmx instructions due to use for encoding their precision
-					stream->bytesRead=0;
 					return;
 			}
 		}
@@ -2315,7 +2313,7 @@ const char* GetOutputBuffer()
 //// Z80
 
 
-void DisassembleZ80(InStream* stream, unsigned char *table[256], int realLength)
+void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength)
 {
     unsigned char byte = GetNextByteFromStream(stream);
     if (byte>realLength)

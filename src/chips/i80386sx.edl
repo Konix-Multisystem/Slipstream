@@ -5028,6 +5028,13 @@ INSTRUCTION	FTABLE	"Do0F01"	%00000001
 	CALL Do0F01(mod,reg,rm);
 }
 
+INSTRUCTION	FTABLE	"WINBVD"	%00001001
+{
+	# TODO if i add caches
+
+	4+CYCLES->CYCLES;
+}
+
 INSTRUCTION	FTABLE	"MOV to CRx"	%00100010
 {
 	# Could be a few different instructions based on modrm byte that follows
