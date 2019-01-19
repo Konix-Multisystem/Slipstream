@@ -28,7 +28,7 @@ float initialRatio;
 
 int maxWindow=-1;
 
-void ShowScreen(int windowNum,int w,int h)
+void ShowScreen(int windowNum,int w,int h,float minX,float minY,float maxX,float maxY)
 {
 	glBindTexture(GL_TEXTURE_RECTANGLE_NV, videoTexture[windowNum]);
 	
@@ -36,16 +36,16 @@ void ShowScreen(int windowNum,int w,int h)
 	glBegin(GL_QUADS);
 
 	glTexCoord2f(0.0f, 0.0f);
-	glVertex2f(-1.0f,1.0f);
+	glVertex2f(minX,maxY);
 
 	glTexCoord2f(0.0f, h);
-	glVertex2f(-1.0f, -1.0f);
+	glVertex2f(minX, minY);
 
 	glTexCoord2f(w, h);
-	glVertex2f(1.0f, -1.0f);
+	glVertex2f(maxX, minY);
 
 	glTexCoord2f(w, 0.0f);
-	glVertex2f(1.0f, 1.0f);
+	glVertex2f(maxX, maxY);
 
 	glEnd();
 	
@@ -122,6 +122,8 @@ void VideoInitialise()
 
 void VideoCreate(int width,int height,const char* name,int fullscreen)
 {
+	GLFWmonitor* monitor = NULL;
+
 	windowWidth[maxWindow]=width;
 	windowHeight[maxWindow]=height;
 
@@ -130,7 +132,25 @@ void VideoCreate(int width,int height,const char* name,int fullscreen)
 	{
 		fpsWindowName=name;
 	}
-	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,(fullscreen?glfwGetPrimaryMonitor():NULL),NULL)) ) 
+	if (fullscreen > 0)
+	{
+		monitor = glfwGetPrimaryMonitor();
+	}
+#if 0
+	if (fullscreen == 2)
+	{
+		const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+		width = mode->width;
+		height = mode->height/2;
+	}
+	if (maxWindow == 0)
+		height *= 2;
+
+	if( !(windows[maxWindow]=glfwCreateWindow( width, height, name,monitor,NULL)) ) 
+#else
+	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,monitor,NULL)) ) 
+#endif
 	{ 
 /*		int glError = glfwGetError();
 		CONSOLE_OUTPUT("GLFW Create Window - %s - %d",glfwErrorString(glError),glError);*/
@@ -163,13 +183,26 @@ void VideoKill()
 {
 }
 
-void VideoUpdate()
+void VideoUpdate(int disableBorders)
 {
 	int a;
+	float minX = -1.0f;
+	float minY = -1.0f;
+	float maxX = 1.0f;
+	float maxY = 1.0f;
+
+	if (disableBorders)
+	{
+		minX = -1.40f;
+		minY = -1.40f;
+		maxX = 1.40f;
+		maxY = 1.40f;
+	}
+
 	for (a=0;a<maxWindow;a++)
 	{
 		glfwMakeContextCurrent(windows[a]);
-		ShowScreen(a,windowWidth[a],windowHeight[a]);
+		ShowScreen(a,windowWidth[a],windowHeight[a],minX,minY,maxX,maxY);
 		glfwSwapBuffers(windows[a]);
 	}			
 	glfwPollEvents();
@@ -178,7 +211,7 @@ void VideoUpdate()
 float totalTime=0.f;
 int totalCnt=0;
 
-void VideoWait()
+void VideoWait(float freq)
 {
 	static char fpsBuffer[128];
 
@@ -197,7 +230,7 @@ void VideoWait()
 		totalCnt=0;
 	}
 
-	while ((remain<0.02f))
+	while ((remain<freq))
 	{
 		now=glfwGetTime();
 

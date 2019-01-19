@@ -17,8 +17,8 @@ extern int windowHeight[MAX_WINDOWS];
 
 void VideoInitialise();
 void VideoCreate(int width,int height,const char* name,int fullscreen);
-void VideoUpdate();
+void VideoUpdate(int noBorders);
 void VideoKill();
-void VideoWait();
+void VideoWait(float freq);
 
 #endif//_VIDEO__H

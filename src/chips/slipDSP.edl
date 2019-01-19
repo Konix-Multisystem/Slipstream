@@ -72,6 +72,8 @@ DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original
 DECLARE			DEBUG_PC[16];
 DECLARE			CPU_HOLD[8];
 
+DECLARE			INTRUDE_HACK[2];
+
 ############
 
 DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Conditional[1]:Index[1]:Address[9];
@@ -533,7 +535,9 @@ INSTRUCTION	"NOP."			%11110
 
 INSTRUCTION	"INTRUDE."		%11111
 {
-	# TODO
+# TODO 	INTRUDE_HACK<-INTRUDE_HACK + 1;
+#	DEBUG_TRACE "DO I REACH HERE";
+
 }
 
 

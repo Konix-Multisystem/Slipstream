@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.4 - Flare 1 Built In"
+#define SLIPSTREAM_VERSION	"0.6 - The one that mostly works - with added head"
 
 #include <GLFW/glfw3.h>
 
@@ -29,6 +29,7 @@ int masterClock=0;
 int pause=0;
 int single=0;
 int framestep = 0;
+int noBorders = 0;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
@@ -1111,6 +1112,8 @@ void Usage()
 {
 	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88/program.fl1\n");
 	CONSOLE_OUTPUT("-F Fullscreen");
+	CONSOLE_OUTPUT("-O Disable Borders");
+	CONSOLE_OUTPUT("-W Fullscreen Windowed");
 	CONSOLE_OUTPUT("-r [Startup in remote debugger mode]\n");
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
@@ -1161,21 +1164,6 @@ void ParseCommandLine(int argc,char** argv)
 				emulateDSP=0;
 				continue;
 			}
-			if (strcmp(argv[a],"-H")==0)
-			{
-				curSystem=ESS_P88;
-				LoadBinary("heads/slipstrm.hi",0x8B000);
-				LoadBinary("heads/data.9",0x90000);
-				LoadBinary("heads/data.9e",0x9E000);
-				LoadBinary("heads/data.a",0xA0000);
-				LoadBinary("heads/data.aa",0xAA000);
-				LoadBinary("heads/laugh.ss",0xB0000);
-				LoadBinary("heads/head.com",0x80000);
-
-				CS=0x8000;
-				IP=0;
-				return;
-			}
 			if (strcmp(argv[a],"-K")==0)
 			{
 				curSystem=ESS_P89;
@@ -1185,6 +1173,16 @@ void ParseCommandLine(int argc,char** argv)
 			if (strcmp(argv[a], "-F") == 0)
 			{
 				useFullscreen = 1;
+				continue;
+			}
+			if (strcmp(argv[a], "-W") == 0)
+			{
+				useFullscreen = 2;
+				continue;
+			}
+			if (strcmp(argv[a], "-O") == 0)
+			{
+				noBorders = 1;
 				continue;
 			}
 			if (strcmp(argv[a],"-C")==0)
@@ -1505,7 +1503,7 @@ int main(int argc,char**argv)
 				{
 					JoystickPoll();
 				}
-				VideoUpdate();
+				VideoUpdate(noBorders);
 
 			/*	if (CheckKey(GLFW_KEY_F12))
 				{
@@ -1595,7 +1593,7 @@ int main(int argc,char**argv)
 				}*/
 
 #if !ENABLE_DEBUG
-				VideoWait();
+				VideoWait(curSystem==ESS_MSU? 0.04f : 0.02f);
 #endif
 			}
 		}

@@ -22,6 +22,8 @@
 
 uint16_t DSP_STATUS=0;
 
+extern uint8_t DSP_INTRUDE_HACK;
+
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 
@@ -1243,7 +1245,6 @@ uint8_t ASIC_HostDSPMemReadP89(uint16_t addr)
 	return DSP_PEEK_BYTE(addr);
 }
 
-
 uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 {
 	if (addr>=0x400 && addr<0x600)
@@ -1280,7 +1281,8 @@ uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
 	}
 	if (addr==0x600)
 	{
-		return DSP_STATUS&0XFF;
+		DSP_INTRUDE_HACK ^= 0x04;
+		return (DSP_STATUS&0XFF) | DSP_INTRUDE_HACK;
 	}
 	if (addr==0x601)
 	{
