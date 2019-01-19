@@ -15,8 +15,10 @@ extern GLFWwindow *windows[MAX_WINDOWS];
 
 unsigned char keyArray[512*3];
 int joystickDetected=0;
-float joystickAxis[8];
-unsigned char joystickButtons[16];
+const float *joystickAxis=NULL;
+int joystickAxisCnt = 0;
+const unsigned char *joystickButtons=NULL;
+int joystickButtonCnt = 0;
 
 #define KEYBUF_LEN	(20)
 unsigned char keyBuffer[KEYBUF_LEN]={0x0,0x00,0x15,0x15,0x00};
@@ -145,29 +147,34 @@ void KeysIntialise(int joystick)
 	}
 	else
 	{
-/*
+		int axis_count;
+		int button_count;
+		glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axis_count);
+		glfwGetJoystickButtons(GLFW_JOYSTICK_1, &button_count);
 		CONSOLE_OUTPUT("Joystick has %d axis and %d buttons\n - Currently button/axis mappings are based on 360 controller -\nApologies if your joystick does not work correctly!\n",
-			glfwGetJoystickAxes(GLFW_JOYSTICK_1,GLFW_AXES),glfwGetJoystickParam(GLFW_JOYSTICK_1,GLFW_BUTTONS));*/
+			axis_count,button_count);
 	}
 }
 
 
 void JoystickPoll()
 {
-/*
-	glfwGetJoystickAxes(GLFW_JOYSTICK_1,joystickAxis,8);
-	glfwGetJoystickButtons(GLFW_JOYSTICK_1, joystickButtons, 16);
-*/
+	joystickAxis = glfwGetJoystickAxes(GLFW_JOYSTICK_1,&joystickAxisCnt);
+	joystickButtons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &joystickButtonCnt);
 }
 
 float JoystickAxis(int axis)
 {
-	return joystickAxis[axis];
+	if (axis<joystickAxisCnt)
+		return joystickAxis[axis];
+	return 0.0f;
 }
 
 int JoyDown(int button)
 {
-	return joystickButtons[button];
+	if (button<joystickButtonCnt)
+		return joystickButtons[button];
+	return 0;
 }
 
 int JoystickPresent()
