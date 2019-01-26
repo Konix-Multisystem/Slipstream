@@ -39,6 +39,8 @@ uint8_t PotLPValue=0x01;
 uint8_t PotRPValue=0x00;
 uint8_t PotSpareValue=0x40;
 
+uint8_t ASIC_FL1_GP0 = 0;
+
 uint8_t Z80_GetByte(uint16_t addr)
 {
 	// First up, if addr>=3*16K use BANK3 address, BANK3 defaults to 0x40000-0x4FFFF which is overkill, so its going to be more complex than that!
@@ -596,6 +598,8 @@ uint8_t GetPortB(uint16_t port)
 				case 0xE0:
 					switch (ADPSelect)
 					{
+					case 4:
+						return PotZValue;
 					case 5:
 						return PotYValue;
 					case 6:
@@ -727,6 +731,7 @@ void SetPortB(uint16_t port,uint8_t byte)
 
 				break;
 			case 0x0022:
+				ASIC_FL1_GP0 = byte;
 				// GPO known bits ????sdd?
 				//for now we just need the side
 				if (byte&0x2)

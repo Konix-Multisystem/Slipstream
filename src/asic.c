@@ -74,6 +74,7 @@ uint8_t		ASIC_BLTENH=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
+uint8_t		ASIC_CHAIR = 0;
 
 uint8_t		ASIC_FDC=0xFF;				// P89 Floppy Disk Controller
 uint32_t	ASIC_FRC=0x00000000;			// P89 Floppy Disk Controller
@@ -2277,6 +2278,9 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_PALAR=byte;
 			ASIC_PALCNT=0;
 			break;
+		case 0x00C0:
+			ASIC_CHAIR = byte;
+			break;
 		default:
 #if ENABLE_DEBUG
 			if (warnIgnore)
@@ -2907,6 +2911,21 @@ void ShowEddyDebug()
 	PrintAt(videoMemory[MAIN_WINDOW],windowWidth[MAIN_WINDOW],255,255,255,1,1,"Floppy Status : FDC (%02X) : Track %d : Side %d : BitPos %d : Index %d\n",ASIC_FDC,EDDY_Track,EDDY_Side,EDDY_BitPos,EDDY_Index);
 }
 
+extern uint8_t PotXValue;
+extern uint8_t PotYValue;
+extern uint8_t PotZValue;
+extern uint8_t PotLPValue;
+extern uint8_t PotRPValue;
+extern uint8_t PotSpareValue;
+extern uint8_t ASIC_FL1_GP0;
+
+void ShowPotsDebug()
+{
+	PrintAt(videoMemory[MAIN_WINDOW],windowWidth[MAIN_WINDOW],255,255,255,1,1,"POTX(%02X) POTY(%02X) POTZ(%02X)", PotXValue, PotYValue, PotZValue);
+	PrintAt(videoMemory[MAIN_WINDOW],windowWidth[MAIN_WINDOW],255,255,255,1,2,"POTLP(%02X) POTRP(%02X) POTSP(%02X)", PotLPValue, PotRPValue, PotSpareValue);
+	PrintAt(videoMemory[MAIN_WINDOW],windowWidth[MAIN_WINDOW],255,255,255,1,3,"CHAIR0?(%02X) : CHAIR1?(%02X)", ASIC_CHAIR, ASIC_FL1_GP0);
+}
+
 void TickAsicP88(int cycles)
 {
 	TickBlitterP88();
@@ -2916,7 +2935,7 @@ void TickAsicP88(int cycles)
 void TickAsicFL1(int cycles)
 {
 	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
-	TickBlitterFL1();
+	//TickBlitterFL1();
 	TickAsic(cycles,ConvPaletteP88,1);
 }
 

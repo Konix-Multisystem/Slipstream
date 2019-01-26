@@ -140,7 +140,7 @@ HANDLER PIN__TICK	ALWAYS
 				STATE LDPAT
 				{
 					CALL GetNextProgByte()->PATTERN;
-					#CALL DebugDumpState();
+#					CALL DebugDumpState();
 				}
 
 				STATE INITPAT
@@ -174,11 +174,12 @@ HANDLER PIN__TICK	ALWAYS
 					{
 						NEXT PIN__TICK.RUN.Mod11.ReadSrc;
 					}
-
-					IF LINDR
-					{
-						NEXT PIN__TICK.LOAD.LDCMD;
-					}
+#
+# DISABLES THE LINE COMMANDS (FORCES NEXT CMD TO BE READ)
+#					IF LINDR
+#					{
+#						NEXT PIN__TICK.LOAD.LDCMD;
+#					}
 				}
 			}
 		}
@@ -189,7 +190,7 @@ HANDLER PIN__TICK	ALWAYS
 				STATE LDCMD
 				{
 					CALL GetNextProgByte()->CMD;
-					#DEBUG_TRACE "READ CMD",CMD;
+#					DEBUG_TRACE "READ CMD",CMD;
 					IF ~LINDR
 					{
 						PIN_DEBUG<-1;
@@ -358,7 +359,7 @@ INSTRUCTION	"ReadSrc"	%01			#TODO NIBBLE FETCH
 			lkupAddr<-SRCBYTEADDR;
 			dstBits<-DstByte;
 	
-			DEBUG_TRACE BASE 16,DstByte,SRCBYTEADDR,lkupAddr;
+			#DEBUG_TRACE BASE 16,DstByte,SRCBYTEADDR,lkupAddr;
 	
 			CALL GetByte(lkupAddr)->SrcByte;
 		}
@@ -386,7 +387,7 @@ FUNCTION INTERNAL	Inhibit[1]	DoComparator
 	{
 		IF LINDR
 		{
-			DEBUG_TRACE BASE 16,SrcByte,DstByte;
+			#DEBUG_TRACE BASE 16,SrcByte,DstByte;
 		}
 		Inhibit<-Inhibit | (SrcByte==DstByte);
 	}
@@ -512,8 +513,8 @@ INSTRUCTION	"WriteDstComparator"	%10
 
 	IF inhibit & COLST
 	{
-		PIN_DEBUG<-0;
-		DEBUG_TRACE "COL STOP";
+#		PIN_DEBUG<-0;
+#		DEBUG_TRACE "COL STOP";
 		NEXT PIN__TICK.IDLE;
 	}
 	IF ~(inhibit & COLST)

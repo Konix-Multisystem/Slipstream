@@ -834,7 +834,7 @@ void DoCPU8086()
 //			numClocks=1;
 		}*/
 #endif
-#if ENABLE_DEBUG
+#if 0
 	if (doDebug)
 	{
 		Disassemble80386(SEGTOPHYS(CS,IP),1);
@@ -933,7 +933,7 @@ void DoCPU8086()
 
 void DoCPU80386sx()
 {
-#if ENABLE_DEBUG
+#if 0
 //	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF00ED)
 //	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF01ee)
 //	if ((MSU_GETPHYSICAL_EIP()&0xFFFFFF)==0xFF6ccd)
@@ -1056,7 +1056,7 @@ void DoCPUZ80()
 		//			numClocks=1;
 	}
 #endif
-#if ENABLE_DEBUG
+#if 0
 	if (doDebug)
 	{
 		DisassembleZ80(Z80_PC,1);
@@ -1359,19 +1359,34 @@ int main(int argc,char**argv)
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
-//            if (FL1BLT_Step(0) == 0)
+            if (FL1BLT_Step(0) == 0)
                 numClocks += CPU_STEP(doDebug);
- //           else
- //               numClocks++;
+			else
+				numClocks++;
+#if MEMORY_MAPPED_DEBUGGER
 			if (bp)
 			{
-				if (MSU_GETPHYSICAL_EIP() == bpaddress)
+				switch (curSystem)
 				{
-					pause = 1;
-					bp = 0;
-					debugWatchWrites = 1;
+				case ESS_CP1:
+				case ESS_MSU:
+					if (MSU_GETPHYSICAL_EIP() == bpaddress)
+					{
+						pause = 1;
+						bp = 0;
+						debugWatchWrites = 1;
+					}
+					break;
+				case ESS_FL1:
+					if (getZ80LinearAddress() == bpaddress)
+					{
+						pause = 1;
+						bp = 0;
+					}
+					break;
 				}
 			}
+#endif
 			switch (curSystem)
 			{
 				case ESS_CP1:
@@ -1406,6 +1421,11 @@ int main(int argc,char**argv)
 			{
 				void ShowEddyDebug();		// Show P89 Floppy Controller Information
 				ShowEddyDebug();
+			}
+			if (curSystem == ESS_FL1)
+			{
+				void ShowPotsDebug();
+				ShowPotsDebug();
 			}
 
 			if (masterClock>=WIDTH*HEIGHT)

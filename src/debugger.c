@@ -796,7 +796,7 @@ void DebugRPort(uint16_t port)
 #endif
 }
 
-#if ENABLE_DEBUG || MEMORY_MAPPED_DEBUGGER
+#if MEMORY_MAPPED_DEBUGGER
 
 int GetILength80386(unsigned int address)
 {
@@ -879,7 +879,7 @@ void FETCH_REGISTERSZ80(char* tmp)
 
 #endif
 
-#if ENABLE_DEBUG
+#if 0
 void DUMP_REGISTERS8086()
 {
 	char tmp[1024];
