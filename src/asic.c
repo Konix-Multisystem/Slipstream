@@ -2545,6 +2545,10 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		if (VideoInterruptLatch)
 		{
 			DoScreenInterrupt();		
+			if (curSystem == ESS_FL1)
+			{
+				VideoInterruptLatch = 0;
+			}
 		}
 
 		// Quick and dirty video display no contention or bus cycles
