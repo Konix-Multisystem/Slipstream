@@ -2860,7 +2860,6 @@ void TickAsicCP1(int cycles)
 {
 	TickBlitterCP1();
 	DoCP1Screen(cycles);
-	//TickAsic(cycles,ConvPaletteMSU,0);
 }
 
 
