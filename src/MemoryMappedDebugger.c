@@ -126,6 +126,33 @@ const char* MSU_ReadPortInfo[128] =
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+extern uint32_t	ASIC_BANK0;				// Z80 banking registers  (stored in upper 16bits)
+extern uint32_t	ASIC_BANK1;
+extern uint32_t	ASIC_BANK2;
+extern uint32_t	ASIC_BANK3;
+
+uint32_t getZ80LinearAddress()
+{
+	uint32_t addr = Z80_PC;
+
+	switch (addr&0xC000)
+	{
+		case 0x0000:
+			return ASIC_BANK0+(addr&0x3FFF);
+
+		case 0x4000:
+			return ASIC_BANK1+(addr&0x3FFF);
+
+		case 0x8000:
+			return ASIC_BANK2+(addr&0x3FFF);
+		
+		case 0xC000:
+			break;
+	}
+	return ASIC_BANK3+(addr&0x3FFF);
+
+}
+
 int UpdateMemoryMappedDebuggerViews()
 {
 	int cmd = 0xff;
@@ -149,10 +176,10 @@ int UpdateMemoryMappedDebuggerViews()
             code_size = 1;
 			break;
 		case ESS_FL1:
-			//address=Z80_PC;//GetZ80LinearAddress()&0xFFFFF;		// disassembly expects address in chip space not linear space
+//			address = Z80_PC;// GetZ80LinearAddress() & 0xFFFFF;		// disassembly expects address in chip space not linear space
 			//sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERSZ80(tmp2);
-            address = Z80_PC;
+            address = getZ80LinearAddress();
 			break;
 	}
 

@@ -2315,7 +2315,9 @@ const char* GetOutputBuffer()
 
 void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength)
 {
-    unsigned char byte = GetNextByteFromStream(stream);
+	int peekBytes = 0;
+    unsigned char byte = PeekByteFromStreamOffset(stream,0);
+	peekBytes++;
     if (byte>realLength)
     {
         AddToOutput("Unknown Opcode");
@@ -2384,6 +2386,7 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
                 }
                 int offset = (*sPtr - '0')*negOffs;
                 sprintf(sprintBuffer, "%02X", PeekByteFromStreamOffset(stream, offset));
+				peekBytes++;
                 AddToOutputChar(sprintBuffer[0]);
                 AddToOutputChar(sprintBuffer[1]);
                 doingDecode = 0;
@@ -2391,5 +2394,6 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
             sPtr++;
         }
     }
+	stream->bytesRead += peekBytes;
 }
 
