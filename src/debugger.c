@@ -27,7 +27,11 @@ int debugWatchReads=0;
 
 void brkExit(int dnc)
 {
+#if OS_WINDOWS
 	__debugbreak();
+#else
+	exit(dnc);
+#endif
 }
 
 uint8_t PeekByte(uint32_t addr)

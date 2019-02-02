@@ -23,13 +23,6 @@ set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 99)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 project(slipstream)
-#
-# For debugging
-#
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach()
 
 find_package(glfw3 3 REQUIRED CONFIG)
 find_package(OpenGL REQUIRED)
@@ -97,4 +90,12 @@ source_group(Chips FILES src/chips/flare1DSP.edl)
 source_group(Chips FILES src/chips/flare1Blitter.edl)
 source_group(Chips FILES src/chips/flare1Blitter_internal.edl)
 source_group(Chips FILES src/chips/z80.edl)
+
+#
+# For debugging
+#
+#get_cmake_property(_variableNames VARIABLES)
+#foreach (_variableName ${_variableNames})
+#    message(STATUS "${_variableName}=${${_variableName}}")
+#endforeach()
 
