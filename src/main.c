@@ -1080,6 +1080,7 @@ void DoCPUZ80()
 		pause=1;
 	}*/
 }
+uint32_t FL1BLT_Step(uint8_t hold);
 
 int CPU_STEP(int doDebug)
 {
@@ -1291,7 +1292,6 @@ void ResetHardware()
 }
 
 void DebugDrawOffScreen();
-uint32_t FL1BLT_Step(uint8_t hold);
 int GetILength80386(unsigned int address);
 
 int bp = 0;
