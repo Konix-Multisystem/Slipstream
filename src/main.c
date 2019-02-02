@@ -1099,8 +1099,12 @@ int CPU_STEP(int doDebug)
 				else
 					return CYCLES;
 			case ESS_FL1:
-				DoCPUZ80();
-				return Z80_CYCLES;
+				if (FL1BLT_Step(0) == 0)
+				{
+					DoCPUZ80();
+					return Z80_CYCLES;
+				}
+				break;
 		}
 	}
 		
@@ -1359,10 +1363,7 @@ int main(int argc,char**argv)
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
-            if (FL1BLT_Step(0) == 0)
-                numClocks += CPU_STEP(doDebug);
-			else
-				numClocks++;
+            numClocks += CPU_STEP(doDebug);
 #if MEMORY_MAPPED_DEBUGGER
 			if (bp)
 			{

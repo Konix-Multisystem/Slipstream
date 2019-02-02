@@ -1861,3 +1861,21 @@ uint32_t DSP_missing(uint32_t opcode)
 	return 0;
 
 }
+
+uint32_t FL1DSP_missing(uint32_t opcode)
+{
+	CONSOLE_OUTPUT("REACHED FL1DSP missing");
+	if (!disable_exit)
+		exit(-1);
+	return 0;
+}
+
+uint32_t FL1BLT_missing(uint32_t opcode)
+{
+	CONSOLE_OUTPUT("REACHED FL1Blitter missing");
+	if (!disable_exit)
+		exit(-1);
+	return 0;
+
+}
+
