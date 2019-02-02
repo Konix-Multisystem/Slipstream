@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.6 - The one that mostly works - with added head"
+#define SLIPSTREAM_VERSION	"0.7 - Flare One Blitter Improved"
 
 #include <GLFW/glfw3.h>
 
