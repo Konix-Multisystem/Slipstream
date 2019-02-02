@@ -18,5 +18,7 @@ builds/*
 x64/
 .vs/
 roms/
+build/
+ext/
 heads/
 *.user
