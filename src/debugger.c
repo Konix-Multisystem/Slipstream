@@ -1841,3 +1841,19 @@ uint32_t MSU_unimplemented(uint32_t opcode)
 	return MSU_missing(opcode);
 }
 
+uint32_t Z80_missing(uint32_t opcode)
+{
+	CONSOLE_OUTPUT("REACHED Z80 missing");
+	if (!disable_exit)
+		exit(-1);
+	return 0;
+}
+
+uint32_t DSP_missing(uint32_t opcode)
+{
+	CONSOLE_OUTPUT("REACHED DSP missing");
+	if (!disable_exit)
+		exit(-1);
+	return 0;
+
+}
