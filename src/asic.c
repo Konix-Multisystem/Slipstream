@@ -2638,10 +2638,10 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		}
 
 		hClock++;
-		if (IsKeyAvailable())
+/*		if (IsKeyAvailable())
 		{
 			DoPeripheralInterrupt();
-		}
+		}*/
 		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
 		{
 			VideoInterruptLatch=1;
