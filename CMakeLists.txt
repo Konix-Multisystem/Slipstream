@@ -41,7 +41,7 @@ endif()
 include_directories(${OPENAL_INCLUDE_DIR})
 include_directories(${OPENGL_INCLUDE_DIR})
 
-add_definitions(-DMEMORY_MAPPED_DEBUGGER=0)
+add_definitions(-DMEMORY_MAPPED_DEBUGGER=1)
 add_definitions(-DTERMINAL=0)
 add_definitions(-DENABLE_REMOTE_DEBUG=0)
 add_definitions(-DDISABLE_DSP=0)
