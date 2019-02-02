@@ -1,4 +1,4 @@
-#if MEMORY_MAPPED_DEBUGGER && OS_WINDOWS
+#if MEMORY_MAPPED_DEBUGGER 
 
 #include <stdint.h>
 #include "system.h"
