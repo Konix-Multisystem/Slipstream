@@ -14,9 +14,9 @@ pipeline {
 
 			checkout scm
 
-			sh '''rm -rf build
-				mkdir build
-				cd build
+			sh '''rm -rf buildlinux
+				mkdir buildlinux
+				cd buildlinux
 				cmake -DCMAKE_BUILD_TYPE="Release" -DEDL_COMMAND=/usr/local/bin/edl ..
 				make all'''
 		    }
@@ -27,7 +27,34 @@ pipeline {
 		        }
 		        success
 		        {
-			    archiveArtifacts artifacts: 'build/slipstream'
+			    archiveArtifacts artifacts: 'buildlinux/slipstream'
+			    notifyBuild("SUCCESS")
+			}
+		    }
+		}
+		stage('build mojave')
+		{
+	            agent { label "macos" }
+		    steps
+		    {
+			notifyBuild('STARTED')
+
+			checkout scm
+
+			sh '''rm -rf buildmacos
+				mkdir buildmacos
+				cd buildmacos
+				cmake -DCMAKE_BUILD_TYPE="Release" -DEDL_COMMAND=/Users/jenkins/bin/edl ..
+				make all'''
+		    }
+	            post {
+	                failure
+                        {
+			    notifyBuild("FAILED")
+		        }
+		        success
+		        {
+			    archiveArtifacts artifacts: 'buildmacos/slipstream'
 			    notifyBuild("SUCCESS")
 			}
 		    }
