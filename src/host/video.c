@@ -7,7 +7,6 @@
 #include <GLFW/glfw3.h>
 #include <GL/glext.h>
 
-#include <malloc.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>

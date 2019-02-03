@@ -39,7 +39,10 @@ if (MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
 endif()
-
+if (APPLE)
+	add_definitions(-DOS_APPLE=1)
+	add_definitions(-DMEMORY_MAPPED_DEBUGGER=0)
+endif()
 include_directories(${OPENAL_INCLUDE_DIR})
 include_directories(${OPENGL_INCLUDE_DIR})
 

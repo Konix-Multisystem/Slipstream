@@ -6,10 +6,14 @@
 
 #if !DISABLE_AUDIO
 
+#if OS_APPLE
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#else
 #include <AL/al.h>
 #include <AL/alc.h>
+#endif
 
-#include <malloc.h>
 #include <stdio.h>
 #include <stdint.h>
 
