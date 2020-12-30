@@ -1,0 +1,41 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+        configs: [Release, Debug]
+    steps:
+    - name: Install EDL, OpenAl & GLFW windows - Grab
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd ${{ runner.temp }}
+        curl -LO https://github.com/SavourySnaX/prebuilt-windows-dependencies/releases/download/glfw-1/glfw-ins.7z
+        curl -LO https://github.com/SavourySnaX/prebuilt-windows-dependencies/releases/download/openal-15e05fcef882e3d50104db39d38019165c7995f9/openal-ins.7z
+        curl -LO https://github.com/SavourySnaX/EDL/releases/download/win-2.0.0.5/release-2.0-0.5.7z 
+    - name: Install EDL, GLFW, OpenAl Windows - Unpack
+      if: matrix.os == 'windows-latest'
+      run: |
+        7z x ${{ runner.temp }}/glfw-ins.7z -o${{ runner.temp }}/glfw
+        7z x ${{ runner.temp }}/openal-ins.7z -o${{ runner.temp }}/openal
+        7z x ${{ runner.temp }}/release-2.0-0.5.7z -o${{ runner.temp }}/edl
+    - name: Checkout
+      uses: actions/checkout@v2.0.0
+    - name: Build project (windows)
+      if: matrix.os == 'windows-latest'
+      uses: nicledomaS/cmake_build_action@v1.3
+      with:
+        config: ${{ matrix.configs }}
+        run_tests: OFF
+        cmake_args: -DEDL_COMMAND=${{ runner.temp }}/edl/edl.exe;-Dglfw3_DIR=${{ runner.temp }}/glfw/lib/cmake/glfw3/;-DOPENAL_LIBRARY=${{ runner.temp }}/openal/lib/openal32.lib;-DOPENAL_INCLUDE_DIR=${{ runner.temp }}/openal/include
+    - name: Tar build
+      run: tar -cvf build.tar build
+    - name: Update Tar
+      uses: actions/upload-artifact@v2
+      with:
+        path: build.tar
+        name: artifact_${{ matrix.os }}_${{ matrix.configs }}
