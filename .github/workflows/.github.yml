@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         configs: [Release, Debug]
     steps:
     - name: Install EDL, OpenAl & GLFW windows - Grab
@@ -31,13 +31,24 @@ jobs:
     - name: Install EDL macos - Unpack
       if: matrix.os == 'macos-latest'
       run: 7z x ${{ runner.temp }}/mac-2.0-0.5.zip -o${{ runner.temp }}/edl
+    - name: Install EDL ubuntu - Grab
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd ${{ runner.temp }}
+        curl -LO https://github.com/SavourySnaX/EDL/releases/download/v2.0.0.5/lin-2.0-0.5.zip 
+    - name: Install EDL macos - Unpack
+      if: matrix.os == 'ubuntu-latest'
+      run: 7z x ${{ runner.temp }}/lin-2.0-0.5.zip -o${{ runner.temp }}/edl
     - name: MacOS Dependencies
       if: matrix.os == 'macos-latest'
       run: brew install glfw
+    - name: Ubuntu Dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get install libopenal-dev libglfw3-dev -y
     - name: Checkout
       uses: actions/checkout@v2.0.0
-    - name: Build project (macos)
-      if: matrix.os == 'macos-latest'
+    - name: Build project (!windows)
+      if: matrix.os != 'windows-latest'
       uses: nicledomaS/cmake_build_action@v1.3
       with:
         config: ${{ matrix.configs }}
