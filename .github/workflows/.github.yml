@@ -42,7 +42,7 @@ jobs:
       with:
         config: ${{ matrix.configs }}
         run_tests: OFF
-        cmake_args: -DEDL_COMMAND=${{ runner.temp }}/edl/edl.exe
+        cmake_args: -DEDL_COMMAND=${{ runner.temp }}/edl/edl
     - name: Build project (windows)
       if: matrix.os == 'windows-latest'
       uses: nicledomaS/cmake_build_action@v1.3
