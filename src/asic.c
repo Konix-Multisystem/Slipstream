@@ -2508,6 +2508,7 @@ void DoPeripheralInterrupt()
 		case ESS_CP1:
 		case ESS_MSU:
 		case ESS_P88:
+		case ESS_P89:
 			break;
 		case ESS_FL1:
 			Z80_INTERRUPT(0x00);

@@ -26,6 +26,7 @@
 	void TickAsicP88(int cycles);
 	void TickAsicP89(int cycles);
 	void TickAsicFL1(int cycles);
+	void TickAsicCP1(int cycles);
 
 	void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore);
 	void ASIC_WriteP88(uint16_t port,uint8_t byte,int warnIgnore);
