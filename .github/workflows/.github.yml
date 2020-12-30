@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest]
+        os: [windows-latest, macos-latest]
         configs: [Release, Debug]
     steps:
     - name: Install EDL, OpenAl & GLFW windows - Grab
@@ -16,15 +16,33 @@ jobs:
         cd ${{ runner.temp }}
         curl -LO https://github.com/SavourySnaX/prebuilt-windows-dependencies/releases/download/glfw-1/glfw-ins.7z
         curl -LO https://github.com/SavourySnaX/prebuilt-windows-dependencies/releases/download/openal-15e05fcef882e3d50104db39d38019165c7995f9/openal-ins.7z
-        curl -LO https://github.com/SavourySnaX/EDL/releases/download/win-2.0.0.5/release-2.0-0.5.7z 
+        curl -LO https://github.com/SavourySnaX/EDL/releases/download/v2.0.0.5/win-64-2.0-0.5.zip 
     - name: Install EDL, GLFW, OpenAl Windows - Unpack
       if: matrix.os == 'windows-latest'
       run: |
         7z x ${{ runner.temp }}/glfw-ins.7z -o${{ runner.temp }}/glfw
         7z x ${{ runner.temp }}/openal-ins.7z -o${{ runner.temp }}/openal
-        7z x ${{ runner.temp }}/release-2.0-0.5.7z -o${{ runner.temp }}/edl
+        7z x ${{ runner.temp }}/win-64-2.0-0.5.zip -o${{ runner.temp }}/edl
+    - name: Install EDL macos - Grab
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd ${{ runner.temp }}
+        curl -LO https://github.com/SavourySnaX/EDL/releases/download/v2.0.0.5/mac-2.0-0.5.zip 
+    - name: Install EDL macos - Unpack
+      if: matrix.os == 'macos-latest'
+      run: 7z x ${{ runner.temp }}/mac-2.0-0.5.zip -o${{ runner.temp }}/edl
+    - name: MacOS Dependencies
+      if: matrix.os == 'macos-latest'
+      run: brew install glfw
     - name: Checkout
       uses: actions/checkout@v2.0.0
+    - name: Build project (macos)
+      if: matrix.os == 'macos-latest'
+      uses: nicledomaS/cmake_build_action@v1.3
+      with:
+        config: ${{ matrix.configs }}
+        run_tests: OFF
+        cmake_args: -DEDL_COMMAND=${{ runner.temp }}/edl/edl.exe
     - name: Build project (windows)
       if: matrix.os == 'windows-latest'
       uses: nicledomaS/cmake_build_action@v1.3
