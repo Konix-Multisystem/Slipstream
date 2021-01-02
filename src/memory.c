@@ -93,7 +93,9 @@ uint8_t Z80_GetPort(uint16_t addr)
 
 void Z80_SetPort(uint16_t addr,uint8_t byte)
 {
+#if MEMORY_MAPPED_DEBUGGER
 	ASIC_DEB_BYTE_PORT_WRITE[addr & 0xFF] = byte;
+#endif
 	SetPortB(addr&0xFF,byte);
 }
 
