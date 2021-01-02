@@ -84,6 +84,8 @@ void Z80_SetByte(uint16_t addr,uint8_t byte)
 	SetByte(ASIC_BANK3+(addr&0x3FFF),byte);
 }
 
+extern uint8_t ASIC_DEB_BYTE_PORT_WRITE[256];
+
 uint8_t Z80_GetPort(uint16_t addr)
 {
 	return GetPortB(addr&0xFF);			// ports are 8 bit in range, mirrored across full range
@@ -91,6 +93,7 @@ uint8_t Z80_GetPort(uint16_t addr)
 
 void Z80_SetPort(uint16_t addr,uint8_t byte)
 {
+	ASIC_DEB_BYTE_PORT_WRITE[addr & 0xFF] = byte;
 	SetPortB(addr&0xFF,byte);
 }
 

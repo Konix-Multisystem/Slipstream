@@ -2246,7 +2246,7 @@ extern unsigned int Z80_DIS_max_FDCB;		// FROM EDL
 extern unsigned int Z80_DIS_max_CB;			// FROM EDL
 extern unsigned int Z80_DIS_max_DD;			// FROM EDL
 extern unsigned int Z80_DIS_max_DDCB;		// FROM EDL
-void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength);
+void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength, unsigned int offset);
 
 void Disassemble(InStream* stream,int _32bitCode)
 {
@@ -2254,7 +2254,7 @@ void Disassemble(InStream* stream,int _32bitCode)
 
     if (stream->cpu == CPU_Z80)
     {
-        DisassembleZ80(stream, Z80_DIS_,Z80_DIS_max_);
+        DisassembleZ80(stream, Z80_DIS_,Z80_DIS_max_,0);
         return;
     }
 
@@ -2316,10 +2316,10 @@ const char* GetOutputBuffer()
 //// Z80
 
 
-void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength)
+void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realLength, unsigned int offset)
 {
 	int peekBytes = 0;
-    unsigned char byte = PeekByteFromStreamOffset(stream,0);
+    unsigned char byte = PeekByteFromStreamOffset(stream,offset);
 	peekBytes++;
     if (byte>realLength)
     {
@@ -2339,27 +2339,27 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
 
     if (strcmp(mnemonic, "CB") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_CB, Z80_DIS_max_CB);
+        DisassembleZ80(stream, Z80_DIS_CB, Z80_DIS_max_CB,offset+1);
     }
     else if (strcmp(mnemonic, "DD") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_DD, Z80_DIS_max_DD);
+        DisassembleZ80(stream, Z80_DIS_DD, Z80_DIS_max_DD,offset+1);
     }
     else if (strcmp(mnemonic, "DDCB") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_DDCB, Z80_DIS_max_DDCB);
+        DisassembleZ80(stream, Z80_DIS_DDCB, Z80_DIS_max_DDCB,offset+1);
     }
     else if (strcmp(mnemonic, "FDCB") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_FDCB, Z80_DIS_max_FDCB);
+        DisassembleZ80(stream, Z80_DIS_FDCB, Z80_DIS_max_FDCB,offset+1);
     }
     else if (strcmp(mnemonic, "ED") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_ED, Z80_DIS_max_ED);
+        DisassembleZ80(stream, Z80_DIS_ED, Z80_DIS_max_ED,offset+1);
     }
     else if (strcmp(mnemonic, "FD") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_FD, Z80_DIS_max_FD);
+        DisassembleZ80(stream, Z80_DIS_FD, Z80_DIS_max_FD,offset+1);
     }
     else
     {

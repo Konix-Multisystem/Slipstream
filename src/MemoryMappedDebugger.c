@@ -47,6 +47,7 @@ void InitMemoryMappedDebugger()
 }
 
 uint16_t ASIC_DEB_PORTS[128];
+uint8_t ASIC_DEB_BYTE_PORT_WRITE[256];
 
 const char* CP1_WritePortInfo[128] =
 {
@@ -125,6 +126,79 @@ const char* MSU_ReadPortInfo[128] =
 	"GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ", "GPIO3 ",*/
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
+
+const char* FL1_ReadPortInfo[256] =
+{
+	"BANK0 ", "BANK1 ", "BANK2 ", "BANK3 ",0 , 0, 0, /*"INTACK"*/0,	//0x00-0x07	--skip intack so we don't ack accidently
+	0, 0, 0, 0,	0, 0, 0, 0,											//0x08-0x0F
+	0, 0, 0, 0, "RUNST ", 0, 0, 0,									//0x10-0x17
+	"BLPC0 ", "BLPC1 ", "BLPC2 ", 0, 0, 0, 0, 0,					//0x18-0x1F
+	"STOPDL", "STOPDH", "GP0   ", 0, 0, 0, 0, 0,					//0x20-0x27
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x28-0x2F
+	/*"COMREG"*/0, /*"TRKREG"*/0, /*"SECREG"*/0, /*"DATREG"*/0, 0, 0, 0, 0,				//0x30-0x37  --skip to avoid clearing
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x38-0x3F
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x40-0x47
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x48-0x4F
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x50-0x57
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x58-0x5F
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x60-0x67
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x68-0x6F
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x70-0x77
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x78-0x7F
+	0, 0, 0, 0,	0, 0, 0, 0,											//0x80-0x87
+	0, 0, 0, 0,	0, 0, 0, 0,											//0x88-0x8F
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x90-0x97
+	0, 0, 0, 0, 0, 0, 0, 0,											//0x98-0x9F
+	"IPPORT", 0, 0, 0, 0, 0, 0, 0,									//0xA0-0xA7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xA8-0xAF
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xB0-0xB7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xB8-0xBF
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xC0-0xC7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xC8-0xCF
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xD0-0xD7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xD8-0xDF
+	"CTRL_P", 0, 0, 0, 0, 0, 0, 0,									//0xE0-0xE7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xE8-0xEF
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xF0-0xF7
+	0, 0, 0, 0, 0, 0, 0, 0,											//0xF8-0xFF
+};
+
+const char* FL1_WritePortInfo[256] =
+{
+	"BANK0 ", "BANK1 ", "BANK2 ", "BANK3 ",0 , 0, 0, "INTREG",			//0x00-0x07
+	"CMD1  ", "CMD2  ", "BORDER", "SCRLH ", "SCRLV", "TRANS ", 0, 0,	//0x08-0x0F
+	"INTRD ", "INTRDP", "INTRA ", "MPROG ", "RUNST ", "PROGRM", 0, 0,	//0x10-0x17
+	"BLTPC0", "BLTPC1", "BLTPC2", 0, 0, 0, 0, 0,						//0x18-0x1F
+	"BLTCMD", 0, "GP0   ", 0, 0, 0, 0, 0,								//0x20-0x27
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x28-0x2F
+	"COMREG", "TRKREG", "SECREG", "DATREG", 0, 0, 0, 0,					//0x30-0x37
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x38-0x3F
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x40-0x47
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x48-0x4F
+	"PALAW ", "PALVAL", "PALMSK", 0, 0, 0, 0, 0,						//0x50-0x57
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x58-0x5F
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x60-0x67
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x68-0x6F
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x70-0x77
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x78-0x7F
+	0, 0, 0, 0,	0, 0, 0, 0,												//0x80-0x87
+	0, 0, 0, 0,	0, 0, 0, 0,												//0x88-0x8F
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x90-0x97
+	0, 0, 0, 0, 0, 0, 0, 0,												//0x98-0x9F
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xA0-0xA7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xA8-0xAF
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xB0-0xB7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xB8-0xBF
+	"CHAIRP", 0, 0, 0, 0, 0, 0, 0,										//0xC0-0xC7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xC8-0xCF
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xD0-0xD7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xD8-0xDF
+	"CTRL_P", 0, 0, 0, 0, 0, 0, 0,										//0xE0-0xE7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xE8-0xEF
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xF0-0xF7
+	0, 0, 0, 0, 0, 0, 0, 0,												//0xF8-0xFF
+};
+
 
 extern uint32_t	ASIC_BANK0;				// Z80 banking registers  (stored in upper 16bits)
 extern uint32_t	ASIC_BANK1;
@@ -222,54 +296,81 @@ int UpdateMemoryMappedDebuggerViews()
 			break;
 	}
 
+	const char** WPort = NULL;
+	const char** RPort = NULL;
+	int regCnt = 128;
+	int portWidth = 2;
     switch (curSystem)
     {
-        case ESS_FL1:
-            break;
         case ESS_P88:
         case ESS_P89:
-        case ESS_CP1:
             break;
+        case ESS_CP1:
+            WPort = CP1_WritePortInfo;
+            RPort = CP1_ReadPortInfo;
+			break;
         case ESS_MSU:
-        {
-            const char** WPort = (curSystem==ESS_MSU)?MSU_WritePortInfo:CP1_WritePortInfo;
-            const char** RPort = (curSystem==ESS_MSU)?MSU_ReadPortInfo:CP1_ReadPortInfo;
-
-            tmp = (char*)pMapASIC;
-            for (int a = 0; a < 128; a++)
-            {
-                char* ptr = tBuffer;
-                *ptr = 0;
-                if (WPort[a] != 0 || RPort[a] != 0)
-                {
-                    sprintf(ptr, "%02X : ", a * 2);
-                    ptr += strlen(ptr);
-                    if (WPort[a])
-                    {
-                        sprintf(ptr, "%04X %s", ASIC_DEB_PORTS[a], WPort[a]);
-                        ptr += strlen(ptr);
-                    }
-                    else
-                    {
-                        sprintf(ptr, "\t\t");
-                        ptr += strlen(ptr);
-                    }
-                    if (RPort[a])
-                    {
-                        sprintf(ptr, "\t(%04X %s)\n", GetPortW(a * 2), RPort[a]);
-                        ptr += strlen(ptr);
-                    }
-                    else
-                    {
-                        sprintf(ptr, "\n");
-                        ptr += strlen(ptr);
-                    }
-                    strcpy(tmp, tBuffer);
-                    tmp += strlen(tmp);
-                }
-            }
-        }
+            WPort = MSU_WritePortInfo;
+            RPort = MSU_ReadPortInfo;
+			break;
+        case ESS_FL1:
+			WPort = FL1_WritePortInfo;
+            RPort = FL1_ReadPortInfo;
+			portWidth = 1;
+			regCnt = 256;
+			break;
     }
+
+	if (WPort != NULL && RPort != NULL)
+	{
+		tmp = (char*)pMapASIC;
+		for (int a = 0; a < regCnt; a++)
+		{
+			char* ptr = tBuffer;
+			*ptr = 0;
+			if (WPort[a] != 0 || RPort[a] != 0)
+			{
+				if (portWidth==2)
+					sprintf(ptr, "%02X : ", a * 2);
+				else
+					sprintf(ptr, "%02X : ", a);
+				ptr += strlen(ptr);
+				if (WPort[a])
+				{
+					if (portWidth==2)
+						sprintf(ptr, "%04X %s", ASIC_DEB_PORTS[a], WPort[a]);
+					else
+						sprintf(ptr, "%02X %s", ASIC_DEB_BYTE_PORT_WRITE[a], WPort[a]);
+					ptr += strlen(ptr);
+				}
+				else
+				{
+					if (portWidth == 2)
+						sprintf(ptr, "\t\t");
+					else
+						sprintf(ptr, "\t");
+					ptr += strlen(ptr);
+				}
+				if (RPort[a])
+				{
+					if (portWidth==2)
+						sprintf(ptr, "\t(%04X %s)\n", GetPortW(a * 2), RPort[a]);
+					else
+						sprintf(ptr, "\t(%02X %s)\n", 0xFF&GetPortB(a), RPort[a]);
+					ptr += strlen(ptr);
+				}
+				else
+				{
+					sprintf(ptr, "\n");
+					ptr += strlen(ptr);
+				}
+				strcpy(tmp, tBuffer);
+				tmp += strlen(tmp);
+			}
+		}
+	}
+
+
 	if (pMapControl[0] != pMapControl[1])
 	{
 		cmd = pMapControl[0];

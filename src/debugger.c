@@ -802,9 +802,10 @@ void DebugRPort(uint16_t port)
 
 #if MEMORY_MAPPED_DEBUGGER
 
-int GetILength80386(unsigned int address)
+int GetILength80386(unsigned int address, int x86)
 {
 	InStream disMe;
+	disMe.cpu = x86?CPU_X86:CPU_Z80;
 	disMe.bytesRead = 0;
 	disMe.curAddress = address;
 	disMe.useAddress = 1;

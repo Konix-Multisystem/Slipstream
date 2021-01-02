@@ -1455,7 +1455,10 @@ int main(int argc,char**argv)
 				// Get Length of current instruction and set a global bp on it
 				pause = 0;
 				bp = 1;
-				bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP());
+				if (curSystem == ESS_FL1)
+					bpaddress = getZ80LinearAddress() + GetILength80386(getZ80LinearAddress(), 0);
+				if (curSystem == ESS_MSU)
+					bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP(), 1);
 				break;
 			case 4:
 				pause = 0;
