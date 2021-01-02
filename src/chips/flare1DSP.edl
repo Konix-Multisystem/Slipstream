@@ -42,20 +42,23 @@ DECLARE	INTERNAL 	IR[16]		ALIAS	Instruction[5]:Address[11];
 DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
 DECLARE INTERNAL	DataAddress[16];
+DECLARE INTERNAL	PreviousDataAddress[16];		# used by OFFSET
 
 DECLARE PC[16]		ALIAS	%00001:PC_ACTUAL[11];
 DECLARE MZ0[16];
-DECLARE MZ1[16];
-DECLARE MX[16];
+DECLARE MZ1[12];
+DECLARE MX[12];
 DECLARE MY[16];
 DECLARE CMPR[16];		### Unknown purpose at this time
-DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
+DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[15]:%0;
 DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
 DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 DECLARE INTRA[16];
 DECLARE AX[16];
 DECLARE AZ[16];
 
+DECLARE latchedOffset[1];	# Offset instruction sets this to indicate the next DataAddress should be overridden by the OFFSET value
+DECLARE latchedAddress[11];	# The address - Offset effectively allows for using a programmatic address rather than the hardcoded instruction address
 
 DECLARE C[1];
 
@@ -70,9 +73,19 @@ FUNCTION STEP
 	PC<-PC+1;
 	IR<-currentInstruction;
 
-	DataAddress<-Address;
+	IF latchedOffset
+	{
+		DataAddress<-latchedAddress;
+		latchedOffset<-0;
+	}
+	ELSE
+	{
+		DataAddress<-Address;
+	}
 
 	EXECUTE	Instruction;
+
+	PreviousDataAddress<-DataAddress;
 }
 
 FUNCTION RESET
@@ -189,7 +202,7 @@ INSTRUCTION	"MOV %$1,MZ0"		%00000
 
 INSTRUCTION	"MOV %$1,MZ1"		%00001
 {
-	RAM[[DataAddress]]<-MZ1;		## Also clears MAC result registers
+	RAM[[DataAddress]]<-$00++MZ1;		## Also clears MAC result registers
 	MZ0<-0;
 	MZ1<-0;
 }
@@ -204,16 +217,16 @@ INSTRUCTION	"MOV MY,%$1"		%00011
 	MY<-RAM[[DataAddress]];
 	## 7 cycle multiply starts now -  for now generate the result immediately
 
-	# Multiplier is 16x16 which would generate a 32bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
-	DECLARE xExt[32];
-	DECLARE yExt[32];
-	DECLARE result[32]	ALIAS	upper[16]:lower[16];
+	# Multiplier is 12x16 which would generate a 28bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
+	DECLARE xExt[28];
+	DECLARE yExt[28];
+	DECLARE result[28]	ALIAS	upper[12]:lower[16];
 
 	upper<-MZ1;
 	lower<-MZ0;
 
-	xExt<-$0000000000++MX;
-	yExt<-$0000000000++MY;
+	xExt<-$000000000++MX;
+	yExt<-$000000000++MY;
 
 	result<-result + (xExt * yExt);
 
@@ -224,7 +237,6 @@ INSTRUCTION	"MOV MY,%$1"		%00011
 INSTRUCTION	"MOV %$1,CMPR"		%00100
 {
 	DEBUG_TRACE "MOV (nn),CMPR - TODO";
-	#TODO
 }
 
 INSTRUCTION	"MOV DMA0,%$1"		%00101
@@ -256,12 +268,13 @@ INSTRUCTION	"NOP %$1"		%01001
 
 INSTRUCTION	"MOV %$1,INTRA"	%01010
 {
-	DEBUG_TRACE "MOV (nn),INTRA";
+	DEBUG_TRACE "MOV (nn),INTRA - TODO";
 }
 
 INSTRUCTION	"OFFSET %$1"		%01011
 {
-	#DEBUG_TRACE "OFFSET";
+	latchedOffset<-1;
+	latchedAddress<-RAM[[PreviousDataAddress]];
 }
 
 INSTRUCTION	"MOV %$1,PC"		%01100
@@ -334,8 +347,9 @@ INSTRUCTION	"ADDinC %$1"		%10110
 	IF C
 	{
 		tmp->AZ;
+		C<-%0;
 	}
-	IF ~C
+	ELSE
 	{
 		AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
 	}
