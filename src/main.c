@@ -1116,9 +1116,9 @@ int CPU_STEP(int doDebug)
 void Usage()
 {
 	CONSOLE_OUTPUT("slipstream [opts] program.msu/program.p88/program.fl1\n");
-	CONSOLE_OUTPUT("-F Fullscreen");
-	CONSOLE_OUTPUT("-O Disable Borders");
-	CONSOLE_OUTPUT("-W Fullscreen Windowed");
+	CONSOLE_OUTPUT("-F Fullscreen\n");
+	CONSOLE_OUTPUT("-O Disable Borders\n");
+	CONSOLE_OUTPUT("-W Fullscreen Windowed\n");
 	CONSOLE_OUTPUT("-r [Startup in remote debugger mode]\n");
 	CONSOLE_OUTPUT("-f [disable P88 frequency divider]\n");
 	CONSOLE_OUTPUT("-b address file.bin [Load binary to ram]\n");
