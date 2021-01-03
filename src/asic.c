@@ -79,8 +79,7 @@ uint8_t		ASIC_CHAIR = 0;
 uint8_t		ASIC_FDC=0xFF;				// P89 Floppy Disk Controller
 uint32_t	ASIC_FRC=0x00000000;			// P89 Floppy Disk Controller
 
-uint8_t		ASIC_PROGCNT=0;		// FL1 Only
-uint16_t	ASIC_PROGWRD=0;
+uint16_t	ASIC_PROGWRD=0;		// FL1 Only
 uint16_t	ASIC_PROGADDR=0;
 uint16_t	ASIC_INTRA=0;
 uint16_t	ASIC_INTRD=0;
@@ -2201,10 +2200,10 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_INTRA|=byte<<8;
 			break;
 		case 0x0013:
-			ASIC_PROGCNT=(~ASIC_PROGCNT)&1;
+			ASIC_INTRCNT=(~ASIC_INTRCNT)&1;
 			ASIC_PROGWRD>>=8;
 			ASIC_PROGWRD|=byte<<8;
-			if (ASIC_PROGCNT==0)
+			if (ASIC_INTRCNT==0)
 			{
 #if ENABLE_DEBUG
 				if (doShowPortStuff)
@@ -2213,6 +2212,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 				}
 				DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
 #endif
+				//DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
 				FL1DSP_POKE(0x800+ASIC_PROGADDR,ASIC_PROGWRD);
 			}
 			break;
@@ -2221,7 +2221,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_PROGADDR|=byte<<8;
 			if ((DSP_STATUS&1)==0)
 			{
-//				CONSOLE_OUTPUT("PERFORMING RESET : %04X\n",ASIC_PROGADDR);
+				//CONSOLE_OUTPUT("PERFORMING RESET : %04X\n",ASIC_PROGADDR);
 				FL1DSP_RESET();
 				FL1DSP_PC=ASIC_PROGADDR|0x800;
 			}
@@ -2435,7 +2435,7 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 		case 0x0006:
 			return VideoInterruptLatch<<4;
 		case 0x0014:		// RUNST
-			return 0;			// Temporary -known bottom 3 bits are intrude status
+			return ASIC_INTRCNT;	// bit 0 == odd or even status of double write registers
 		case 0x0051:
 			return ASIC_PALSTORE[ASIC_PALAR*3+ASIC_PALCNT++];
 		default:
@@ -2975,7 +2975,6 @@ void ASIC_INIT()
 	ASIC_BLTPC=0;				// 20 bit address
 	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 
-	ASIC_PROGCNT=0;
 	ASIC_PROGWRD=0;
 	ASIC_PROGADDR=0;
 	ASIC_INTRA=0;
