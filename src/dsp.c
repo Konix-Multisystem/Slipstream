@@ -155,6 +155,7 @@ void DSP_RAM_INIT()
 void DSP_STEP(void);
 void FL1DSP_STEP(void);
 
+// DAC is signed on slip dsp
 void DSP_SetDAC(uint8_t channels,int16_t value)
 {
 	// Bleep
@@ -213,21 +214,9 @@ void FL1DSP_DMASetByte(uint32_t addr,uint8_t byte)
 	SetByte(addr&0xFFFFF,byte);
 }
 
-
-void FL1DSP_SetDAC(uint8_t channels,int16_t value)
+// dac is unsigned on flare1
+void FL1DSP_SetDAC(uint8_t channels,uint16_t value)
 {
-	if (channels==0)
-	{
-		static int alternate=0;
-
-		// Not entirely clear - lets round robin			--- There is an odd note in the sample playback code about writing low byte pairs, then high byte pairs ... need to work out intention for that!
-		_AudioAddData(alternate,value>>2);			//(14 bit DAC)
-
-		alternate++;
-		alternate&=1;
-	}
-
-	// Bleep
 	if (channels&1)
 	{
 		_AudioAddData(0,value>>2);			//(14 bit DAC)
@@ -502,6 +491,8 @@ int FL1DSP_Disassemble(unsigned int address,int registers)
 
 #define RATE_ADJUST	(0)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
 
+#define FL1_RATE_ADJUST	(1)		//FL1 DSP runs at 6Mhz not 12Mhz
+
 extern int emulateDSP;
 
 void TickDSP()
@@ -539,7 +530,7 @@ void TickDSP()
 void TickFL1DSP()
 {
 #if !DISABLE_DSP
-	static int iamslow=RATE_ADJUST;
+	static int iamslow=FL1_RATE_ADJUST;
 	int running=(DSP_STATUS&0x1) && emulateDSP;
 
 	if (running)
@@ -560,7 +551,7 @@ void TickFL1DSP()
 #endif
 		FL1DSP_STEP();
 
-			iamslow=RATE_ADJUST;
+			iamslow=FL1_RATE_ADJUST;
 		}
 		else
 			iamslow--;

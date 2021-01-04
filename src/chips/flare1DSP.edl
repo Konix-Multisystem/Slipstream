@@ -8,6 +8,21 @@
 # Unfortunately I have not to date been able to source a hardware description of this chip, so i`m having to take a wild guess at some of the behaviour
 # Unlike the later models, it does not appear to use memory mapped registers (i could be very wrong about this though). 
 #
+#
+#  Note there is a bug in the hardware (apparantly)
+# and it seems the DAC1,DAC2,DAC12 are never used, instead, the 3 NOPs are used as follows :
+#
+# SILENCE
+#  MOV DAC0, nn
+#  NOPA
+# RIGHT
+#  MOV DAC0, nn
+#  NOPR
+# LEFT
+#  MOV DAC0, nn
+#  NOP
+#
+#  Hence the weird handling of DAC in this code compared to the later slip DSP
 
 C_FUNC_EXTERN	[16]	DMAGetWord		[32];
 C_FUNC_EXTERN		DMASetWord		[32],[16];
@@ -62,6 +77,9 @@ DECLARE latchedAddress[11];	# The address - Offset effectively allows for using 
 
 DECLARE C[1];
 
+DECLARE dacDelay[2]	ALIAS	dacBug[1]:dacUse[1];
+DECLARE dacOut[16];
+
 ############
 
 FUNCTION STEP
@@ -73,6 +91,7 @@ FUNCTION STEP
 	PC<-PC+1;
 	IR<-currentInstruction;
 
+	# Handle OFFSET instruction
 	IF latchedOffset
 	{
 		DataAddress<-latchedAddress;
@@ -83,6 +102,9 @@ FUNCTION STEP
 		DataAddress<-Address;
 	}
 
+	# Handle DAC Bug
+	dacDelay<-dacDelay/2;
+	
 	EXECUTE	Instruction;
 
 	PreviousDataAddress<-DataAddress;
@@ -264,6 +286,11 @@ INSTRUCTION	"MOV %$1,DMD"		%01000
 
 INSTRUCTION	"NOP %$1"		%01001
 {
+	IF dacUse
+	{
+		# left channel
+		CALL SetDAC(1,dacOut);
+	}
 }
 
 INSTRUCTION	"MOV %$1,INTRA"	%01010
@@ -363,26 +390,32 @@ INSTRUCTION	"MOV AZ,%$1"		%10111
 
 INSTRUCTION	"MOV DAC0,%$1"		%11000
 {
-	CALL SetDAC(0,RAM[[DataAddress]]);
+	dacBug<-1;
+	dacOut<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV DAC1,%$1"		%11001
 {
-	CALL SetDAC(1,RAM[[DataAddress]]);
+	DEBUG_TRACE "DAC1 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"MOV DAC2,%$1"		%11010
 {
-	CALL SetDAC(2,RAM[[DataAddress]]);
+	DEBUG_TRACE "DAC2 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"MOV DAC12,%$1"	%11011
 {
-	CALL SetDAC(3,RAM[[DataAddress]]);
+	DEBUG_TRACE "DAC12 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"NOPA %$1"		%11100
 {
+	IF dacUse
+	{
+		# silence dac
+		CALL SetDAC(0,0);
+	}
 }
 
 INSTRUCTION	"MOV PC,%$1"		%11101
@@ -392,7 +425,11 @@ INSTRUCTION	"MOV PC,%$1"		%11101
 
 INSTRUCTION	"NOPR"			%11110
 {
-
+	IF dacUse
+	{
+		# right channel
+		CALL SetDAC(2,dacOut);	
+	}
 }
 
 
