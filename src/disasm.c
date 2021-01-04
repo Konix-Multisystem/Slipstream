@@ -2347,11 +2347,11 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
     }
     else if (strcmp(mnemonic, "DDCB") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_DDCB, Z80_DIS_max_DDCB,offset+1);
+        DisassembleZ80(stream, Z80_DIS_DDCB, Z80_DIS_max_DDCB,offset+2);
     }
     else if (strcmp(mnemonic, "FDCB") == 0)
     {
-        DisassembleZ80(stream, Z80_DIS_FDCB, Z80_DIS_max_FDCB,offset+1);
+        DisassembleZ80(stream, Z80_DIS_FDCB, Z80_DIS_max_FDCB,offset+2);
     }
     else if (strcmp(mnemonic, "ED") == 0)
     {
@@ -2387,8 +2387,8 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
                     sPtr++;
                     negOffs = -1;
                 }
-                int offset = (*sPtr - '0')*negOffs;
-                sprintf(sprintBuffer, "%02X", PeekByteFromStreamOffset(stream, offset));
+                int decodeoffset = (*sPtr - '0')*negOffs;
+                sprintf(sprintBuffer, "%02X", PeekByteFromStreamOffset(stream, decodeoffset+offset));
 				peekBytes++;
                 AddToOutputChar(sprintBuffer[0]);
                 AddToOutputChar(sprintBuffer[1]);

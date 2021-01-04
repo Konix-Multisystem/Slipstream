@@ -868,18 +868,58 @@ void FETCH_REGISTERS80386_8086(char* tmp)
 			MSU_EAX&0xFFFF,MSU_EBX&0xFFFF,MSU_ECX&0xFFFF,MSU_EDX&0xFFFF,MSU_ESP&0xFFFF,MSU_EBP&0xFFFF,MSU_ESI&0xFFFF,MSU_EDI&0xFFFF,MSU_CS,MSU_DS,MSU_ES,MSU_SS);
 }
 
+void REGISTER_ADDRESS(char* buffer, char* name, uint16_t regpair)
+{
+	sprintf(buffer, "%s\t%04X\t\t%02X %02X %02X %02X %02X %02X %02X [%02X] %02X %02X %02X %02X %02X %02X %02X %02X\n",
+		name,
+		regpair,
+		PeekByteZ80(regpair - 7),
+		PeekByteZ80(regpair - 6),
+		PeekByteZ80(regpair - 5),
+		PeekByteZ80(regpair - 4),
+		PeekByteZ80(regpair - 3),
+		PeekByteZ80(regpair - 2),
+		PeekByteZ80(regpair - 1),
+		PeekByteZ80(regpair + 0),
+		PeekByteZ80(regpair + 1),
+		PeekByteZ80(regpair + 2),
+		PeekByteZ80(regpair + 3),
+		PeekByteZ80(regpair + 4),
+		PeekByteZ80(regpair + 5),
+		PeekByteZ80(regpair + 6),
+		PeekByteZ80(regpair + 7),
+		PeekByteZ80(regpair + 8)
+		);
+}
+
 void FETCH_REGISTERSZ80(char* tmp)
 {
-	sprintf(tmp,"FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\nAF\t%04X\nBC\t%04X\nDE\t%04X\nHL\t%04X\nAF'\t%04X\nBC'\t%04X\nDE'\t%04X\nHL'\t%04X\nIX\t%04X\nIY\t%04X\nIR\t%04X\nSP\t%04X\nPC\t%04X",
-			Z80_AF&0x80 ? "1" : "0",
-			Z80_AF&0x40 ? "1" : "0",
-			Z80_AF&0x20 ? "1" : "0",
-			Z80_AF&0x10 ? "1" : "0",
-			Z80_AF&0x08 ? "1" : "0",
-			Z80_AF&0x04 ? "1" : "0",
-			Z80_AF&0x02 ? "1" : "0",
-			Z80_AF&0x01 ? "1" : "0",
-			Z80_AF,Z80_BC,Z80_DE,Z80_HL,Z80__AF,Z80__BC,Z80__DE,Z80__HL,Z80_IX,Z80_IY,Z80_IR,Z80_SP,Z80_PC);
+	char tmpBuffer[256];
+
+	sprintf(tmpBuffer, "FLAGS\t=\tS\tZ\t-\tH\t-\tP\tN\tC\n\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n\n",
+		Z80_AF & 0x80 ? "1" : "0",
+		Z80_AF & 0x40 ? "1" : "0",
+		Z80_AF & 0x20 ? "1" : "0",
+		Z80_AF & 0x10 ? "1" : "0",
+		Z80_AF & 0x08 ? "1" : "0",
+		Z80_AF & 0x04 ? "1" : "0",
+		Z80_AF & 0x02 ? "1" : "0",
+		Z80_AF & 0x01 ? "1" : "0");
+	strcpy(tmp, tmpBuffer);
+	strcat(tmp, "\n\t\n\t\t\t-7 -6 -5 -4 -3 -2 -1      +1 +2 +3 +4 +5 +6 +7 +8\n");
+	REGISTER_ADDRESS(tmpBuffer, "AF", Z80_AF); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "BC", Z80_BC); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "DE", Z80_DE); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "HL", Z80_HL); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "AF'", Z80__AF); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "BC'", Z80__BC); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "DE'", Z80__DE); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "HL'", Z80__HL); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "IX", Z80_IX); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "IY", Z80_IY); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "IR", Z80_IR); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "SP", Z80_SP); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS(tmpBuffer, "PC", Z80_PC); strcat(tmp, tmpBuffer);
 }
 
 #endif
