@@ -148,7 +148,7 @@ void GoDebug();
 
 void FDC_SetCommand(uint8_t byte)
 {
-	DUMP_COMMAND_FORMAT(byte);
+	//DUMP_COMMAND_FORMAT(byte);
 	FDCCurCommand=0;
 	switch (byte&0xF0)
 	{
@@ -222,13 +222,13 @@ void FDC_SetCommand(uint8_t byte)
 void FDC_SetTrack(uint8_t byte)
 {
 	FDCTrack=byte;
-	CONSOLE_OUTPUT("FDC Track : %02X\n",byte);
+	//CONSOLE_OUTPUT("FDC Track : %02X\n",byte);
 }
 
 void FDC_SetSector(uint8_t byte)
 {
 	FDCSector=byte;
-	CONSOLE_OUTPUT("FDC Sector : %02X\n",byte);
+	//CONSOLE_OUTPUT("FDC Sector : %02X\n",byte);
 }
 
 void FDC_SetData(uint8_t byte)
@@ -257,20 +257,20 @@ void FDC_SetData(uint8_t byte)
 	}
 	else
 	{
-		CONSOLE_OUTPUT("FDC Data : %02X\n",byte);
+//		CONSOLE_OUTPUT("FDC Data : %02X\n",byte);
 	}
 }
 
 void FDC_SetSide(uint8_t byte)
 {
 	FDCSide=byte;
-	CONSOLE_OUTPUT("FDC Side : %02X\n",byte);
+//	CONSOLE_OUTPUT("FDC Side : %02X\n",byte);
 }
 
 void FDC_SetDrive(uint8_t byte)
 {
 	FDCDrive=byte;
-	CONSOLE_OUTPUT("FDC Drive : %02X\n",byte);
+//	CONSOLE_OUTPUT("FDC Drive : %02X\n",byte);
 }
 
 int drainCounter=100;
