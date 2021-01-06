@@ -537,10 +537,15 @@ void SetByte(uint32_t addr,uint8_t byte)
 
 extern uint32_t ASIC_BLTPC;
 
-uint8_t bitSwizzle=0x55;
+uint8_t bitSwizzle=0x80;
 
-extern uint8_t IsKeyAvailable();
-extern uint8_t NextKeyCode();
+void FL1_UART_MC6850_WriteControl(int uartNum, uint8_t byte);
+void FL1_UART_MC6850_WriteData(int uartNum, uint8_t byte);
+uint8_t FL1_UART_MC6850_ReadStatus(int uartNum);
+uint8_t FL1_UART_MC6850_ReadData(int uartNum);
+void FL1_KBD_WriteControl(uint8_t byte);
+uint8_t FL1_KBD_ReadStatus();
+uint8_t FL1_KBD_ReadData();
 
 uint8_t GetPortB(uint16_t port)
 {
@@ -620,6 +625,8 @@ uint8_t GetPortB(uint16_t port)
 				case 0x0001:
 				case 0x0002:
 				case 0x0003:
+				case 0x0004:
+				case 0x0005:
 				case 0x0007:
 				case 0x0014:
 				case 0x0020:
@@ -630,12 +637,22 @@ uint8_t GetPortB(uint16_t port)
 					return ASIC_ReadFL1(port,doShowPortStuff);
 
 				case 0x001C:		// KBSP - Keyboard Status Port -- bit 0 seems to be set when keyboard has data to read
-					return IsKeyAvailable();
+					return FL1_KBD_ReadStatus();
 				case 0x0018:		// KBDP - Keyboard Data Port -- should be the scan code from the keyboard
-					return NextKeyCode();
-				case 0x0026:	// Hack around uart
-					bitSwizzle=((bitSwizzle&0x80)>>7)|((bitSwizzle&0x7F)<<1);
-					return (bitSwizzle&0xFE) | IsKeyAvailable();
+					return FL1_KBD_ReadData();
+
+				case 0x0026:
+					return FL1_UART_MC6850_ReadStatus(0);
+				case 0x0027:
+					return FL1_UART_MC6850_ReadData(0);
+				case 0x002A:
+					return FL1_UART_MC6850_ReadStatus(1);
+				case 0x002B:
+					return FL1_UART_MC6850_ReadData(1);
+				case 0x002E:
+					return FL1_UART_MC6850_ReadStatus(2);
+				case 0x002F:
+					return FL1_UART_MC6850_ReadData(2);
 
 				case 0x0030:
 					return FDC_GetStatus();
@@ -658,8 +675,6 @@ uint8_t GetPortB(uint16_t port)
 #endif
 	return 0x00;
 }
-
-void ClearKBKey();
 
 void SetPortB(uint16_t port,uint8_t byte)
 {
@@ -715,6 +730,24 @@ void SetPortB(uint16_t port,uint8_t byte)
 				}
 #endif
 				break;
+			case 0x24:
+				FL1_UART_MC6850_WriteControl(0, byte);
+				break;
+			case 0x25:
+				FL1_UART_MC6850_WriteData(0, byte);
+				break;
+			case 0x28:
+				FL1_UART_MC6850_WriteControl(1, byte);
+				break;
+			case 0x29:
+				FL1_UART_MC6850_WriteData(1, byte);
+				break;
+			case 0x2C:
+				FL1_UART_MC6850_WriteControl(2, byte);
+				break;
+			case 0x2D:
+				FL1_UART_MC6850_WriteData(2, byte);
+				break;
 			case 0x0030:
 				FDC_SetCommand(byte);
 				break;
@@ -728,12 +761,7 @@ void SetPortB(uint16_t port,uint8_t byte)
 				FDC_SetData(byte);
 				break;
 			case 0x001B:
-				// Keyboard Control
-				if (byte&0x01)
-				{
-					ClearKBKey();
-				}
-
+				FL1_KBD_WriteControl(byte);
 				break;
 			case 0x0022:
 				ASIC_FL1_GP0 = byte;
