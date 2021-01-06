@@ -41,6 +41,8 @@ int useFullscreen = 0;
 
 char lastRomLoaded[1024];
 
+extern uint8_t FL1_VECTOR;
+
 uint8_t dskABuffer[720*1024];
 uint8_t dskBBuffer[720*1024];
 
@@ -639,16 +641,22 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 
 		switch (sectionType)
 		{
-			case 0xFF:							// Not original specification - added to indicate system type is P88
+			case 0xFF:						// Not original specification - added to indicate system type is P88
 				CONSOLE_OUTPUT("Found Section Konix 8088\n");
 				curSystem=ESS_P88;
 				break;
 			case 0xB3:
 				// unknown
 				break;
-			case 0xF1:
+			case 0xF1:						// Not original specification - added to indicate system type is FL1
 				CONSOLE_OUTPUT("Found Section Flare One\n");
 				curSystem=ESS_FL1;
+				// FL1 binaries are generally intended to be run from within an initialised system (presumably they were downloaded via PDS)
+				//
+				// The flare one bios expects to with cpu in IM 0 (with 00/NOP supplied as vector) it switches over to IM1 during bootup
+				//we fake this by setting the Interrupt instruction here to FF (RST38) which is the same as IM 1 when running binaries directly
+				FL1_VECTOR = 0xFF;
+				SetByte(0x40038, 0xc9);		//Patch a dummy ret in case the image assumes a vector (the older CUBE demo for instance)
 				break;
 			case 0xC8:
 				expectedSize-=HandleLoadSection(inFile);

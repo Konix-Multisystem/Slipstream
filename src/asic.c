@@ -55,7 +55,7 @@ int vClock=0;
 int VideoInterruptLatch=0;
 
 
-uint16_t	ASIC_KINT=0x00FF;
+uint16_t	ASIC_KINT=0x01FF;
 uint8_t		ASIC_STARTL=33;
 uint8_t		ASIC_STARTH=0;
 uint32_t	ASIC_SCROLL=0;
@@ -887,7 +887,7 @@ void TickBlitterFL1()
 		{
 			default:
 				CONSOLE_OUTPUT("wrn - Unknown BLTCMD %02X\n",BLT_OUTER_CMD);
-				pause=1;
+				//pause=1;
 				break;
 
 			case 0x20:
@@ -2432,8 +2432,19 @@ uint8_t ASIC_ReadFL1(uint16_t port,int warnIgnore)
 		case 0x0007:		// INTACK
 			VideoInterruptLatch=0;
 			return 0;
-		case 0x0006:
-			return VideoInterruptLatch<<4;
+		case 0x0004:		//LPEN1
+			return hClock & 0xFF;
+		case 0x0005:		//LPEN2
+			return vClock & 0xFF;
+		case 0x0006:		//LPEN3
+			{
+				uint8_t pen3 = (hClock >> 8) & 0x03;
+				pen3 |= (vClock >> 6) & 0x04;
+				pen3 |= 0;		// light pen interrupt latch
+				pen3 |= (VideoInterruptLatch) << 4;
+				pen3 |= (vClock & 0x1C0) >> 1;
+				return pen3;
+			}
 		case 0x0014:		// RUNST
 			return ASIC_INTRCNT;	// bit 0 == odd or even status of double write registers
 		case 0x0051:
@@ -2480,6 +2491,8 @@ uint32_t ConvPaletteP88(uint16_t pal)
 	return RGB444_RGB8(pal);
 }
 
+uint8_t FL1_VECTOR = 0;		// NOP instruction - to prevent interrupts from crashing during bootup of flare one system
+
 void DoScreenInterrupt()
 {
 	switch (curSystem)
@@ -2495,11 +2508,10 @@ void DoScreenInterrupt()
 			INTERRUPT(0x21);
 			break;
 		case ESS_FL1:
-			Z80_INTERRUPT(0x00);		// use a nop, which should mean we don't smack into uninitialised interrupt... maybe
+			Z80_INTERRUPT(FL1_VECTOR);
 			break;
 	}
 }
-extern uint8_t IsKeyAvailable();
 
 void DoPeripheralInterrupt()
 {
@@ -2957,7 +2969,7 @@ void ASIC_INIT()
 	vClock=0;
 	VideoInterruptLatch=0;
 
-	ASIC_KINT=0x00FF;
+	ASIC_KINT=0x01FF;		// Impossible line
 	ASIC_STARTL=33;
 	ASIC_STARTH=0;
 	ASIC_SCROLL=0;
