@@ -73,6 +73,8 @@ uint8_t		ASIC_BLTCMD=0;
 uint8_t		ASIC_BLTENH=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+uint8_t		ASIC_MAG = 0x55;			//FL1 - hires
+uint8_t		ASIC_YEL = 0x66;			//FL1 - hires
 
 uint8_t		ASIC_CHAIR = 0;
 
@@ -89,7 +91,7 @@ uint8_t		ASIC_PALAW=0;		// FL1 Palette Board Extension
 uint8_t		ASIC_PALAR=0;
 uint32_t	ASIC_PALVAL=0;
 uint8_t		ASIC_PALCNT=0;
-uint8_t		ASIC_PALMASK=0xFF;
+uint8_t		ASIC_PALMASK=0x00;
 
 uint8_t		ASIC_PALSTORE[3*256];
 
@@ -2164,6 +2166,12 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x000D:
 			ASIC_COLHOLD=byte;	
 			break;
+		case 0x000E:
+			ASIC_MAG = byte;
+			break;
+		case 0x000F:
+			ASIC_YEL = byte;
+			break;
 		case 0x0010:
 			ASIC_INTRCNT=(~ASIC_INTRCNT)&1;
 			ASIC_INTRD>>=8;
@@ -2528,7 +2536,9 @@ void DoPeripheralInterrupt()
 	}
 }
 
-void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
+int FL1_KBD_InterruptPending();
+
+void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 {
 	uint8_t palIndex;
 	uint16_t palEntry;
@@ -2545,23 +2555,12 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 
 	while (cycles)
 	{
-		if (fl1)
-		{
-			TickFL1DSP();
-		}
-		else
-		{
-			TickDSP();
-		}
+		TickDSP();
 
 		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
 		if (VideoInterruptLatch)
 		{
 			DoScreenInterrupt();		
-			if (curSystem == ESS_FL1)
-			{
-				VideoInterruptLatch = 0;
-			}
 		}
 
 		// Quick and dirty video display no contention or bus cycles
@@ -2589,7 +2588,6 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 
 					palIndex = PeekByte(wrapOffset);
 					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
-
 					break;
 
 				case 2:			// HiRes (1 nibble per pixel - 512 wide)
@@ -2603,8 +2601,7 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 						palIndex>>=4;
 					}
 					palIndex&=0xF;
-					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
-
+					palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
 					break;
 
 
@@ -2631,10 +2628,9 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 					}
 
 					palEntry = (PALETTE[palIndex*2+1]<<8)|PALETTE[palIndex*2];
-
 					break;
 			}
-			curCol=conv(palEntry);
+			curCol = conv(palEntry);
 			if ((ASIC_MODE&0x20) && (palIndex==ASIC_COLHOLD))
 			{
 				*outputTexture++ = lastCol;
@@ -2651,10 +2647,121 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t),int fl1)
 		}
 
 		hClock++;
-/*		if (IsKeyAvailable())
+		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
 		{
-			DoPeripheralInterrupt();
-		}*/
+			VideoInterruptLatch=1;
+		}
+		if (hClock==(WIDTH))
+		{
+			hClock=0;
+			vClock++;
+			if (vClock==(HEIGHT))
+			{
+				vClock=0;
+				outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+			}
+		}
+
+		cycles--;
+	}
+}
+
+void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
+{
+	uint8_t palIndex;
+	uint16_t palEntry;
+	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	uint32_t screenPtr = ASIC_SCROLL;
+	static uint32_t lastCol;
+	uint32_t curCol;
+	uint32_t wrapOffset;
+	uint16_t StartL = ((ASIC_STARTH & 1) << 8) | ASIC_STARTL;
+	uint16_t EndL = ((ASIC_ENDH & 1) << 8) | ASIC_ENDL;
+	uint8_t mode = ASIC_MODE == 2 ? 1 : 0;
+	outputTexture+=vClock*WIDTH + hClock;
+	
+
+	// Video addresses are expected to be aligned to 256/128 byte boundaries - this allows for wrap to occur for a given line
+
+	while (cycles)
+	{
+		TickFL1DSP();
+		if (FL1_KBD_InterruptPending())
+		{
+			DoScreenInterrupt();
+		}
+
+		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
+		if (VideoInterruptLatch)
+		{
+			DoScreenInterrupt();		
+		}
+
+		// Quick and dirty video display no contention or bus cycles
+		if (hClock>=120 && hClock<632 && vClock>StartL && vClock<=EndL)
+		{
+			wrapOffset = (screenPtr + ((vClock - StartL) - 1) * 256) & 0xFFFFFF00;
+			wrapOffset |= (screenPtr + ((hClock - 120) / 2)) & 0xFF;
+			palIndex = PeekByte(wrapOffset);
+			
+			if (ASIC_MODE & 0x40)	// variable res
+			{
+				mode = palIndex & 0x80 ? 1 : 0;
+			}
+			if (mode == 0)
+			{
+				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			}
+			else
+			{
+				if (((hClock - 120)) & 1)
+				{
+					// MSB nibble
+					palIndex >>= 4;
+				}
+				palIndex &= 0xF;
+				if (palIndex == 5)
+					palIndex = ASIC_MAG;
+				else if (palIndex == 6)
+					palIndex = ASIC_YEL;
+				else if (ASIC_PALMASK==0)
+				{
+					//b0 Br | B0 B1       g0 Br | G0 G1 G2    r0 Br | R0 R1 R2
+					//------ + ------    ------ + -------- - ------ + -------- -
+					//  0  0 | 0  0        0  0 | 0  0  0      0  0 | 0  0  0
+					//  0  1 | 1  0        0  1 | 0  1  0      0  1 | 0  1  0
+					//  1  0 | 0  1        1  0 | 1  0  1      1  0 | 1  0  1
+					//  1  1 | 1  1        1  1 | 1  1  1      1  1 | 1  1  1
+					//------ + ------    ------ + -------- - ------ + -------- -
+
+					uint8_t physicalColour = (palIndex & 8) ? 0xB6 : 0x00;
+					physicalColour |= (palIndex & 4) ? 0x40 : 0x00;
+					physicalColour |= (palIndex & 2) ? 0x08 : 0x00;
+					physicalColour |= (palIndex & 1) ? 0x01 : 0x00;
+					palIndex = physicalColour;
+				}
+				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			}
+
+			curCol = conv(palEntry);
+			if ((ASIC_MODE&0x20) && (palIndex==ASIC_COLHOLD))
+			{
+				*outputTexture++ = lastCol;
+			}
+			else
+			{
+				*outputTexture++=curCol;
+				lastCol=curCol;
+			}
+		}
+		else
+		{
+			palIndex = ASIC_BORD;
+			palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			*outputTexture++=conv(palEntry);
+		}
+
+		hClock++;
 		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
 		{
 			VideoInterruptLatch=1;
@@ -2879,7 +2986,7 @@ void TickAsicCP1(int cycles)
 void TickAsicMSU(int cycles)
 {
 	TickBlitterP89();
-	TickAsic(cycles,ConvPaletteMSU,0);
+	TickAsic(cycles,ConvPaletteMSU);
 }
 
 void PrintAt(unsigned char* buffer,unsigned int width,unsigned char r,unsigned char g,unsigned char b,unsigned int x,unsigned int y,const char *msg,...);
@@ -2889,7 +2996,7 @@ extern uint8_t DISK_IMAGE[5632*2*80];
 void TickAsicP89(int cycles)
 {
 	TickBlitterP89();
-	TickAsic(cycles,ConvPaletteP88,0);
+	TickAsic(cycles,ConvPaletteP88);
 
 	if ( EDDY_State!=0 )	// Floppy Read
 	{
@@ -2945,19 +3052,20 @@ void ShowPotsDebug()
 void TickAsicP88(int cycles)
 {
 	TickBlitterP88();
-	TickAsic(cycles,ConvPaletteP88,0);
+	TickAsic(cycles,ConvPaletteP88);
 }
 
 void TickAsicFL1(int cycles)
 {
 	// There are 2 screens on FLARE 1 (they are hardwired unlike later versions) - 1 at 0x20000 and the other at 0x30000
-	//TickBlitterFL1();
-	TickAsic(cycles,ConvPaletteP88,1);
+	TickAsicFL1_Actual(cycles,ConvPaletteP88);
 }
 
 void DebugDrawOffScreen()
 {
-	if (curSystem==ESS_MSU)
+	if (curSystem == ESS_FL1)
+		ShowOffScreen(ConvPaletteP88, 0x2000);
+	else if (curSystem==ESS_MSU)
 		ShowOffScreen(ConvPaletteMSU, 0x30000);
 	else
 		ShowOffScreen(ConvPaletteP88,0x10000);
@@ -2997,7 +3105,7 @@ void ASIC_INIT()
 	ASIC_PALVAL=0;
 	ASIC_PALCNT=0;
 	ASIC_PALAR=0;
-	ASIC_PALMASK=0xFF;
+	ASIC_PALMASK=0;
 
 	ASIC_FDC=0xFF;
 
