@@ -377,116 +377,6 @@ int DSP_Disassemble(unsigned int address,int registers)
 	return 1;
 }
 
-extern uint8_t *FL1DSP_DIS_[32];			// FROM EDL
-
-extern uint16_t	FL1DSP_DEBUG_PC;
-
-extern uint16_t FL1DSP_MZ0;
-extern uint16_t FL1DSP_MZ1;
-extern uint16_t FL1DSP_MX;
-extern uint16_t FL1DSP_MY;
-extern uint16_t FL1DSP_CMPR;
-extern uint16_t FL1DSP_DMA0;
-extern uint16_t FL1DSP_DMA1;
-extern uint16_t FL1DSP_DMD;
-extern uint16_t FL1DSP_INTRA;
-extern uint16_t FL1DSP_AX;
-extern uint16_t FL1DSP_AZ;
-extern uint8_t FL1DSP_C;
-
-void FL1DSP_DUMP_REGISTERS()
-{
-	CONSOLE_OUTPUT("--------\n");
-	CONSOLE_OUTPUT("FLAGS = C\n");
-	CONSOLE_OUTPUT("        %d\n",	FL1DSP_C&1);
-	CONSOLE_OUTPUT("MZ0= %04X\n",FL1DSP_MZ0);
-	CONSOLE_OUTPUT("MZ1= %04X\n",FL1DSP_MZ1);
-	CONSOLE_OUTPUT("MX = %04X\n",FL1DSP_MX);
-	CONSOLE_OUTPUT("MY = %04X\n",FL1DSP_MY);
-	CONSOLE_OUTPUT("AX = %04X\n",FL1DSP_AX);
-	CONSOLE_OUTPUT("AZ = %04X\n",FL1DSP_AZ);
-	CONSOLE_OUTPUT("DMD= %04X\n",FL1DSP_DMD);
-	CONSOLE_OUTPUT("DM0= %04X\n",FL1DSP_DMA0);
-	CONSOLE_OUTPUT("DM1= %04X\n",FL1DSP_DMA1);
-	CONSOLE_OUTPUT("--------\n");
-}
-
-const char* FL1DSP_decodeDisasm(uint8_t *table[32],unsigned int address)
-{
-	static char temporaryBuffer[2048];
-	char sprintBuffer[256];
-	uint16_t word=FL1DSP_PEEK(0x800+address);
-	uint16_t data=word&0x7FF;
-	const char* mnemonic=(char*)table[(word&0xF800)>>11];
-	const char* sPtr=mnemonic;
-	char* dPtr=temporaryBuffer;
-	int counting = 0;
-	int doingDecode=0;
-
-	if (sPtr==NULL)
-	{
-		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
-		return temporaryBuffer;
-	}
-	
-	while (*sPtr)
-	{
-		if (!doingDecode)
-		{
-			if (*sPtr=='%')
-			{
-				doingDecode=1;
-			}
-			else
-			{
-				*dPtr++=*sPtr;
-			}
-		}
-		else
-		{
-			char *tPtr=sprintBuffer;
-			sprintf(sprintBuffer,"%03X (%04X)",data,FL1DSP_PEEK(data));
-			while (*tPtr)
-			{
-				*dPtr++=*tPtr++;
-			}
-			doingDecode=0;
-			counting++;
-		}
-		sPtr++;
-	}
-	*dPtr=0;
-	
-	return temporaryBuffer;
-}
-
-int FL1DSP_Disassemble(unsigned int address,int registers)
-{
-	const char* retVal = FL1DSP_decodeDisasm(FL1DSP_DIS_,address);
-
-	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
-	{
-		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
-		CONSOLE_OUTPUT("%04X ",FL1DSP_PEEK(0x800+address));
-		CONSOLE_OUTPUT("\n");
-		FL1DSP_DUMP_REGISTERS();
-		exit(-1);
-	}
-
-	if (registers)
-	{
-		FL1DSP_DUMP_REGISTERS();
-	}
-	CONSOLE_OUTPUT("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
-
-	CONSOLE_OUTPUT("%04X ",FL1DSP_PEEK(0x800+address));
-	CONSOLE_OUTPUT("   ");
-	CONSOLE_OUTPUT("%s\n",retVal);
-
-	return 1;
-}
-
-
 #endif
 
 #define RATE_ADJUST	(0)			//TODO this should be read from the MODE register and it should affect the DAC conversion speed not the DSP execution speed
@@ -537,19 +427,7 @@ void TickFL1DSP()
 	{
 		if (iamslow==0)
 		{
-
-#if ENABLE_DEBUG
-/*		if (FL1DSP_DEBUG_PC==0)
-		{
-			doDSPDisassemble=0;
-		}*/
-		if (doDSPDisassemble)
-		{
-			FL1DSP_Disassemble(FL1DSP_DEBUG_PC,1);
-			//exit(111);
-		}
-#endif
-		FL1DSP_STEP();
+			FL1DSP_STEP();
 
 			iamslow=FL1_RATE_ADJUST;
 		}

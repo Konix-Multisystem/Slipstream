@@ -29,6 +29,7 @@ int masterClock=0;
 int pause=0;
 int single=0;
 int framestep = 0;
+int cyclestep = 0;
 int noBorders = 0;
 
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
@@ -1284,7 +1285,6 @@ void ParseCommandLine(int argc,char** argv)
 
 void ResetHardware()
 {
-	numClocks=0;
 	memset(videoMemory[MAIN_WINDOW],0,WIDTH*HEIGHT*sizeof(unsigned int));
 	memset(videoMemory[TERMINAL_WINDOW],0,640*480*sizeof(unsigned int));
 
@@ -1302,8 +1302,9 @@ void ResetHardware()
 void DebugDrawOffScreen();
 int GetILength80386(unsigned int address);
 
-int bp = 0;
+int dbg_event = 0;
 int bpaddress = 0;
+int DBG_Cpu_Clocks = 0;
 
 int main(int argc,char**argv)
 {
@@ -1360,21 +1361,47 @@ int main(int argc,char**argv)
 		doShowBlits=1;*/
 
 	//pause = 1;
-	bp = 0;
+	dbg_event= 0;
 //	bpaddress = 0xFE0DD5;
 //	bpaddress = 0xFE2223;		// Flash/PC communications (could be interesting)
 //	bpaddress = 0x725563;		// FRONT.REX goes wrong
 	bpaddress = 0x726A9B;		// CART.REX goes wrong
 //	bpaddress = 0xFFE350;		// JAMES5.BIN 
+
+
+#if 0 
+	dbg_event = 1;
+	bpaddress = 0x88;
+	pause = 1;
+#endif
 	while (1==1)
 	{
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
-            numClocks += CPU_STEP(doDebug);
 #if MEMORY_MAPPED_DEBUGGER
-			if (bp)
+			if (DBG_Cpu_Clocks==0)			// Hack to allow cycle stepping
+				DBG_Cpu_Clocks += CPU_STEP(doDebug);
+
+			DBG_Cpu_Clocks--;
+			numClocks = 1;
+#else
+            numClocks = CPU_STEP(doDebug);
+#endif
+
+#if MEMORY_MAPPED_DEBUGGER
+			if (dbg_event)
 			{
+				if (single && DBG_Cpu_Clocks == 0)
+				{
+					pause = 1;
+					single = 0;
+				}
+				if (cyclestep)
+				{
+					pause = 1;
+					cyclestep = 0;
+				}
 				switch (curSystem)
 				{
 				case ESS_CP1:
@@ -1382,7 +1409,7 @@ int main(int argc,char**argv)
 					if (MSU_GETPHYSICAL_EIP() == bpaddress)
 					{
 						pause = 1;
-						bp = 0;
+						dbg_event = 0;
 						debugWatchWrites = 1;
 					}
 					break;
@@ -1390,7 +1417,7 @@ int main(int argc,char**argv)
 					if (getZ80LinearAddress() == bpaddress)
 					{
 						pause = 1;
-						bp = 0;
+						dbg_event = 0;
 					}
 					break;
 				}
@@ -1417,12 +1444,6 @@ int main(int argc,char**argv)
 			masterClock+=numClocks;
 
 			AudioUpdate(numClocks);
-			numClocks=0;
-			if (single)
-			{
-				pause=1;
-				single=0;
-			}
 		}
 		if (masterClock>=WIDTH*HEIGHT || pause)
 		{
@@ -1448,7 +1469,7 @@ int main(int argc,char**argv)
 				}
 			}
 #if MEMORY_MAPPED_DEBUGGER
-			switch (UpdateMemoryMappedDebuggerViews())
+			switch (UpdateMemoryMappedDebuggerViews(pause || (masterClock<=0)))
 			{
 			case 0:
 				pause = 1;
@@ -1459,11 +1480,12 @@ int main(int argc,char**argv)
 			case 2:
 				pause = 0;
 				single = 1;
+				dbg_event = 1;
 				break;
 			case 3:
-				// Get Length of current instruction and set a global bp on it
+				// Get Length of current instruction and set a global bp on it (not strictly a step over, ideally we would decode the next address properly)
+				dbg_event = 1;
 				pause = 0;
-				bp = 1;
 				if (curSystem == ESS_FL1)
 					bpaddress = getZ80LinearAddress() + GetILength80386(getZ80LinearAddress(), 0);
 				if (curSystem == ESS_MSU)
@@ -1472,6 +1494,12 @@ int main(int argc,char**argv)
 			case 4:
 				pause = 0;
 				framestep = 1;
+				break;
+			case 5:
+				dbg_event = 1;
+				pause = 0;
+				cyclestep = 1;
+				break;
 			default:
 				break;
 			}

@@ -721,15 +721,6 @@ void SetPortB(uint16_t port,uint8_t byte)
 				ADPSelect=byte;			//5 = vertical , 6 = horizontal		(reading port after some delay returns -128+127 ?)
 				break;
 
-			case 0x0014:
-				DSP_STATUS=byte;
-#if ENABLE_DEBUG
-				if (doShowPortStuff)
-				{
-					CONSOLE_OUTPUT("DSP STATUS : %02X\n",byte);
-				}
-#endif
-				break;
 			case 0x24:
 				FL1_UART_MC6850_WriteControl(0, byte);
 				break;

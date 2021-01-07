@@ -2220,9 +2220,17 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 				}
 				DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
 #endif
-				//DSP_TranslateInstructionFL1(ASIC_PROGADDR,ASIC_PROGWRD);
 				FL1DSP_POKE(0x800+ASIC_PROGADDR,ASIC_PROGWRD);
 			}
+			break;
+		case 0x0014:
+			DSP_STATUS = byte;
+#if ENABLE_DEBUG
+			if (doShowPortStuff)
+			{
+				CONSOLE_OUTPUT("DSP STATUS : %02X\n", byte);
+			}
+#endif
 			break;
 		case 0x0015:
 			ASIC_PROGADDR>>=8;

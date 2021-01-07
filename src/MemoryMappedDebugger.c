@@ -12,6 +12,8 @@
 volatile unsigned char* pMapRegisters = NULL;
 volatile unsigned char* pMapDisassm = NULL;
 volatile unsigned char* pMapASIC = NULL;
+volatile unsigned char* pMapDSP = NULL;
+volatile unsigned char* pMapDSPRegisters = NULL;
 volatile unsigned char* pMapControl = NULL;
 
 volatile unsigned char* pMapIO = NULL;
@@ -30,6 +32,14 @@ void InitMemoryMappedDebugger()
 
 	pMapASIC = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
 	
+	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_DSP");
+
+	pMapDSP = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
+
+	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_DSPReg");
+
+	pMapDSPRegisters = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
+
 	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "Slip_Control");
 
 	pMapControl = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 4096);
@@ -227,149 +237,165 @@ uint32_t getZ80LinearAddress()
 
 }
 
-int UpdateMemoryMappedDebuggerViews()
+void FL1_DSP_REGISTERS(char* output);
+void FL1_DSP_DISASSEMBLE(char* output);
+
+
+int UpdateMemoryMappedDebuggerViews(int isPaused)
 {
 	int cmd = 0xff;
-	char* tmp2 = (char*)pMapRegisters;
-    unsigned int address;
-    int code_size=1;
-	switch (curSystem)
+	if (isPaused)
 	{
-        case ESS_CP1:
+		char* tmp2 = (char*)pMapRegisters;
+		unsigned int address;
+		int code_size = 1;
+		switch (curSystem)
+		{
+		case ESS_CP1:
 		case ESS_MSU:
 			FETCH_REGISTERS80386(tmp2);
-            address = MSU_GETPHYSICAL_EIP();
-            code_size = MSU_cSize;
+			address = MSU_GETPHYSICAL_EIP();
+			code_size = MSU_cSize;
 			break;
-        case ESS_P88:
+		case ESS_P88:
 		case ESS_P89:
 			//address=SEGTOPHYS(CS,IP)&0xFFFFF;
 			//sprintf(tmp,"%s:P88%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERS8086(tmp2);
-            address = SEGTOPHYS(CS, IP);
-            code_size = 1;
+			address = SEGTOPHYS(CS, IP);
+			code_size = 1;
 			break;
 		case ESS_FL1:
-//			address = Z80_PC;// GetZ80LinearAddress() & 0xFFFFF;		// disassembly expects address in chip space not linear space
-			//sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
+			//			address = Z80_PC;// GetZ80LinearAddress() & 0xFFFFF;		// disassembly expects address in chip space not linear space
+						//sprintf(tmp,"%s:FL1%05X\n",pause?"Paused":"Runnin",address);
 			FETCH_REGISTERSZ80(tmp2);
-            address = getZ80LinearAddress();
+			address = getZ80LinearAddress();
 			break;
-	}
-
-	char* tmp = (char*)pMapDisassm;
-	char tBuffer[2048];
-
-	for (int l = 0;l < 20;l++)
-	{
-        InStream disMe;
-        if (curSystem == ESS_FL1)
-            disMe.cpu = CPU_Z80;
-        else
-            disMe.cpu = CPU_X86;
-        disMe.bytesRead = 0;
-        disMe.curAddress = address;
-        disMe.useAddress = 1;
-        Disassemble(&disMe, MSU_cSize);
-		int a;
-
-		if (disMe.bytesRead != 0)
-		{
-			sprintf(tmp, "%06X : ", address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
-
-			for (a = 0;a < disMe.bytesRead;a++)
-			{
-				sprintf(tBuffer, "%02X ", PeekByte(address + a));
-				strcat(tmp, tBuffer);
-			}
-			for (a = 0;a < 15 - disMe.bytesRead;a++)
-			{
-				strcat(tmp, "   ");
-			}
-			sprintf(tBuffer, "%s\n", (char*)GetOutputBuffer());
-			strcat(tmp, tBuffer);
-
-			address += disMe.bytesRead;
-			tmp += strlen(tmp);
 		}
-		else
-			break;
-	}
 
-	const char** WPort = NULL;
-	const char** RPort = NULL;
-	int regCnt = 128;
-	int portWidth = 2;
-    switch (curSystem)
-    {
-        case ESS_P88:
-        case ESS_P89:
-            break;
-        case ESS_CP1:
-            WPort = CP1_WritePortInfo;
-            RPort = CP1_ReadPortInfo;
+		char* tmp = (char*)pMapDisassm;
+		char tBuffer[2048];
+
+		for (int l = 0; l < 20; l++)
+		{
+			InStream disMe;
+			if (curSystem == ESS_FL1)
+				disMe.cpu = CPU_Z80;
+			else
+				disMe.cpu = CPU_X86;
+			disMe.bytesRead = 0;
+			disMe.curAddress = address;
+			disMe.useAddress = 1;
+			Disassemble(&disMe, MSU_cSize);
+			int a;
+
+			if (disMe.bytesRead != 0)
+			{
+				sprintf(tmp, "%06X : ", address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+
+				for (a = 0; a < disMe.bytesRead; a++)
+				{
+					sprintf(tBuffer, "%02X ", PeekByte(address + a));
+					strcat(tmp, tBuffer);
+				}
+				for (a = 0; a < 15 - disMe.bytesRead; a++)
+				{
+					strcat(tmp, "   ");
+				}
+				sprintf(tBuffer, "%s\n", (char*)GetOutputBuffer());
+				strcat(tmp, tBuffer);
+
+				address += disMe.bytesRead;
+				tmp += strlen(tmp);
+			}
+			else
+				break;
+		}
+
+		const char** WPort = NULL;
+		const char** RPort = NULL;
+		int regCnt = 128;
+		int portWidth = 2;
+		switch (curSystem)
+		{
+		case ESS_P88:
+		case ESS_P89:
 			break;
-        case ESS_MSU:
-            WPort = MSU_WritePortInfo;
-            RPort = MSU_ReadPortInfo;
+		case ESS_CP1:
+			WPort = CP1_WritePortInfo;
+			RPort = CP1_ReadPortInfo;
 			break;
-        case ESS_FL1:
+		case ESS_MSU:
+			WPort = MSU_WritePortInfo;
+			RPort = MSU_ReadPortInfo;
+			break;
+		case ESS_FL1:
 			WPort = FL1_WritePortInfo;
-            RPort = FL1_ReadPortInfo;
+			RPort = FL1_ReadPortInfo;
 			portWidth = 1;
 			regCnt = 256;
 			break;
-    }
+		}
 
-	if (WPort != NULL && RPort != NULL)
-	{
-		tmp = (char*)pMapASIC;
-		for (int a = 0; a < regCnt; a++)
+		if (WPort != NULL && RPort != NULL)
 		{
-			char* ptr = tBuffer;
-			*ptr = 0;
-			if (WPort[a] != 0 || RPort[a] != 0)
+			tmp = (char*)pMapASIC;
+			for (int a = 0; a < regCnt; a++)
 			{
-				if (portWidth==2)
-					sprintf(ptr, "%02X : ", a * 2);
-				else
-					sprintf(ptr, "%02X : ", a);
-				ptr += strlen(ptr);
-				if (WPort[a])
-				{
-					if (portWidth==2)
-						sprintf(ptr, "%04X %s", ASIC_DEB_PORTS[a], WPort[a]);
-					else
-						sprintf(ptr, "%02X %s", ASIC_DEB_BYTE_PORT_WRITE[a], WPort[a]);
-					ptr += strlen(ptr);
-				}
-				else
+				char* ptr = tBuffer;
+				*ptr = 0;
+				if (WPort[a] != 0 || RPort[a] != 0)
 				{
 					if (portWidth == 2)
-						sprintf(ptr, "\t\t");
+						sprintf(ptr, "%02X : ", a * 2);
 					else
-						sprintf(ptr, "\t");
+						sprintf(ptr, "%02X : ", a);
 					ptr += strlen(ptr);
-				}
-				if (RPort[a])
-				{
-					if (portWidth==2)
-						sprintf(ptr, "\t(%04X %s)\n", GetPortW(a * 2), RPort[a]);
+					if (WPort[a])
+					{
+						if (portWidth == 2)
+							sprintf(ptr, "%04X %s", ASIC_DEB_PORTS[a], WPort[a]);
+						else
+							sprintf(ptr, "%02X %s", ASIC_DEB_BYTE_PORT_WRITE[a], WPort[a]);
+						ptr += strlen(ptr);
+					}
 					else
-						sprintf(ptr, "\t(%02X %s)\n", 0xFF&GetPortB(a), RPort[a]);
-					ptr += strlen(ptr);
+					{
+						if (portWidth == 2)
+							sprintf(ptr, "\t\t");
+						else
+							sprintf(ptr, "\t");
+						ptr += strlen(ptr);
+					}
+					if (RPort[a])
+					{
+						if (portWidth == 2)
+							sprintf(ptr, "\t(%04X %s)\n", GetPortW(a * 2), RPort[a]);
+						else
+							sprintf(ptr, "\t(%02X %s)\n", 0xFF & GetPortB(a), RPort[a]);
+						ptr += strlen(ptr);
+					}
+					else
+					{
+						sprintf(ptr, "\n");
+						ptr += strlen(ptr);
+					}
+					strcpy(tmp, tBuffer);
+					tmp += strlen(tmp);
 				}
-				else
-				{
-					sprintf(ptr, "\n");
-					ptr += strlen(ptr);
-				}
-				strcpy(tmp, tBuffer);
-				tmp += strlen(tmp);
 			}
 		}
-	}
 
+
+		// DSP Registers
+		switch (curSystem)
+		{
+		case ESS_FL1:
+			FL1_DSP_REGISTERS(pMapDSPRegisters);
+			FL1_DSP_DISASSEMBLE(pMapDSP);
+			break;
+		}
+	}
 
 	if (pMapControl[0] != pMapControl[1])
 	{
@@ -379,5 +405,103 @@ int UpdateMemoryMappedDebuggerViews()
 	return cmd;
 }
 
+extern uint16_t FL1DSP_DEBUG_FETCH(uint32_t reg, uint16_t offset);
+
+void FL1_DSP_REGISTERS(char* output)
+{
+	char tmp[1024];
+	sprintf(tmp, "IR               %04X\n", FL1DSP_DEBUG_FETCH(2,0)); strcpy(output, tmp);
+	sprintf(tmp, "NextInstruction  %04X\n", FL1DSP_DEBUG_FETCH(3,0)); strcat(output, tmp);
+	sprintf(tmp, "DataAddress      %04X\n", FL1DSP_DEBUG_FETCH(4,0)); strcat(output, tmp);
+	sprintf(tmp, "PrevDataAddress  %04X\n\t\n", FL1DSP_DEBUG_FETCH(5,0)); strcat(output, tmp);
+	sprintf(tmp, "PC               %04X\n", FL1DSP_DEBUG_FETCH(6,0)&0x7FF); strcat(output, tmp);
+	sprintf(tmp, "MZ0              %04X\n", FL1DSP_DEBUG_FETCH(7,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ1              %04X\n", FL1DSP_DEBUG_FETCH(8,0)); strcat(output, tmp);
+	sprintf(tmp, "MX               %04X\n", FL1DSP_DEBUG_FETCH(9,0)); strcat(output, tmp);
+	sprintf(tmp, "MY               %04X\n", FL1DSP_DEBUG_FETCH(10,0)); strcat(output, tmp);
+	sprintf(tmp, "AX               %04X\n", FL1DSP_DEBUG_FETCH(16,0)); strcat(output, tmp);
+	sprintf(tmp, "AZ               %04X\n", FL1DSP_DEBUG_FETCH(17,0)); strcat(output, tmp);
+	sprintf(tmp, "C                %04X\n", FL1DSP_DEBUG_FETCH(18,0)); strcat(output, tmp);
+	sprintf(tmp, "CMPR             %04X\n\t\n", FL1DSP_DEBUG_FETCH(11,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA0             %04X\n", FL1DSP_DEBUG_FETCH(12,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA1             %04X\n", FL1DSP_DEBUG_FETCH(13,0)); strcat(output, tmp);
+	sprintf(tmp, "DMD              %04X\n", FL1DSP_DEBUG_FETCH(14,0)); strcat(output, tmp);
+	sprintf(tmp, "INTRA            %04X\n", FL1DSP_DEBUG_FETCH(15,0)); strcat(output, tmp);
+}
+
+extern uint16_t	FL1DSP_DEBUG_PC;
+
+const char* FL1DSP_decodeDisasm(uint8_t* table[32], uint16_t word);
+extern uint8_t *FL1DSP_DIS_[32];			// FROM EDL
+
+void FL1_DSP_DISASSEMBLE(char* output)
+{
+	char tmp[1024];
+	unsigned int address = 0x800+FL1DSP_DEBUG_PC;
+
+	const char* retVal = FL1DSP_decodeDisasm(FL1DSP_DIS_, FL1DSP_DEBUG_FETCH(2, 0));
+	sprintf(tmp, "LAST :     \t%s\n", retVal);
+	strcpy(output, tmp);
+	retVal = FL1DSP_decodeDisasm(FL1DSP_DIS_, FL1DSP_DEBUG_FETCH(3, 0));
+	sprintf(tmp, "NEXT :     \t%s\n\t\n", retVal);
+	strcat(output, tmp);
+	for (int a = 0; a < 16; a++)
+	{
+		uint16_t word = FL1DSP_PEEK(address);
+		retVal = FL1DSP_decodeDisasm(FL1DSP_DIS_, word);
+		sprintf(tmp, "%04X : %04X\t%s\n", address&0x7FF, FL1DSP_PEEK(address), retVal);
+		strcat(output, tmp);
+		address++;
+		address &= 0xFFF;
+	}
+}
+
+const char* FL1DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+	uint16_t data=word&0x7FF;
+	const char* mnemonic=(char*)table[(word&0xF800)>>11];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='%')
+			{
+				doingDecode=1;
+			}
+			else
+			{
+				*dPtr++=*sPtr;
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			sprintf(sprintBuffer,"%03X (%04X)",data,FL1DSP_PEEK(data));
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	
+	return temporaryBuffer;
+}
 
 #endif
