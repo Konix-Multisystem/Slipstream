@@ -33,7 +33,7 @@ add_definitions(-DTERMINAL=0)
 add_definitions(-DENABLE_REMOTE_DEBUG=0)
 add_definitions(-DDISABLE_DSP=0)
 add_definitions(-DDISABLE_AUDIO=0)
-add_definitions(-DENABLE_DEBUG=0)
+add_definitions(-DENABLE_DEBUG=$<CONFIG:DEBUG>)
 
 if (UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")

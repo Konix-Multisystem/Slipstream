@@ -1342,16 +1342,6 @@ void VECTORS_INIT()
 			SetByte(0x400,0xCF);
 			break;
 		case ESS_FL1:
-			// Bit more comlex. RST38 is used to trigger the video interrupt (no idea on the real system, this is simply how the emulator handles it)
-			//Note this is not done via a redirect table, the code is simply inserted at 0x38 ....
-
-/*			SetByte(0x40038,0xF3);	// di
-			SetByte(0x40039,0xF5);	// push af
-			SetByte(0x4003A,0xDB);	// in a,(7)
-			SetByte(0x4003B,0x07);
-			SetByte(0x4003C,0xF1);	// pop af
-			SetByte(0x4003D,0xFB);	// ei
-			SetByte(0x4003E,0xC9);	// ret*/
 			break;
 	}
 }

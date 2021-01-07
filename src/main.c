@@ -1426,6 +1426,7 @@ int main(int argc,char**argv)
 		}
 		if (masterClock>=WIDTH*HEIGHT || pause)
 		{
+#if ENABLE_DEBUG
 			if (curSystem==ESS_P89)
 			{
 				void ShowEddyDebug();		// Show P89 Floppy Controller Information
@@ -1436,7 +1437,7 @@ int main(int argc,char**argv)
 				void ShowPotsDebug();
 				ShowPotsDebug();
 			}
-
+#endif
 			if (masterClock>=WIDTH*HEIGHT)
 			{
 				masterClock-=WIDTH*HEIGHT;
