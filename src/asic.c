@@ -2686,15 +2686,9 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 	while (cycles)
 	{
 		TickFL1DSP();
-		if (FL1_KBD_InterruptPending())
+		if (FL1_KBD_InterruptPending()||VideoInterruptLatch)
 		{
 			DoScreenInterrupt();
-		}
-
-		// This is a quick hack up of the screen functionality -- at present simply timing related to get interrupts to fire
-		if (VideoInterruptLatch)
-		{
-			DoScreenInterrupt();		
 		}
 
 		// Quick and dirty video display no contention or bus cycles
@@ -2762,7 +2756,7 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 		}
 
 		hClock++;
-		if ((hClock==631) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Docs state interrupt fires at end of active display of KINT line
+		if ((hClock==2) && (ASIC_KINT==vClock) && ((ASIC_DIS&0x1)==0))			//  Flare 1 interrupt generated just after hsync
 		{
 			VideoInterruptLatch=1;
 		}
