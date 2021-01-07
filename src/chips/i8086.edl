@@ -1752,7 +1752,7 @@ INSTRUCTION	"LOOP%M0 #8DISP#"	%111000:loopcond
 		IP<-IP++disp;
 		17+CYCLES->CYCLES;
 	}
-	IF (CX==0) & (~loopcond)
+	ELSE
 	{
 		5+CYCLES->CYCLES;
 	}
