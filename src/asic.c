@@ -55,7 +55,7 @@ int vClock=0;
 int VideoInterruptLatch=0;
 
 
-uint16_t	ASIC_KINT=0x01FF;
+uint16_t	ASIC_KINT=0x00FF;
 uint8_t		ASIC_STARTL=33;
 uint8_t		ASIC_STARTH=0;
 uint32_t	ASIC_SCROLL=0;
@@ -3079,7 +3079,7 @@ void ASIC_INIT()
 	vClock=0;
 	VideoInterruptLatch=0;
 
-	ASIC_KINT=0x01FF;		// Impossible line
+	ASIC_KINT=0x00FF;
 	ASIC_STARTL=33;
 	ASIC_STARTH=0;
 	ASIC_SCROLL=0;
