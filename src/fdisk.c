@@ -177,6 +177,10 @@ void FDC_SetCommand(uint8_t byte)
 		case 0x90:
 		{
 			// Disk Format is interleaved sides.. so SIDE 0 TRACK 0 SECTORS 1-9, SIDE 1 TRACK 0 SECTORS 1-9, SIDE 0 TRACK 1 SECTORS 1-9.....
+			if (byte == 0x90)
+			{
+				CONSOLE_OUTPUT("MULTI SECTOR READ - NOT SUPPORTED");
+			}
 
 			int calcOffsetInDiskBuffer=(512*9)*(FDCSide&1);
 			calcOffsetInDiskBuffer+=(FDCSector-1)*512;
@@ -199,6 +203,10 @@ void FDC_SetCommand(uint8_t byte)
 		}
 		case 0xA0:		// WRITE SECTOR
 		case 0xB0:
+			if (byte == 0xB0)
+			{
+				CONSOLE_OUTPUT("MULTI SECTOR WRITE - NOT SUPPORTED");
+			}
 			FDCCurCommand=2;
 			FDCStatus|=0x03;
 			sectorPos=0;
@@ -222,13 +230,17 @@ void FDC_SetCommand(uint8_t byte)
 void FDC_SetTrack(uint8_t byte)
 {
 	FDCTrack=byte;
-	//CONSOLE_OUTPUT("FDC Track : %02X\n",byte);
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("FDC Track : %02X\n",byte);
+#endif
 }
 
 void FDC_SetSector(uint8_t byte)
 {
 	FDCSector=byte;
-	//CONSOLE_OUTPUT("FDC Sector : %02X\n",byte);
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("FDC Sector : %02X\n", byte);
+#endif
 }
 
 void FDC_SetData(uint8_t byte)
@@ -255,22 +267,28 @@ void FDC_SetData(uint8_t byte)
 			FDCStatus&=~0x3;	// Clear ready and busy flags
 		}
 	}
+#if ENABLE_DEBUG
 	else
 	{
-//		CONSOLE_OUTPUT("FDC Data : %02X\n",byte);
+		CONSOLE_OUTPUT("FDC Data : %02X\n",byte);
 	}
+#endif
 }
 
 void FDC_SetSide(uint8_t byte)
 {
 	FDCSide=byte;
-//	CONSOLE_OUTPUT("FDC Side : %02X\n",byte);
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("FDC Side : %02X\n",byte);
+#endif
 }
 
 void FDC_SetDrive(uint8_t byte)
 {
 	FDCDrive=byte;
-//	CONSOLE_OUTPUT("FDC Drive : %02X\n",byte);
+#if ENABLE_DEBUG
+	CONSOLE_OUTPUT("FDC Drive : %02X\n",byte);
+#endif
 }
 
 int drainCounter=100;
