@@ -142,7 +142,7 @@ const char* FL1_ReadPortInfo[256] =
 	"BANK0 ", "BANK1 ", "BANK2 ", "BANK3 ", "LPEN1 ", "LPEN2 ", "LPEN3 ", /*"INTACK"*/0,	//0x00-0x07	--skip intack so we don't ack accidently
 	0, 0, 0, 0,	0, 0, 0, 0,																	//0x08-0x0F
 	0, 0, 0, 0, "RUNST ", 0, 0, 0,															//0x10-0x17
-	"BLPC0 ", "BLPC1 ", "BLPC2 ", 0, 0, 0, 0, 0,											//0x18-0x1F
+	"KBDDAT", 0, 0, 0, 0, 0, 0, 0,															//0x18-0x1F
 	"STOPDL", "STOPDH", "GP0   ", 0, 0, 0, 0, 0,											//0x20-0x27
 	0, 0, 0, 0, 0, 0, 0, 0,																	//0x28-0x2F
 	/*"COMREG"*/0, /*"TRKREG"*/0, /*"SECREG"*/0, /*"DATREG"*/0, 0, 0, 0, 0,					//0x30-0x37  --skip to avoid clearing
