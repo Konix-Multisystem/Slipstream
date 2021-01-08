@@ -248,23 +248,29 @@ void FDC_SetData(uint8_t byte)
 	FDCData=byte;
 	if (FDCCurCommand==2)
 	{
-		SectorBuffer[sectorPos]=byte;
+		SectorBuffer[sectorPos] = byte;
 		sectorPos++;
-		if (sectorPos>=SECTOR_LEN)
+		if (sectorPos >= SECTOR_LEN)
 		{
-			int calcOffsetInDiskBuffer=(512*9)*(FDCSide&1);
-			calcOffsetInDiskBuffer+=(FDCSector-1)*512;
-			calcOffsetInDiskBuffer+=FDCTrack*(512*9*2);
+			int calcOffsetInDiskBuffer = (512 * 9) * (FDCSide & 1);
+			calcOffsetInDiskBuffer += (FDCSector - 1) * 512;
+			calcOffsetInDiskBuffer += FDCTrack * (512 * 9 * 2);
 
-			if (FDCDrive&1)
+			if (FDCDrive & 1)
 			{
-				memcpy(&dskBBuffer[calcOffsetInDiskBuffer],SectorBuffer,512);
+				memcpy(&dskBBuffer[calcOffsetInDiskBuffer], SectorBuffer, 512);
 			}
 			else
 			{
-				memcpy(&dskABuffer[calcOffsetInDiskBuffer],SectorBuffer,512);
+				memcpy(&dskABuffer[calcOffsetInDiskBuffer], SectorBuffer, 512);
 			}
-			FDCStatus&=~0x3;	// Clear ready and busy flags
+			FDCStatus &= ~0x3;	// Clear ready and busy flags
+			FDCCurCommand = 0;
+			sectorPos = 0;
+		}
+		else
+		{
+			FDCStatus &= ~0x2;
 		}
 	}
 #if ENABLE_DEBUG
@@ -291,11 +297,13 @@ void FDC_SetDrive(uint8_t byte)
 #endif
 }
 
-int drainCounter=100;
+#define SLOW_DISK (5)
+
+int drainCounter=SLOW_DISK;
 
 uint8_t FDC_GetStatus()
 {
-	if (FDCCurCommand==1)
+	if ((FDCStatus&0x2)==0)
 	{
 		if (drainCounter>0)
 		{
@@ -304,7 +312,7 @@ uint8_t FDC_GetStatus()
 		else
 		{
 			FDCStatus|=2;
-			drainCounter=100;
+			drainCounter=SLOW_DISK;
 		}
 	}
 
