@@ -217,6 +217,36 @@ int FL1LoadDisk(uint8_t* buffer,const char* fname)					// Load an MSU file which
 	return 0;
 }
 
+int FL1SaveDisk(uint8_t* buffer,const char* fname, unsigned int expectedSize)
+{
+	unsigned int address=0;
+	FILE* outFile = fopen(fname,"wb");
+	if (outFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to write to %s\n", fname);
+		return 1;
+	}
+
+	while (expectedSize)
+	{
+		uint8_t data=buffer[address];
+
+		// Read a byte
+		if (1!=fwrite(&data,1,1,outFile))
+		{
+			CONSOLE_OUTPUT("Failed to write to %s\n",fname);
+			return 1;
+		}
+		address++;
+		expectedSize--;
+	}
+
+	fclose(outFile);
+
+	return 0;
+}
+
+
 int LoadRom(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -1148,6 +1178,8 @@ int main(int argc,char**argv)
 	AudioKill();
 	VideoKill();
 
+	FL1SaveDisk(dskABuffer, "SYSTEM.DSK", 720*1024);
+	FL1SaveDisk(dskBBuffer, "BLANK.DSK", 720*1024);
 
 	return 0;
 }
