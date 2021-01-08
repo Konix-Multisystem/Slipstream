@@ -75,7 +75,8 @@ uint32_t	ASIC_BLTPC=0;				// 20 bit address
 uint8_t		ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
 uint8_t		ASIC_MAG = 0x55;			//FL1 - hires
 uint8_t		ASIC_YEL = 0x66;			//FL1 - hires
-
+uint8_t		ASIC_CMD1 = 0;				//FL1
+uint8_t		ASIC_CMD2 = 0;				//FL1
 uint8_t		ASIC_CHAIR = 0;
 
 uint8_t		ASIC_FDC=0xFF;				// P89 Floppy Disk Controller
@@ -1847,56 +1848,20 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 			ASIC_KINT|=byte;
 			break;
 		case 0x0008:			// CMD1 - bit 2 (msb of line interrupt), bit 6 (which screen is visible)
-			ASIC_KINT&=0xFEFF;
+			ASIC_KINT&=0x00FF;
 			ASIC_KINT|=(byte&0x04)<<6;
-			if (byte&0xBB)
+			ASIC_CMD1 = byte;
+			if (byte&0x3B)
 			{
-				CONSOLE_OUTPUT("Unknown CMD1 bits set : %02X\n",byte&0xBB);
-			}
-#if ENABLE_DEBUG
-			if (doShowPortStuff)
-			{
-				CONSOLE_OUTPUT("Interrupt Line set : %03X\n",ASIC_KINT&0x1FF);
-			}
-#endif
-
-			ASIC_SCROLL&=0x0000FFFF;
-			if (byte&0x40)
-			{
-				ASIC_SCROLL|=0x00030000;
-#if ENABLE_DEBUG
-				if (doShowPortStuff)
-				{
-					CONSOLE_OUTPUT("Visible screen is at Bank 3\n");
-				}
-#endif
-			}
-			else
-			{
-				ASIC_SCROLL|=0x00020000;
-#if ENABLE_DEBUG
-				if (doShowPortStuff)
-				{
-					CONSOLE_OUTPUT("Visible screen is at Bank 2\n");
-				}
-#endif
+				CONSOLE_OUTPUT("Unknown CMD1 bits set : %02X\n",byte&0x3B);
 			}
 			break;
 		case 0x0009:			// CMD2 - bit 0 (mode 256 or 512 pixel (256 or 16 colour)
-			ASIC_MODE&=0x9C;
-			ASIC_MODE|=((byte)&0x01)+1;
-			ASIC_MODE|=((byte&0x08)<<2);
-			ASIC_MODE|=((byte&0x80)>>1);	
-			if (byte&0x76)
+			ASIC_CMD2 = byte;
+			if (byte&0x14)
 			{
-				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0x76);
+				CONSOLE_OUTPUT("Unknown CMD2 bits set : %02X\n",byte&0x14);
 			}
-#if ENABLE_DEBUG
-			if (doShowPortStuff)
-			{
-				CONSOLE_OUTPUT("ASIC MODE : %02X\nCMD2 bit 0 -512 pixel mode : %02X\nCMD2 Set to : %02X\n",ASIC_MODE,byte&1,byte);
-			}
-#endif
 			break;
 		case 0x000A:
 			ASIC_BORD=byte;		// BORD
@@ -2006,6 +1971,7 @@ void ASIC_WriteFL1(uint16_t port,uint8_t byte,int warnIgnore)
 		case 0x0020:
 			FL1BLT_SetCmd(byte);
 			ASIC_BLTCMD=byte;
+			break;
 		case 0x0050:
 			ASIC_PALAW=byte;
 			ASIC_PALCNT=0;
@@ -2420,18 +2386,22 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
 	}
 }
 
+extern uint8_t GENLockTestingImage[256 * 256 * 3];		// 8:8:8 RGB
+
 void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 {
 	uint8_t palIndex;
 	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
-	uint32_t screenPtr = ASIC_SCROLL;
+	uint32_t screenPtr = ASIC_CMD1 & 0x40 ? 0x30000 : 0x20000;
+	screenPtr|=ASIC_SCROLL & 0xFFFF;
 	static uint32_t lastCol;
 	uint32_t curCol;
 	uint32_t wrapOffset;
-	uint16_t StartL = ((ASIC_STARTH & 1) << 8) | ASIC_STARTL;
-	uint16_t EndL = ((ASIC_ENDH & 1) << 8) | ASIC_ENDL;
-	uint8_t mode = ASIC_MODE == 2 ? 1 : 0;
+	uint16_t StartL = 33;
+	uint16_t EndL = 289;
+	uint8_t mode = ASIC_CMD2&0x01;
+	int incrust = 0;
 	outputTexture+=vClock*WIDTH + hClock;
 	
 
@@ -2446,18 +2416,26 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 		}
 
 		// Quick and dirty video display no contention or bus cycles
-		if (hClock>=120 && hClock<632 && vClock>StartL && vClock<=EndL)
+		if (hClock>=120 && hClock<632 && vClock>=StartL && vClock<EndL)
 		{
-			wrapOffset = (screenPtr + ((vClock - StartL) - 1) * 256) & 0xFFFFFF00;
+			wrapOffset = (screenPtr + (vClock - StartL) * 256) & 0xFFFFFF00;
 			wrapOffset |= (screenPtr + ((hClock - 120) / 2)) & 0xFF;
 			palIndex = PeekByte(wrapOffset);
 			
-			if (ASIC_MODE & 0x40)	// variable res
+			if (ASIC_CMD2 & 0x80)	// variable res
 			{
 				mode = palIndex & 0x80 ? 1 : 0;
 			}
+			if (ASIC_CMD2 & 0x02)	// encrustation  (border encrustation is not handled at present)
+			{
+				incrust = (palIndex & 0x80) == 0;
+			}
 			if (mode == 0)
 			{
+				if (ASIC_CMD2 & 0x20)	// Mask top bit of index
+					palIndex &= 0x7F;
+				if (ASIC_CMD2 & 0x40)	// Mask top 2 bits (lores only)
+					palIndex &= 0x3f;
 				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
 			}
 			else
@@ -2467,7 +2445,10 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 					// MSB nibble
 					palIndex >>= 4;
 				}
-				palIndex &= 0xF;
+				if (ASIC_CMD2 & 0x20)	// Mask top bit of index
+					palIndex &= 0x7;
+				else
+					palIndex &= 0xF;
 				if (palIndex == 5)
 					palIndex = ASIC_MAG;
 				else if (palIndex == 6)
@@ -2491,15 +2472,26 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
 			}
 
-			curCol = conv(palEntry);
-			if ((ASIC_MODE&0x20) && (palIndex==ASIC_COLHOLD))
+			if (incrust)
 			{
-				*outputTexture++ = lastCol;
+				uint32_t pixelOffset = (vClock - StartL) * 256 * 3 + ((hClock - 120) / 2) * 3;
+				uint32_t outputValue = GENLockTestingImage[pixelOffset+2];
+				outputValue |= GENLockTestingImage[pixelOffset+1] << 8;
+				outputValue |= GENLockTestingImage[pixelOffset+0] << 16;
+				*outputTexture++ = outputValue;
 			}
 			else
 			{
-				*outputTexture++=curCol;
-				lastCol=curCol;
+				curCol = conv(palEntry);
+				if ((ASIC_CMD2 & 0x08) && (palIndex == ASIC_COLHOLD))
+				{
+					*outputTexture++ = lastCol;
+				}
+				else
+				{
+					*outputTexture++ = curCol;
+					lastCol = curCol;
+				}
 			}
 		}
 		else
@@ -2842,6 +2834,10 @@ void ASIC_INIT()
 	ASIC_BLTCMD=0;
 	ASIC_BLTPC=0;				// 20 bit address
 	ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
+	ASIC_MAG = 0x55;			//FL1 - hires
+	ASIC_YEL = 0x66;			//FL1 - hires
+	ASIC_CMD1 = 0;				//FL1
+	ASIC_CMD2 = 0;				//FL1
 
 	ASIC_PROGWRD=0;
 	ASIC_PROGADDR=0;

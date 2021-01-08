@@ -686,6 +686,19 @@ uint8_t GetPortB(uint16_t port)
 					return FDC_GetSector();
 				case 0x0033:
 					return FDC_GetData();
+
+				case 0x0040:
+				{
+					// After some reverse engineering, this register is read after setting the interrupt for the line+1 to grab (with genlocking on), and the hscroll register determines the column
+					//and GPO bits 4&5 as follows : R=0x30, G=0x20, B=0x10
+
+					uint8_t currentColumn = -(ASIC_SCROLL & 0xFF);
+					uint8_t currentRow = (ASIC_KINT - 34) & 0xFF;
+					uint8_t currentChannel = (~(ASIC_FL1_GPO >> 4)) & 0x3;
+					if (currentChannel != 3)
+						return GENLockTestingImage[currentRow * 256 * 3 + currentColumn * 3 + currentChannel] >> 2;
+					return 0xAA;
+				}
 			}
 			break;
 	}

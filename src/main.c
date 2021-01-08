@@ -311,6 +311,48 @@ int LoadBinaryMaxSizeOffset(const char* fname,uint32_t address,uint32_t len,uint
 	return 0;
 }
 
+uint8_t GENLockTestingImage[256 * 256 * 3];
+
+void GenerateGenLock()
+{
+	for (int y = 0; y < 256; y++)
+	{
+		for (int x = 0; x < 256; x++)
+		{
+			uint8_t s, p;
+			s = rand();
+			GENLockTestingImage[y * 256 * 3 + x * 3 + 0] = s;
+			GENLockTestingImage[y * 256 * 3 + x * 3 + 1] = s;
+			GENLockTestingImage[y * 256 * 3 + x * 3 + 2] = s;
+		}
+	}
+}
+
+int LoadRaw256x256x3TrueColorImage(const char* fname)
+{
+	FILE* inFile = fopen(fname, "rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
+	fseek(inFile, 0, SEEK_END);
+	int expectedSize = ftell(inFile);
+	fseek(inFile, 0, SEEK_SET);
+
+	if (expectedSize!=256*256*3)
+	{
+		CONSOLE_OUTPUT("Expected file '%s' to be exactly 256x256x3 bytes large\n", fname);
+		return 1;
+	}
+
+	if (expectedSize!=fread(GENLockTestingImage,1,expectedSize, inFile))
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
+}
+
 int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which will fill some memory regions and give us our booting point
 {
 	unsigned int expectedSize=0;
@@ -635,6 +677,7 @@ void Usage()
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
+	CONSOLE_OUTPUT("-V [256x256x3] truecolour image raw format for use with flare one genlocking\n");
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
@@ -673,6 +716,20 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_P89;
 				LoadRom("roms/konixBios.bin",0);
+				continue;
+			}
+			if (strcmp(argv[a], "-V") == 0)
+			{
+				if ((a+1)<argc)
+				{
+					LoadRaw256x256x3TrueColorImage(argv[a+1]);
+				}
+				else
+				{
+					Usage();
+					return;
+				}
+				a+=1;
 				continue;
 			}
 			if (strcmp(argv[a], "-F") == 0)
@@ -804,9 +861,9 @@ int main(int argc,char**argv)
 
 	ResetHardware();
 		
-	ParseCommandLine(argc,argv);
+	GenerateGenLock();
 	
-
+	ParseCommandLine(argc,argv);
 
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
