@@ -193,6 +193,7 @@ uint8_t FL1_KBD_ReadData()
 
 void FL1_UART_MC6850_WriteControl(int uartNum, uint8_t byte)
 {
+#if ENABLE_DEBUG
 	if ((byte & 3) == 3)
 	{
 		CONSOLE_OUTPUT("UART %d RESET\n", uartNum);
@@ -212,7 +213,7 @@ void FL1_UART_MC6850_WriteControl(int uartNum, uint8_t byte)
 	{
 		CONSOLE_OUTPUT("UART %d RRF Interrupt enabled\n", uartNum);
 	}
-
+#endif
 }
 
 /// Status - ipofcdtr
@@ -244,7 +245,9 @@ uint8_t FL1_UART_MC6850_ReadStatus(int uartNum)
 
 void FL1_UART_MC6850_WriteData(int uartNum, uint8_t byte)
 {
+#if ENABLE_DEBUG
 	CONSOLE_OUTPUT("UART %d WriteData : %02X\n", uartNum, byte);
+#endif
 }
 
 uint8_t FL1_UART_MC6850_ReadData(int uartNum)
@@ -262,7 +265,9 @@ uint8_t FL1_UART_MC6850_ReadData(int uartNum)
 			return data;
 		}
 	}
+#if ENABLE_DEBUG
 	CONSOLE_OUTPUT("UART %d ReadData : AA\n", uartNum);
+#endif
 	return 0xAA;
 }
 

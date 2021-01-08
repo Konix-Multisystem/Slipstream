@@ -27,5 +27,6 @@ void CONSOLE_OUTPUT(char* fmt,...)
 	vprintf(fmt, args);
 	vfprintf(logFile, fmt, args);
 	va_end(args);
+	fflush(logFile);
 }
 
