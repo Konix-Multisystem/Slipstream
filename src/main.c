@@ -188,6 +188,11 @@ int FL1LoadDisk(uint8_t* buffer,const char* fname)					// Load an MSU file which
 	unsigned int expectedSize=0;
 	unsigned int address=0;
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
 	fseek(inFile,0,SEEK_END);
 	expectedSize=ftell(inFile);
 	fseek(inFile,0,SEEK_SET);
@@ -216,6 +221,11 @@ int LoadRom(const char* fname,uint32_t address)					// Load an MSU file which wi
 {
 	unsigned int expectedSize=0;
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
 	fseek(inFile,0,SEEK_END);
 	expectedSize=ftell(inFile);
 	fseek(inFile,0,SEEK_SET);
@@ -246,6 +256,11 @@ int LoadDisk(const char* fname)				// Load P89 Disk -- Pure Sector Dump
 {
 	int ret=0;
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
 
 	if (5632*2*80!=fread(DISK_IMAGE,1,5632*2*80,inFile))
 	{
@@ -261,6 +276,11 @@ int LoadBinaryMaxSizeOffset(const char* fname,uint32_t address,uint32_t len,uint
 {
 	unsigned int expectedSize=0;
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
 	fseek(inFile,0,SEEK_END);
 	expectedSize=ftell(inFile);
 	fseek(inFile,offs,SEEK_SET);
@@ -295,6 +315,11 @@ int LoadBinary(const char* fname,uint32_t address)					// Load an MSU file which
 {
 	unsigned int expectedSize=0;
 	FILE* inFile = fopen(fname,"rb");
+	if (inFile == NULL)
+	{
+		CONSOLE_OUTPUT("Failed to read from %s\n", fname);
+		return 1;
+	}
 	fseek(inFile,0,SEEK_END);
 	expectedSize=ftell(inFile);
 	fseek(inFile,0,SEEK_SET);
