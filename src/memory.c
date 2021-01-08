@@ -39,7 +39,7 @@ uint8_t PotLPValue=0x01;
 uint8_t PotRPValue=0x00;
 uint8_t PotSpareValue=0x40;
 
-uint8_t ASIC_FL1_GP0 = 0;
+uint8_t ASIC_FL1_GPO = 0;
 
 uint8_t Z80_GetByte(uint16_t addr)
 {
@@ -547,6 +547,17 @@ void FL1_KBD_WriteControl(uint8_t byte);
 uint8_t FL1_KBD_ReadStatus();
 uint8_t FL1_KBD_ReadData();
 
+extern uint16_t	ASIC_BORD;
+extern uint16_t	ASIC_KINT;
+extern uint32_t	ASIC_CP1_BLTPC;
+extern uint16_t	ASIC_CP1_BLTCMD;
+extern int VideoInterruptLatch;
+extern uint8_t	ASIC_DIS;
+extern uint32_t	ASIC_SCROLL;
+extern uint16_t	ASIC_CP1_MODE;
+extern uint16_t	ASIC_CP1_MODE2;
+extern uint8_t GENLockTestingImage[256 * 256 * 3];		// 8:8:8 RGB
+
 uint8_t GetPortB(uint16_t port)
 {
 	switch (curSystem)
@@ -616,7 +627,19 @@ uint8_t GetPortB(uint16_t port)
 						return PotXValue;
 					}
 					return 0xFF;
-				case 0x22:		// Ready PORT  bit 5 seems to indicate drive ready (maybe?) bios expects it to be 0 during floppy initialisation (for now bit 5 is masked out)
+				case 0x22:
+					/*
+                    Bit       Function
+                    ---------------------------
+                    0         Joystick up
+                    1         Joystick down
+                    2         Joystick left
+                    3         Joystick right
+                    4         Joystick fire
+                    5         Floppy Disk ready
+                    6         Spare input 0
+                    7         Spare input 1
+					*/
 					return ((0xFFFF^joyPadState)>>10)&0xDF;
 				case 0xA0:
 					return (0xFFFF^joyPadState)>>8;
@@ -628,6 +651,7 @@ uint8_t GetPortB(uint16_t port)
 				case 0x0004:
 				case 0x0005:
 				case 0x0007:
+				case 0x0010:
 				case 0x0014:
 				case 0x0020:
 				case 0x0021:
@@ -755,9 +779,18 @@ void SetPortB(uint16_t port,uint8_t byte)
 				FL1_KBD_WriteControl(byte);
 				break;
 			case 0x0022:
-				ASIC_FL1_GP0 = byte;
-				// GPO known bits ????sdd?
-				//for now we just need the side
+				//
+                /*  Bit       Function
+                    ------------------------------------
+                    0         Audio interface Muting
+                    1         Floppy Disk drive select 0
+                    2         Floppy Disk drive select 1
+                    3         Floppy Disk side select
+                    4         Spare output 0
+                    5         Spare output 1
+                    6         Screen bank select
+                    ------------------------------------*/
+				ASIC_FL1_GPO = byte;
 				if (byte&0x2)
 				{
 					FDC_SetDrive(0);
@@ -767,6 +800,12 @@ void SetPortB(uint16_t port,uint8_t byte)
 					FDC_SetDrive(1);
 				}
 				FDC_SetSide((byte>>3)&0x01);
+#if ENABLE_DEBUG
+				if (byte & 0x30)
+				{
+					CONSOLE_OUTPUT("GPO Spare Bits : %02X\n", (byte >> 4) & 0x3);
+				}
+#endif
 				break;
 			default:
 				ASIC_WriteFL1(port,byte,doShowPortStuff);
@@ -930,15 +969,6 @@ uint16_t GetPortW(uint16_t port)
 	}
 	return 0x0000;
 }
-extern uint16_t	ASIC_BORD;
-extern uint16_t	ASIC_KINT;
-extern uint32_t	ASIC_CP1_BLTPC;
-extern uint16_t	ASIC_CP1_BLTCMD;
-extern int VideoInterruptLatch;
-extern uint8_t	ASIC_DIS;
-extern uint32_t	ASIC_SCROLL;
-extern uint16_t	ASIC_CP1_MODE;
-extern uint16_t	ASIC_CP1_MODE2;
 
 void SetPortW(uint16_t port,uint16_t word)
 {
