@@ -520,6 +520,9 @@ void DebugWPort(uint16_t port)
 				case 0x0020:
 					CONSOLE_OUTPUT("BLTCMD\n");
 					break;
+				case 0x001B:
+					CONSOLE_OUTPUT("KBDCTL - Keyboard control registers\n");
+					break;
 				case 0x0022:
 					CONSOLE_OUTPUT("GPO - General Purpose Output Port - ??? unknown use\n");
 					break;
@@ -560,7 +563,7 @@ void DebugWPort(uint16_t port)
 					CONSOLE_OUTPUT("CONTROLL_P - Potentiometer selector\n");
 					break;
 				case 0x00C0:
-					CONSOLE_OUTPUT("CHAIR_P - This is the signal to the chair\n");
+					CONSOLE_OUTPUT("CHAIR_P - This is the signal to the chair?\n");
 					break;
 				case 0x0030:
 					CONSOLE_OUTPUT("COMREG - Floppy Disk Command\n");
@@ -573,6 +576,25 @@ void DebugWPort(uint16_t port)
 					break;
 				case 0x0033:
 					CONSOLE_OUTPUT("DATAREG - Floppy Disk Data\n");
+					break;
+				case 0x0024:
+				case 0x0028:
+				case 0x002C:
+					CONSOLE_OUTPUT("UART%d Control\n", (port-0x24)/4);
+					break;
+				case 0x0025:
+				case 0x0029:
+				case 0x002D:
+					CONSOLE_OUTPUT("UART%d Write Data\n", (port-0x25)/4);
+					break;
+				case 0x0006:
+					CONSOLE_OUTPUT("BAUD - Set Baud Rate for UART1\n");
+					break;
+				case 0x000E:
+					CONSOLE_OUTPUT("MAG - physical colour to replace magenta in hires");
+					break;
+				case 0x000F:
+					CONSOLE_OUTPUT("MAG - physical colour to replace yellow in hires");
 					break;
 				default:
 					CONSOLE_OUTPUT("PORT WRITE UNKNOWN (%04X)- TODO\n",port);
@@ -785,6 +807,9 @@ void DebugRPort(uint16_t port)
 					break;
 				case 0x0033:
 					CONSOLE_OUTPUT("DATAREG - Floppy Disk Data\n");
+					break;
+				case 0x0040:
+					CONSOLE_OUTPUT("VADC - Video Analogue to digital port\n");
 					break;
 
 				default:
