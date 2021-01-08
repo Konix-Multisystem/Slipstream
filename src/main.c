@@ -1063,9 +1063,9 @@ int main(int argc,char**argv)
 					curSystem=ESS_FL1;
 					VECTORS_INIT();
 				}*/
-				if (CheckKey(GLFW_KEY_ESCAPE))
+				if (CheckKey(GLFW_KEY_F11))
 				{
-					ClearKey(GLFW_KEY_ESCAPE);
+					ClearKey(GLFW_KEY_F11);
 					break;
 				}
 				if (pause)//CheckKey(GLFW_KEY_F11))
