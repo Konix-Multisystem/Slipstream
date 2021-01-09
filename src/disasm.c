@@ -2401,9 +2401,12 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
 						symbol = stream->findSymbol(value);
 					}
 					sprintf(sprintBuffer, "%02X%s%s%s", value, symbol == NULL ? "" : "  ", symbol == NULL ? "" : symbol, symbol == NULL ? "" : "  ");
+					const char* ptr = sprintBuffer;
+					while (*ptr)
+					{
+						AddToOutputChar(*ptr++);
+					}
 					peekBytes++;
-					AddToOutputChar(sprintBuffer[0]);
-					AddToOutputChar(sprintBuffer[1]);
 					decodeState = 0;
 				}
 				break;

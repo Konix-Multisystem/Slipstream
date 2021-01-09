@@ -2521,6 +2521,130 @@ void TickAsicFL1_Actual(int cycles,uint32_t(*conv)(uint16_t))
 	}
 }
 
+void ShowOffScreenFL1(uint32_t(*conv)(uint16_t))
+{
+	uint8_t palIndex;
+	uint16_t palEntry;
+	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+	uint32_t screenPtr = ASIC_CMD1 & 0x40 ? 0x30000 : 0x20000;
+	screenPtr|=ASIC_SCROLL & 0xFFFF;
+	static uint32_t lastCol;
+	uint32_t curCol;
+	uint32_t wrapOffset;
+	uint16_t StartL = 33;
+	uint16_t EndL = 289;
+	uint8_t mode = ASIC_CMD2&0x01;
+	int incrust = 0;
+	uint32_t cycles = WIDTH * HEIGHT;
+	uint32_t hClock=0;
+	uint32_t vClock=0;
+	
+
+	// Video addresses are expected to be aligned to 256/128 byte boundaries - this allows for wrap to occur for a given line
+
+	while (cycles)
+	{
+		// Quick and dirty video display no contention or bus cycles
+		if (hClock>=120 && hClock<632 && vClock>=StartL && vClock<EndL)
+		{
+			wrapOffset = (screenPtr + (vClock - StartL) * 256) & 0xFFFFFF00;
+			wrapOffset |= (screenPtr + ((hClock - 120) / 2)) & 0xFF;
+			palIndex = PeekByte(wrapOffset);
+			
+			if (ASIC_CMD2 & 0x80)	// variable res
+			{
+				mode = palIndex & 0x80 ? 1 : 0;
+			}
+			if (ASIC_CMD2 & 0x02)	// encrustation  (border encrustation is not handled at present)
+			{
+				incrust = (palIndex & 0x80) == 0;
+			}
+			if (mode == 0)
+			{
+				if (ASIC_CMD2 & 0x20)	// Mask top bit of index
+					palIndex &= 0x7F;
+				if (ASIC_CMD2 & 0x40)	// Mask top 2 bits (lores only)
+					palIndex &= 0x3f;
+				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			}
+			else
+			{
+				if (((hClock - 120)) & 1)
+				{
+					// MSB nibble
+					palIndex >>= 4;
+				}
+				if (ASIC_CMD2 & 0x20)	// Mask top bit of index
+					palIndex &= 0x7;
+				else
+					palIndex &= 0xF;
+				if (palIndex == 5)
+					palIndex = ASIC_MAG;
+				else if (palIndex == 6)
+					palIndex = ASIC_YEL;
+				else if (ASIC_PALMASK==0)
+				{
+					//b0 Br | B0 B1       g0 Br | G0 G1 G2    r0 Br | R0 R1 R2
+					//------ + ------    ------ + -------- - ------ + -------- -
+					//  0  0 | 0  0        0  0 | 0  0  0      0  0 | 0  0  0
+					//  0  1 | 1  0        0  1 | 0  1  0      0  1 | 0  1  0
+					//  1  0 | 0  1        1  0 | 1  0  1      1  0 | 1  0  1
+					//  1  1 | 1  1        1  1 | 1  1  1      1  1 | 1  1  1
+					//------ + ------    ------ + -------- - ------ + -------- -
+
+					uint8_t physicalColour = (palIndex & 8) ? 0xB6 : 0x00;
+					physicalColour |= (palIndex & 4) ? 0x40 : 0x00;
+					physicalColour |= (palIndex & 2) ? 0x08 : 0x00;
+					physicalColour |= (palIndex & 1) ? 0x01 : 0x00;
+					palIndex = physicalColour;
+				}
+				palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			}
+
+			if (incrust)
+			{
+				uint32_t pixelOffset = (vClock - StartL) * 256 * 3 + ((hClock - 120) / 2) * 3;
+				uint32_t outputValue = GENLockTestingImage[pixelOffset+2];
+				outputValue |= GENLockTestingImage[pixelOffset+1] << 8;
+				outputValue |= GENLockTestingImage[pixelOffset+0] << 16;
+				*outputTexture++ = outputValue;
+			}
+			else
+			{
+				curCol = conv(palEntry);
+				if ((ASIC_CMD2 & 0x08) && (palIndex == ASIC_COLHOLD))
+				{
+					*outputTexture++ = lastCol;
+				}
+				else
+				{
+					*outputTexture++ = curCol;
+					lastCol = curCol;
+				}
+			}
+		}
+		else
+		{
+			palIndex = ASIC_BORD;
+			palEntry = (PALETTE[palIndex * 2 + 1] << 8) | PALETTE[palIndex * 2];
+			*outputTexture++=conv(palEntry);
+		}
+
+		hClock++;
+		if (hClock==(WIDTH))
+		{
+			hClock=0;
+			vClock++;
+			if (vClock==(HEIGHT))
+			{
+				vClock=0;
+				outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
+			}
+		}
+
+		cycles--;
+	}
+}
 void ShowOffScreen(uint32_t(*conv)(uint16_t),uint32_t swapBuffer)
 {
 	uint8_t palIndex;
@@ -2804,7 +2928,7 @@ void TickAsicFL1(int cycles)
 void DebugDrawOffScreen()
 {
 	if (curSystem == ESS_FL1)
-		ShowOffScreen(ConvPaletteP88, 0x2000);
+		ShowOffScreenFL1(ConvPaletteP88);
 	else if (curSystem==ESS_MSU)
 		ShowOffScreen(ConvPaletteMSU, 0x30000);
 	else
