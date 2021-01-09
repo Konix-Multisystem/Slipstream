@@ -708,10 +708,17 @@ void Usage()
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
 	CONSOLE_OUTPUT("-V [256x256x3] truecolour image raw format for use with flare one genlocking\n");
+#if MEMORY_MAPPED_DEBUGGER
+	CONSOLE_OUTPUT("-S [symbols] load a symbol file\n");
+#endif
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
 }
+
+#if MEMORY_MAPPED_DEBUGGER
+void LoadSymbolFile(char* filename);
+#endif
 
 void ParseCommandLine(int argc,char** argv)
 {
@@ -748,6 +755,22 @@ void ParseCommandLine(int argc,char** argv)
 				LoadRom("roms/konixBios.bin",0);
 				continue;
 			}
+#if MEMORY_MAPPED_DEBUGGER
+			if (strcmp(argv[a], "-S") == 0)
+			{
+				if ((a+1)<argc)
+				{
+					LoadSymbolFile(argv[a+1]);
+				}
+				else
+				{
+					Usage();
+					return;
+				}
+				a+=1;
+				continue;
+			}
+#endif
 			if (strcmp(argv[a], "-V") == 0)
 			{
 				if ((a+1)<argc)
@@ -946,11 +969,19 @@ int main(int argc,char**argv)
 		if (!pause)
 		{
 #if MEMORY_MAPPED_DEBUGGER
-			if (DBG_Cpu_Clocks==0)			// Hack to allow cycle stepping
-				DBG_Cpu_Clocks += CPU_STEP(doDebug);
+			if (single || DBG_Cpu_Clocks == 0)			// Hack to allow cycle stepping
+			{
+				if (single) 
+					single = 1;
+				numClocks = DBG_Cpu_Clocks;
+				DBG_Cpu_Clocks = CPU_STEP(doDebug);
+			}
 
 			DBG_Cpu_Clocks--;
-			numClocks = 1;
+			if (single)
+				numClocks += 1;
+			else
+				numClocks = 1;
 #else
             numClocks = CPU_STEP(doDebug);
 #endif
@@ -958,7 +989,7 @@ int main(int argc,char**argv)
 #if MEMORY_MAPPED_DEBUGGER
 			if (dbg_event)
 			{
-				if (single && DBG_Cpu_Clocks == 0)
+				if (single)
 				{
 					pause = 1;
 					single = 0;

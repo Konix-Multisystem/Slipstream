@@ -240,6 +240,207 @@ uint32_t getZ80LinearAddress()
 void FL1_DSP_REGISTERS(char* output);
 void FL1_DSP_DISASSEMBLE(char* output);
 
+#include <stdio.h>>
+
+struct SymbolElement
+{
+	struct SymbolElement* Previous;
+	struct SymbolElement* Next;
+	const char* Symbol;
+	int Address;
+};
+
+struct SymbolElement* SymbolHead = NULL;
+
+struct SymbolElement* AllocElement()
+{
+	return malloc(sizeof(struct SymbolElement));
+}
+
+void InitialiseElement(struct SymbolElement* element, int address, const char* symbol)
+{
+	element->Address = address;
+	element->Symbol = malloc(strlen(symbol) + 1);
+	element->Next = NULL;
+	element->Previous = NULL;
+	strcpy(element->Symbol, symbol);
+}
+
+int SymbolNotPresent(struct SymbolElement* element, const char* symbol)
+{
+	const char* found = strstr(element->Symbol, symbol);
+	while (found)
+	{
+		if (found == element->Symbol || found[-1] == ',')
+		{
+			found += strlen(symbol);
+			if (*found == 0 || *found == ',')
+				return 0;
+		}
+		else
+			found++;
+		found = strstr(found, symbol);
+	}
+	return 1;
+}
+
+void InsertSymbol(int address, const char* symbol)
+{
+	struct SymbolElement* element = NULL;
+	if (SymbolHead == NULL)
+	{
+		element = AllocElement();
+		InitialiseElement(element, address, symbol);
+		SymbolHead = element;
+		return;
+	}
+
+	// Insert in address order
+	element = SymbolHead;
+	struct SymbolElement* previous = NULL;
+	while (1 == 1)
+	{
+		if (element->Address == address)
+		{
+			if (SymbolNotPresent(element, symbol))
+			{
+				// Multiply defined symbol for address (append name)
+				const char* tmp = element->Symbol;
+				element->Symbol = malloc(strlen(tmp) + 1 + strlen(symbol) + 1);
+				strcpy(element->Symbol, tmp);
+				strcat(element->Symbol, ",");
+				strcat(element->Symbol, symbol);
+				free(tmp);
+			}
+			return;
+		}
+		else if (element->Address < address)
+		{
+			previous = element;
+			element = element->Next;
+			if (element == NULL)
+			{
+				// found leaf, insert new element
+				previous->Next = AllocElement();
+				InitialiseElement(previous->Next, address, symbol);
+				element = previous->Next;
+				element->Previous = previous;
+				return;
+			}
+			else
+			{
+				if (element->Address > address)
+				{
+					// insert between
+					struct SymbolElement* tmp = AllocElement();
+					InitialiseElement(tmp, address, symbol);
+					tmp->Previous = previous;
+					previous->Next = tmp;
+					tmp->Next = element;
+					element->Previous = tmp;
+					return;
+				}
+				//otherwise keep looping
+			}
+		}
+		else // element->Address > address
+		{
+			previous = element;
+			element = element->Previous;
+			if (element == NULL)
+			{
+				// found leaf, insert new element
+				previous->Previous = AllocElement();
+				InitialiseElement(previous->Previous, address, symbol);
+				element = previous->Previous;
+				element->Next = previous;
+				return;
+			}
+			else
+			{
+				if (element->Address < address)
+				{
+					// insert between
+					struct SymbolElement* tmp = AllocElement();
+					InitialiseElement(tmp, address, symbol);
+					tmp->Next = previous;
+					previous->Previous = tmp;
+					tmp->Previous = element;
+					element->Next = tmp;
+					return;
+				}
+				//otherwise keep looping
+			}
+		}
+	}
+}
+
+const char* FetchSymbolForAddress(int address)
+{
+	struct SymbolElement* element = SymbolHead;
+	while (element)
+	{
+		if (element->Address == address)
+		{
+			return element->Symbol;
+		}
+		else if (element->Address < address)
+		{
+			element = element->Next;
+			if (element && element->Address > address)
+				break;
+		}
+		else
+		{
+			element = element->Previous;
+			if (element && element->Address < address)
+				break;
+		}
+	}
+	return NULL;
+}
+
+void LoadSymbolFile(char* filename)
+{
+	FILE* symbols = fopen(filename, "r");
+	if (symbols == NULL)
+		return;
+
+	int state = 0;
+	int numSourceLines = 0;
+	char lineBuffer[1024];
+	while (fgets(lineBuffer, 1024, symbols) != NULL)
+	{
+		switch (state)
+		{
+		case 0:	// first line path to source
+			state = 1;
+			break;
+		case 1:
+			numSourceLines = atoi(lineBuffer);
+			state = 2;
+			break;
+		case 2:	// Source line information
+			numSourceLines--;
+			if (numSourceLines == 0)
+				state = 3;
+			break;
+		case 3:	// Symbols
+			{
+				int address;
+				char symbol[1024];
+				char* sPtr=symbol;
+				sscanf(lineBuffer, "%d\t%s\n", &address, symbol);
+				if (strstr(symbol, "prefix") == symbol)
+				{
+					sPtr += strlen("prefix _");
+				}
+				InsertSymbol(address, sPtr);
+			}
+			break;
+		}
+	}
+}
 
 int UpdateMemoryMappedDebuggerViews(int isPaused)
 {
@@ -276,13 +477,22 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 		char* tmp = (char*)pMapDisassm;
 		char tBuffer[2048];
 
+		strcpy(tmp, "");
+		int spacer = 15;
 		for (int l = 0; l < 20; l++)
 		{
 			InStream disMe;
+			disMe.findSymbol = FetchSymbolForAddress;
 			if (curSystem == ESS_FL1)
+			{
 				disMe.cpu = CPU_Z80;
+				spacer = 6;
+			}
 			else
+			{
 				disMe.cpu = CPU_X86;
+				spacer = 15;
+			}
 			disMe.bytesRead = 0;
 			disMe.curAddress = address;
 			disMe.useAddress = 1;
@@ -291,14 +501,25 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 
 			if (disMe.bytesRead != 0)
 			{
-				sprintf(tmp, "%06X : ", address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+				const char* symbol = FetchSymbolForAddress(address);
+
+				if (symbol == NULL && address > 0xFFFF)
+					symbol = FetchSymbolForAddress(address & 0xFFFF);
+				if (symbol)
+				{
+					sprintf(tBuffer, "%s:\n", symbol);
+					strcat(tmp, tBuffer);
+				}
+
+				sprintf(tBuffer, "%06X : ", address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+				strcat(tmp, tBuffer);
 
 				for (a = 0; a < disMe.bytesRead; a++)
 				{
 					sprintf(tBuffer, "%02X ", PeekByte(address + a));
 					strcat(tmp, tBuffer);
 				}
-				for (a = 0; a < 15 - disMe.bytesRead; a++)
+				for (a = 0; a < spacer - disMe.bytesRead; a++)
 				{
 					strcat(tmp, "   ");
 				}
@@ -307,10 +528,12 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 
 				address += disMe.bytesRead;
 				tmp += strlen(tmp);
+				*tmp = 0;
 			}
 			else
 				break;
 		}
+		*tmp = 0;
 
 		const char** WPort = NULL;
 		const char** RPort = NULL;

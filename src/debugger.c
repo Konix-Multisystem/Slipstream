@@ -834,6 +834,7 @@ int GetILength80386(unsigned int address, int x86)
 	disMe.bytesRead = 0;
 	disMe.curAddress = address;
 	disMe.useAddress = 1;
+	disMe.findSymbol = NULL;
 	Disassemble(&disMe, MSU_cSize);
 
 	return disMe.bytesRead;

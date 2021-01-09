@@ -2363,37 +2363,91 @@ void DisassembleZ80(InStream* stream, const char *table[256], unsigned int realL
     }
     else
     {
-        char sprintBuffer[3];
+        char sprintBuffer[1024];
         const char *sPtr = mnemonic;
-        int doingDecode = 0;
+        int decodeState = 0;
         while (*sPtr)
         {
-            if (!doingDecode)
-            {
-                if (*sPtr == '%')
-                {
-                    doingDecode = 1;
-                }
-                else
-                {
-                    AddToOutputChar(*sPtr);
-                }
-            }
-            else
-            {
-                int negOffs = 1;
-                if (*sPtr == '-')
-                {
-                    sPtr++;
-                    negOffs = -1;
-                }
-                int decodeoffset = (*sPtr - '0')*negOffs;
-                sprintf(sprintBuffer, "%02X", PeekByteFromStreamOffset(stream, decodeoffset+offset));
-				peekBytes++;
-                AddToOutputChar(sprintBuffer[0]);
-                AddToOutputChar(sprintBuffer[1]);
-                doingDecode = 0;
-            }
+			switch (decodeState)
+			{
+			case 0:	// Looking for start of decode token
+				if (*sPtr == '%')
+				{
+					decodeState = 1;
+				}
+				else
+				{
+					AddToOutputChar(*sPtr);
+				}
+				break;
+			case 1:	// Looking for extended code
+				if (*sPtr == 'W')
+					decodeState = 'W';
+				else if (*sPtr == 'R')
+					decodeState = 'R';
+				else
+				{
+					const char* symbol = NULL;
+					int negOffs = 1;
+					if (*sPtr == '-')
+					{
+						sPtr++;
+						negOffs = -1;
+					}
+					int decodeoffset = (*sPtr - '0') * negOffs;
+					unsigned char value = PeekByteFromStreamOffset(stream, decodeoffset + offset);
+					if (stream->findSymbol)
+					{
+						symbol = stream->findSymbol(value);
+					}
+					sprintf(sprintBuffer, "%02X%s%s%s", value, symbol == NULL ? "" : "  ", symbol == NULL ? "" : symbol, symbol == NULL ? "" : "  ");
+					peekBytes++;
+					AddToOutputChar(sprintBuffer[0]);
+					AddToOutputChar(sprintBuffer[1]);
+					decodeState = 0;
+				}
+				break;
+			case 'W':
+				{
+					const char* symbol = NULL;
+					int decodeoffset = (*sPtr - '0');
+					unsigned short word = PeekByteFromStreamOffset(stream, decodeoffset + offset);
+					word |= PeekByteFromStreamOffset(stream, decodeoffset + offset + 1) << 8;
+					if (stream->findSymbol)
+					{
+						symbol = stream->findSymbol(word);
+					}
+					sprintf(sprintBuffer, "%04X%s%s%s", word, symbol == NULL ? "" : "  ", symbol == NULL ? "" : symbol, symbol == NULL ? "" : "  ");
+					const char* ptr = sprintBuffer;
+					while (*ptr)
+					{
+						AddToOutputChar(*ptr++);
+					}
+					peekBytes+=2;
+					decodeState = 0;
+				}
+				break;
+			case 'R':
+				{
+					const char* symbol = NULL;
+					int decodeoffset = (*sPtr - '0');
+					unsigned short word = (stream->curAddress & 0xFFFF) + 2;
+					word+=(signed char)PeekByteFromStreamOffset(stream, decodeoffset + offset);
+					if (stream->findSymbol)
+					{
+						symbol = stream->findSymbol(word);
+					}
+					sprintf(sprintBuffer, "%04X%s%s%s", word, symbol == NULL ? "" : "  ", symbol == NULL ? "" : symbol, symbol == NULL ? "" : "  ");
+					const char* ptr = sprintBuffer;
+					while (*ptr)
+					{
+						AddToOutputChar(*ptr++);
+					}
+					peekBytes++;
+					decodeState = 0;
+				}
+				break;
+			}
             sPtr++;
         }
     }
