@@ -2883,78 +2883,96 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 	}
 }
 
-#INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
-#{
-#	IF CALL DoRepeat()
-#	{
-#		DECLARE adjust[16];
-#
-#		IF wrdbyte
-#		{
-#			CALL SubWord(CALL FetchWord(DS,SI),CALL FetchWordNoOveride(ES,DI),0);
-#			adjust<-2;
-#		}
-#		IF ~wrdbyte
-#		{
-#			CALL SubByte(CALL FetchByte(DS,SI),CALL FetchByteNoOveride(ES,DI),0);
-#			adjust<-1;
-#		}
-#
-#		IF D
-#		{
-#			adjust<-0-adjust;
-#		}
-#
-#		SI<-SI+adjust;
-#		DI<-DI+adjust;
-#		IF (~REPEAT) | (Z!=REPEATZ)
-#		{
-#			22+CYCLES->CYCLES;
-#		}
-#		IF REPEAT & (Z==REPEATZ)
-#		{
-#			REPEAT<-0;
-#			IP<-EXIP;
-#			22+CYCLES->CYCLES;
-#		}
-#	}
-#}
-#
-#INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
-#{
-#	IF CALL DoRepeat()
-#	{
-#		DECLARE adjust[16];
-#
-#		IF wrdbyte
-#		{
-#			CALL SubWord(AX,CALL FetchWordNoOveride(ES,DI),0);
-#			adjust<-2;
-#		}
-#		IF ~wrdbyte
-#		{
-#			CALL SubByte(AL,CALL FetchByteNoOveride(ES,DI),0);
-#			adjust<-1;
-#		}
-#
-#		IF D
-#		{
-#			adjust<-0-adjust;
-#		}
-#
-#		DI<-DI+adjust;
-#		IF (~REPEAT) | (Z!=REPEATZ)
-#		{
-#			15+CYCLES->CYCLES;
-#		}
-#		IF REPEAT & (Z==REPEATZ)
-#		{
-#			REPEAT<-0;
-#			IP<-EXIP;
-#			15+CYCLES->CYCLES;
-#		}
-#	}
-#}
+INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte[1]
+{
+	IF oSize | aSize
+	{
+		DEBUG_TRACE "CALL FAR long mode";
+		CALL unimplemented(0);
+	}
+
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
+
+		IF wrdbyte
+		{
+			DECLARE TMP[16];
+			DECLARE TMPCMP[16];
+			CALL FetchWord(SegDS,DS,ESI)->TMP;
+			CALL FetchWordNoOveride(SegES,ES,EDI)->TMPCMP;
+			CALL SubWord(TMP,TMPCMP,0);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			DECLARE TMP[8];
+			DECLARE TMPCMP[8];
+			CALL FetchByte(SegDS,DS,ESI)->TMP;
+			CALL FetchByteNoOveride(SegES,ES,EDI)->TMPCMP;
+			CALL SubByte(TMP,TMPCMP,0);
+			adjust<-1;
+		}
+
+		IF DF
+		{
+			adjust<-0-adjust;
+		}
+
+		SI<-SI+adjust;
+		DI<-DI+adjust;
+		IF (~REPEAT) | (ZF!=REPEATZ)
+		{
+			22+CYCLES->CYCLES;
+		}
+		IF REPEAT & (ZF==REPEATZ)
+		{
+			REPEAT<-0;
+			IP<-EXIP;
+			22+CYCLES->CYCLES;
+		}
+	}
+}
+
+INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte[1]
+{
+	IF CALL DoRepeat()
+	{
+		DECLARE adjust[16];
+
+		IF wrdbyte
+		{
+			DECLARE TMP[16];
+			CALL FetchWordNoOveride(SegES,ES,EDI)->TMP;
+			CALL SubWord(AX,TMP,0);
+			adjust<-2;
+		}
+		IF ~wrdbyte
+		{
+			DECLARE TMP[8];
+			CALL FetchByteNoOveride(SegES,ES,EDI)->TMP;
+			CALL SubByte(AL,TMP,0);
+			adjust<-1;
+		}
+
+		IF DF
+		{
+			adjust<-0-adjust;
+		}
+
+		DI<-DI+adjust;
+		IF (~REPEAT) | (ZF!=REPEATZ)
+		{
+			15+CYCLES->CYCLES;
+		}
+		IF REPEAT & (ZF==REPEATZ)
+		{
+			REPEAT<-0;
+			IP<-EXIP;
+			15+CYCLES->CYCLES;
+		}
+	}
+}
 
 INSTRUCTION	"CALL #16DISP#"		%11101000
 {

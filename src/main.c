@@ -945,8 +945,12 @@ int dbg_event = 0;
 int bpaddress = 0;
 int DBG_Cpu_Clocks = 0;
 
+void PDS_Main();
+
 int main(int argc,char**argv)
 {
+	PDS_Main();
+
 	videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(WIDTH*HEIGHT*sizeof(unsigned int));
 	videoMemory[TERMINAL_WINDOW] = (unsigned char*)malloc(640*480*sizeof(unsigned int));
 
