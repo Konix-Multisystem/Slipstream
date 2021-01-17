@@ -18,7 +18,7 @@ struct InStream
 	unsigned int curAddress;
 	unsigned int useAddress;
 	const char* (*findSymbol)(unsigned int address);
-	const unsigned char* (*PeekByte)(unsigned int address);
+	const unsigned char (*PeekByte)(unsigned int address);
 };
 
 typedef struct InStream InStream;

@@ -197,12 +197,14 @@ uint8_t PDS_PeekByte(uint32_t addr)
 	return PDS_GetByte(addr);
 }
 
+uint8_t PDS_GetPortB(uint16_t port);
+
 uint16_t PDS_GetPortW(uint16_t port)
 {
-	uint16_t ret = GetPortB(port+1);
+	uint16_t ret = PDS_GetPortB(port+1);
 	ret <<= 8;
-	ret |= GetPortB(port);
-    return ret;
+	ret |= PDS_GetPortB(port);
+	return ret;
 }
 
 
@@ -252,12 +254,6 @@ uint8_t PDS_GetPortB(uint16_t port)
 void PDS_SetPortW(uint16_t port,uint16_t word)
 {
 	DebugBreak();
-
-    port &= 0xFF;
-#if MEMORY_MAPPED_DEBUGGER
-    ASIC_DEB_PORTS[port >> 1] = word;
-#endif
-    SetPortW(port, word);
 }
 
 uint8_t CGA_Index = 0;
@@ -346,23 +342,23 @@ uint32_t PDS_missing(uint32_t opcode)
 	}
 
 	int a;
-	CONSOLE_OUTPUT("IP : %08X\n",PDS_GETPHYSICAL_EIP());
-	CONSOLE_OUTPUT("Next 7 Bytes : ");
+	printf("IP : %08X\n",PDS_GETPHYSICAL_EIP());
+	printf("Next 7 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a));
+		printf("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a));
 	}
-	CONSOLE_OUTPUT("\nNext 7-1 Bytes : ");
+	printf("\nNext 7-1 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-1));
+		printf("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-1));
 	}
-	CONSOLE_OUTPUT("\nNext 7-2 Bytes : ");
+	printf("\nNext 7-2 Bytes : ");
 	for (a=0;a<7;a++)
 	{
-		CONSOLE_OUTPUT("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-2));
+		printf("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-2));
 	}
-	CONSOLE_OUTPUT("\n");
+	printf("\n");
 	DebugBreak();
 	return 0;
 }
@@ -380,7 +376,7 @@ int PDS_LoadEXE(const char* filename)
 	FILE* inFile = fopen(filename,"rb");
 	if (inFile == NULL)
 	{
-		CONSOLE_OUTPUT("Failed to read from %s\n", filename);
+		printf("Failed to read from %s\n", filename);
 		return 1;
 	}
 	fseek(inFile,0,SEEK_END);
@@ -398,7 +394,7 @@ int PDS_LoadEXE(const char* filename)
 	expectedSize -= fread(PDS_EXE, 1, expectedSize, inFile);
 	if (expectedSize != 0)
 	{
-		CONSOLE_OUTPUT("Failed to read from %s\n", filename);
+		printf("Failed to read from %s\n", filename);
 		free(PDS_EXE);
 		PDS_EXE = NULL;
 		return 1;
@@ -440,7 +436,7 @@ struct DOSRELOC
 #else
 #define MSVC_PACK_BEGIN
 #define MSVC_PACK_END
-#define GCC_PACK __attribute__((__packed))
+#define GCC_PACK __attribute__((packed))
 #endif
 
 MSVC_PACK_BEGIN;
@@ -500,7 +496,7 @@ void DebugIt()
 	int a;
 
 	FetchRegistersPDS(blah);
-	printf(blah);
+	printf("%s",blah);
 	blah[0] = 0;
 
 	InStream disMe;
@@ -534,7 +530,7 @@ void DebugIt()
 		*tmp = 0;
 	}
 
-	printf(blah);
+	printf("%s",blah);
 
 
 }
@@ -968,7 +964,7 @@ void PSF_Load(const char* filename)
 	FILE* inFile = fopen(filename,"rb");
 	if (inFile == NULL)
 	{
-		CONSOLE_OUTPUT("Failed to read from %s\n", filename);
+		printf("Failed to read from %s\n", filename);
 		return 1;
 	}
 	fseek(inFile,0,SEEK_END);
@@ -986,7 +982,7 @@ void PSF_Load(const char* filename)
 	expectedSize -= fread(PSF_FONT, 1, expectedSize, inFile);
 	if (expectedSize != 0)
 	{
-		CONSOLE_OUTPUT("Failed to read from %s\n", filename);
+		printf("Failed to read from %s\n", filename);
 		free(PSF_FONT);
 		PSF_FONT = NULL;
 		return 1;
