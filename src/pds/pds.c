@@ -139,7 +139,7 @@ uint8_t PDS_COMMS[16];
 
 #if OS_WINDOWS
 void DebugBreak();
-#define DBG_BREAK DebugBreak
+#define DBG_BREAK DebugBreak()
 #else
 #define DBG_BREAK
 #endif
@@ -164,7 +164,7 @@ uint8_t PDS_GetByte(uint32_t addr)
 			return 0;
 		default:
 			printf("BDA Read Access unknown @%04X", addr);
-			DBG_BREAK();
+			DBG_BREAK;
 			break;
 		}
 	}
@@ -190,14 +190,14 @@ void PDS_SetByte(uint32_t addr,uint8_t byte)
 		{
 		default:
 			printf("BDA Write Access unknown @%04X", addr);
-			DBG_BREAK();
+			DBG_BREAK;
 			break;
 		}
 	}
 	PDS_Ram[addr] = byte;
 }
 
-unsigned char PDS_PeekByte(unsigned int addr)
+uint8_t PDS_PeekByte(uint32_t addr)
 {
 	return PDS_GetByte(addr);
 }
@@ -250,7 +250,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 		break;*/
 	default:
 		printf("Read from unhandled Port : %04X->\n", port);
-		DBG_BREAK();
+		DBG_BREAK;
 		break;
 	}
 	return ret;
@@ -258,7 +258,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 
 void PDS_SetPortW(uint16_t port,uint16_t word)
 {
-	DBG_BREAK();
+	DBG_BREAK;
 }
 
 uint8_t CGA_Index = 0;
@@ -311,7 +311,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 	case 0x03D4:	// CGA Index Register
 	{
 		if (byte > 0x11)
-			DBG_BREAK();	// BAD Index
+			DBG_BREAK;	// BAD Index
 		CGA_Index = byte;
 		printf("CGA Video Register Index Set : %s\n", CGA_IndexNames[byte]);
 		break;
@@ -323,7 +323,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		break;
 	default:
 		printf("Write to unknown Port : %04X<-%02X\n", port, byte);
-		DBG_BREAK();
+		DBG_BREAK;
 		break;
 	}
 }
@@ -364,7 +364,7 @@ uint32_t PDS_missing(uint32_t opcode)
 		printf("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-2));
 	}
 	printf("\n");
-	DBG_BREAK();
+	DBG_BREAK;
 	return 0;
 }
 
@@ -747,7 +747,7 @@ void IOCTL(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented IOCTL Function %02X\n", functionNumber);
-		DBG_BREAK();//unhandled vector
+		DBG_BREAK;//unhandled vector
 		break;
 	}
 }
@@ -764,7 +764,7 @@ void SYSTEM_Values(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented SYSTEM_Values Function %02X\n", functionNumber);
-		DBG_BREAK();//unhandled vector
+		DBG_BREAK;//unhandled vector
 		break;
 	}
 }
@@ -899,7 +899,7 @@ void DOS_Function(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented DOS Function %02X\n", functionNumber);
-		DBG_BREAK();//unhandled vector
+		DBG_BREAK;//unhandled vector
 		break;
 	}
 }
@@ -916,7 +916,7 @@ void VIDEO_Function(uint8_t functionNumber)
 		if (AL != 3)
 		{
 			printf("Request for unimplemented video mode\n");
-			DBG_BREAK();
+			DBG_BREAK;
 		}
 		//MODE 3  = 80x25 16 colour text
 		break;
@@ -928,7 +928,7 @@ void VIDEO_Function(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented VIDEO Function %02X\n", functionNumber);
-		DBG_BREAK();//unhandled vector
+		DBG_BREAK;//unhandled vector
 		break;
 	}
 }
@@ -950,7 +950,7 @@ void DOS_VECTOR_TRAP(uint8_t vector)
 
 	default:
 		printf("Unimplemented Interupt Vector Trap %02X\n", vector);
-		DBG_BREAK();//unhandled vector
+		DBG_BREAK;//unhandled vector
 		break;
 	}
 }
