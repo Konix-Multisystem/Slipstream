@@ -496,6 +496,7 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 			disMe.bytesRead = 0;
 			disMe.curAddress = address;
 			disMe.useAddress = 1;
+			disMe.PeekByte = PeekByte;
 			Disassemble(&disMe, MSU_cSize);
 			int a;
 

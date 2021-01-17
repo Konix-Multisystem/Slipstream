@@ -232,7 +232,7 @@ typedef enum OperandMode OperandMode;
 
 unsigned char GetNextByteFromStream(InStream* stream)
 {
-	unsigned char byte = PeekByte(stream->curAddress);
+	unsigned char byte = stream->PeekByte(stream->curAddress);
 	stream->bytesRead++;
 	stream->curAddress++;
 	return byte;
@@ -240,7 +240,7 @@ unsigned char GetNextByteFromStream(InStream* stream)
 
 unsigned char PeekByteFromStreamOffset(InStream* stream, int offset)
 {
-    unsigned char byte = PeekByte(stream->curAddress + offset);
+    unsigned char byte = stream->PeekByte(stream->curAddress + offset);
     return byte;
 }
 

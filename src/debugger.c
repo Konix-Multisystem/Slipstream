@@ -835,6 +835,7 @@ int GetILength80386(unsigned int address, int x86)
 	disMe.curAddress = address;
 	disMe.useAddress = 1;
 	disMe.findSymbol = NULL;
+	disMe.PeekByte = PeekByte;
 	Disassemble(&disMe, MSU_cSize);
 
 	return disMe.bytesRead;
@@ -1582,6 +1583,7 @@ int Disassemble8086(unsigned int address,int registers)
 	disMe.bytesRead=0;
 	disMe.curAddress=address;
 	disMe.useAddress=1;
+	disMe.PeekByte = PeekByte;
 	Disassemble(&disMe,0);
 
 	if (disMe.bytesRead==0)
@@ -1643,6 +1645,7 @@ int Disassemble80386(unsigned int address,int registers)
 	disMe.bytesRead=0;
 	disMe.curAddress=address;
 	disMe.useAddress=1;
+	disMe.PeekByte = PeekByte;
 	Disassemble(&disMe,MSU_cSize);
 
 	if (disMe.bytesRead==0)

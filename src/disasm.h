@@ -18,14 +18,12 @@ struct InStream
 	unsigned int curAddress;
 	unsigned int useAddress;
 	const char* (*findSymbol)(unsigned int address);
+	const unsigned char* (*PeekByte)(unsigned int address);
 };
 
 typedef struct InStream InStream;
 
 void Disassemble(InStream* stream,int _32bitCode);
 const char* GetOutputBuffer();
-
-unsigned char PeekByte(unsigned int addr);
-
 
 #endif//_DISASM_H
