@@ -119,7 +119,7 @@ void VideoInitialise()
 	atStart=glfwGetTime();
 }
 
-void VideoCreate(int width,int height,const char* name,int fullscreen)
+void VideoCreate(int width,int height,int widthScale, int heightScale, const char* name,int fullscreen)
 {
 	GLFWmonitor* monitor = NULL;
 
@@ -148,7 +148,7 @@ void VideoCreate(int width,int height,const char* name,int fullscreen)
 
 	if( !(windows[maxWindow]=glfwCreateWindow( width, height, name,monitor,NULL)) ) 
 #else
-	if( !(windows[maxWindow]=glfwCreateWindow( width, maxWindow==0?height*2:height, name,monitor,NULL)) ) 
+	if( !(windows[maxWindow]=glfwCreateWindow( width * widthScale, height*heightScale, name,monitor,NULL)) ) 
 #endif
 	{ 
 /*		int glError = glfwGetError();
@@ -166,12 +166,8 @@ void VideoCreate(int width,int height,const char* name,int fullscreen)
 	{
 		glfwSetWindowSizeCallback(windows[maxWindow],VideoSizeHandler);
 		glfwSetWindowCloseCallback(windows[maxWindow],VideoCloseHandler);
-		glViewport(0, 0, width, height*2);
 	}
-	else
-	{
-		glViewport(0, 0, width, height);
-	}
+	glViewport(0, 0, width * widthScale, height * heightScale);
 
 	initialRatio=width/(height*2.0f);
 

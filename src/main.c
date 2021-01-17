@@ -964,7 +964,7 @@ int main(int argc,char**argv)
 
 	{
 		VideoInitialise();
-		VideoCreate(WIDTH,HEIGHT,"Slipstream - V" SLIPSTREAM_VERSION,useFullscreen);
+		VideoCreate(WIDTH,HEIGHT,1,2,"Slipstream - V" SLIPSTREAM_VERSION,useFullscreen);
 #if TERMINAL
 		VideoCreate(640,480,"Terminal Emulation");
 #endif
