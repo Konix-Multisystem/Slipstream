@@ -137,7 +137,12 @@ uint8_t PDS_Ram[1 * 1024 * 1024 + 65536];
 
 uint8_t PDS_COMMS[16];
 
+#if OS_WINDOWS
 void DebugBreak();
+#define DBG_BREAK DebugBreak
+#else
+#define DBG_BREAK
+#endif
 
 uint8_t PDS_GetByte(uint32_t addr)
 {
@@ -159,7 +164,7 @@ uint8_t PDS_GetByte(uint32_t addr)
 			return 0;
 		default:
 			printf("BDA Read Access unknown @%04X", addr);
-			DebugBreak();
+			DBG_BREAK();
 			break;
 		}
 	}
@@ -185,14 +190,14 @@ void PDS_SetByte(uint32_t addr,uint8_t byte)
 		{
 		default:
 			printf("BDA Write Access unknown @%04X", addr);
-			DebugBreak();
+			DBG_BREAK();
 			break;
 		}
 	}
 	PDS_Ram[addr] = byte;
 }
 
-uint8_t PDS_PeekByte(uint32_t addr)
+unsigned char PDS_PeekByte(unsigned int addr)
 {
 	return PDS_GetByte(addr);
 }
@@ -245,7 +250,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 		break;*/
 	default:
 		printf("Read from unhandled Port : %04X->\n", port);
-		DebugBreak();
+		DBG_BREAK();
 		break;
 	}
 	return ret;
@@ -253,7 +258,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 
 void PDS_SetPortW(uint16_t port,uint16_t word)
 {
-	DebugBreak();
+	DBG_BREAK();
 }
 
 uint8_t CGA_Index = 0;
@@ -306,7 +311,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 	case 0x03D4:	// CGA Index Register
 	{
 		if (byte > 0x11)
-			DebugBreak();	// BAD Index
+			DBG_BREAK();	// BAD Index
 		CGA_Index = byte;
 		printf("CGA Video Register Index Set : %s\n", CGA_IndexNames[byte]);
 		break;
@@ -318,7 +323,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		break;
 	default:
 		printf("Write to unknown Port : %04X<-%02X\n", port, byte);
-		DebugBreak();
+		DBG_BREAK();
 		break;
 	}
 }
@@ -359,7 +364,7 @@ uint32_t PDS_missing(uint32_t opcode)
 		printf("%02X ",PDS_PeekByte(PDS_GETPHYSICAL_EIP()+a-2));
 	}
 	printf("\n");
-	DebugBreak();
+	DBG_BREAK();
 	return 0;
 }
 
@@ -557,13 +562,13 @@ void PDS_Setup()
 	}
 
 	// Relocate loadimage
-	struct DOSRELOC* relocations = PDS_EXE + header->relocationTable;
+	struct DOSRELOC* relocations = (struct DOSRELOC*) (PDS_EXE + header->relocationTable);
 	for (int reloc = 0; reloc < header->relocationItems; reloc++)
 	{
 		uint32_t addr = exeLoadSegment * 16;
 		addr += relocations->segment * 16;
 		addr += relocations->offset;
-		uint16_t* ptr = PDS_Ram + addr;
+		uint16_t* ptr = (uint16_t*) (PDS_Ram + addr);
 		*ptr += exeLoadSegment;
 		relocations++;
 	}
@@ -573,7 +578,7 @@ void PDS_Setup()
 	env[0] = 0;	// empty environment for now
 
 	// Setup a PSP (0x10000 - 256 = FF00 = FF0:0000
-	struct DOSPSP* psp = PDS_Ram + 0xFF00;
+	struct DOSPSP* psp = (struct DOSPSP*) (PDS_Ram + 0xFF00);
 	psp->exit = 0x20CD;
 	psp->top = 0xFFFF;
 	psp->zero = 0;
@@ -627,13 +632,13 @@ void PDS_Setup()
 		PDS_Ram[intRedirectAddress + a * 3 + 2] = 0xCF;		// IRET
 	}
 
-	uint16_t* BDA = PDS_Ram + 0x413;
+	uint16_t* BDA = (uint16_t*) (PDS_Ram + 0x413);
 	*BDA = 0xA0000 / 1024;		// Memory size 
-	BDA = PDS_Ram + 0x463;
+	BDA = (uint16_t*) (PDS_Ram + 0x463);
 	*BDA = 0x3D4;				// Base Port for 6845 CRT (colour)
-	BDA = PDS_Ram + 0x408;
+	BDA = (uint16_t*) (PDS_Ram + 0x408);
 	*BDA = 0x3BF;				// Base Port for LPT1
-	BDA = PDS_Ram + 0x410;
+	BDA = (uint16_t*) (PDS_Ram + 0x410);
 	*BDA = 0x422C;				// 1 drive 80x25 color initial mode 11 (64k normal or mouse and unused), 1 parallel, 1 serial
 }
 
@@ -685,7 +690,7 @@ const char* GetFCBFilename(uint32_t fcbAddress)
 uint16_t* GetStackWordAddress(uint32_t offset)
 {
 	offset += PDS_SS * 16 + (PDS_ESP & 0xFFFF);
-	return PDS_Ram + offset;
+	return (uint16_t*) (PDS_Ram + offset);
 }
 
 void ClearCarry()
@@ -742,7 +747,7 @@ void IOCTL(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented IOCTL Function %02X\n", functionNumber);
-		DebugBreak();//unhandled vector
+		DBG_BREAK();//unhandled vector
 		break;
 	}
 }
@@ -759,7 +764,7 @@ void SYSTEM_Values(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented SYSTEM_Values Function %02X\n", functionNumber);
-		DebugBreak();//unhandled vector
+		DBG_BREAK();//unhandled vector
 		break;
 	}
 }
@@ -779,7 +784,7 @@ void DOS_Function(uint8_t functionNumber)
 	case 0x09:		// Print String
 		while (PDS_Ram[addrDSDX] != '$')
 		{
-			putch(PDS_Ram[addrDSDX++]);
+			putchar(PDS_Ram[addrDSDX++]);
 		}
 		break;
 	case 0x0D:		// Reset Disk
@@ -894,7 +899,7 @@ void DOS_Function(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented DOS Function %02X\n", functionNumber);
-		DebugBreak();//unhandled vector
+		DBG_BREAK();//unhandled vector
 		break;
 	}
 }
@@ -911,7 +916,7 @@ void VIDEO_Function(uint8_t functionNumber)
 		if (AL != 3)
 		{
 			printf("Request for unimplemented video mode\n");
-			DebugBreak();
+			DBG_BREAK();
 		}
 		//MODE 3  = 80x25 16 colour text
 		break;
@@ -923,7 +928,7 @@ void VIDEO_Function(uint8_t functionNumber)
 		break;
 	default:
 		printf("Unimplemented VIDEO Function %02X\n", functionNumber);
-		DebugBreak();//unhandled vector
+		DBG_BREAK();//unhandled vector
 		break;
 	}
 }
@@ -945,7 +950,7 @@ void DOS_VECTOR_TRAP(uint8_t vector)
 
 	default:
 		printf("Unimplemented Interupt Vector Trap %02X\n", vector);
-		DebugBreak();//unhandled vector
+		DBG_BREAK();//unhandled vector
 		break;
 	}
 }
@@ -958,7 +963,7 @@ const int CLOCK_WAIT = 10000;
 uint8_t* PSF_FONT = NULL;
 size_t PSF_FONT_Size = 0;
 
-void PSF_Load(const char* filename)
+int PSF_Load(const char* filename)
 {
 	size_t expectedSize=0;
 	FILE* inFile = fopen(filename,"rb");
@@ -995,7 +1000,7 @@ void PSF_Load(const char* filename)
 
 void RenderGlyph(int x, int y, uint8_t glyph, uint32_t ink, uint32_t paper)
 {
-	uint32_t* gfx = videoMemory[MAIN_WINDOW];
+	uint32_t* gfx = (uint32_t*) (videoMemory[MAIN_WINDOW]);
 	gfx += y * 640 + x;
 	uint8_t* ptr = PSF_FONT + 4;	// skip header, font is hardwired here
 	ptr += glyph * 8;				// get to bitmap location
@@ -1060,7 +1065,7 @@ void PDS_Tick()
 		if (PDSpause)
 		{
 			DebugIt();
-			getch();
+			getchar();
 		}
 		PDS_STEP();
 		clksDelay--;
