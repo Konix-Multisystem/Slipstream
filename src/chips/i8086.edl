@@ -1584,6 +1584,7 @@ INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte
 		DI<-DI+adjust;
 		IF (~REPEAT) | (Z!=REPEATZ)
 		{
+			REPEAT<-0;
 			22+CYCLES->CYCLES;
 		}
 		IF REPEAT & (Z==REPEATZ)
@@ -1620,6 +1621,7 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte
 		DI<-DI+adjust;
 		IF (~REPEAT) | (Z!=REPEATZ)
 		{
+			REPEAT<-0;
 			15+CYCLES->CYCLES;
 		}
 		IF REPEAT & (Z==REPEATZ)
