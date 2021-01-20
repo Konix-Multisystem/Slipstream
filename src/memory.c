@@ -265,17 +265,10 @@ uint8_t GetByteP89(uint32_t addr)	// Memory Map Changed for this machine
 
 uint8_t GetByteFL1(uint32_t addr)
 {
+	// Flare one is fully populated for now
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
-
-	if (addr<0xCFFFF)
-	{
-		return RAM[addr];
-	}
-
-	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
-
-	return 0xAA;
+	return RAM[addr];
 }
 
 uint8_t GetByte(uint32_t addr)
@@ -499,18 +492,10 @@ void SetByteP88(uint32_t addr,uint8_t byte)
 
 void SetByteFL1(uint32_t addr,uint8_t byte)
 {
+	// Flare one is fully populated for now
 	// Flare One uses paging, the paging is managed directly in the Z80_GetByte routine, so on entry to here we already have a linear flat address
 	addr&=0xFFFFF;
-
-	if (addr<0xCFFFF)
-	{
-		RAM[addr]=byte;
-		return;
-	}
-
-#if ENABLE_DEBUG
-	CONSOLE_OUTPUT("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
-#endif
+	RAM[addr] = byte;
 }
 
 void SetByte(uint32_t addr,uint8_t byte)

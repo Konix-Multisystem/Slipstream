@@ -1100,6 +1100,9 @@ void PDS_Start()
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
 	PDS_Setup();
+
+	// Download Alternate Flare 1 rom... (4 bytes at head of image for some reason)
+	LoadBinary("C:\\Users\\savou\\Downloads\\External Contributions\\ST_DISK_Z80_PROGS_FLARE_1\\PDS\\PDS_RO0.P", -4);
 }
 
 // Standalone
