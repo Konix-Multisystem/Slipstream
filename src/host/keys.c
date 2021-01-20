@@ -277,6 +277,9 @@ uint8_t FL1_UART_MC6850_ReadData(int uartNum)
 void termHandler( GLFWwindow* window, int key, int scan, int action, int mod );
 void termCharHandler( GLFWwindow* window, unsigned int key);
 
+extern int MAIN_WINDOW;
+extern int TERMINAL_WINDOW;
+
 void KeysIntialise(int joystick)
 {
 	glfwSetKeyCallback(windows[MAIN_WINDOW],kbHandler);

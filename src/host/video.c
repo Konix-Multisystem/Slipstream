@@ -119,7 +119,7 @@ void VideoInitialise()
 	atStart=glfwGetTime();
 }
 
-void VideoCreate(int width,int height,int widthScale, int heightScale, const char* name,int fullscreen)
+int VideoCreate(int width,int height,int widthScale, int heightScale, int resizeable, int canCloseToQuit, const char* name,int fullscreen)
 {
 	GLFWmonitor* monitor = NULL;
 
@@ -157,21 +157,24 @@ void VideoCreate(int width,int height,int widthScale, int heightScale, const cha
 		exit(1);
 	} 
 
-	glfwSetWindowPos(windows[maxWindow],300,300);
+	//glfwSetWindowPos(windows[maxWindow],300,300);
 	
 	glfwMakeContextCurrent(windows[maxWindow]);
 	setupGL(maxWindow,width,height);
 
-	if (maxWindow==0)
+	if (resizeable)
 	{
-		glfwSetWindowSizeCallback(windows[maxWindow],VideoSizeHandler);
+		glfwSetWindowSizeCallback(windows[maxWindow], VideoSizeHandler);
+	}
+	if (canCloseToQuit)
+	{
 		glfwSetWindowCloseCallback(windows[maxWindow],VideoCloseHandler);
 	}
 	glViewport(0, 0, width * widthScale, height * heightScale);
 
 	initialRatio=width/(height*2.0f);
 
-	maxWindow++;
+	return maxWindow++;
 }
 
 void VideoKill()
@@ -220,7 +223,7 @@ void VideoWait(float freq)
 	if (totalCnt==50)
 	{
 		sprintf(fpsBuffer,"%s - Average FPS %f\n",fpsWindowName,1.f/(remain));
-		glfwSetWindowTitle(windows[MAIN_WINDOW],fpsBuffer);
+		glfwSetWindowTitle(windows[0],fpsBuffer);
 		totalTime=0.f;
 		totalCnt=0;
 	}

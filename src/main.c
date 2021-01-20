@@ -23,6 +23,9 @@
 #include "memory.h"
 #include "debugger.h"
 
+int MAIN_WINDOW = -1;
+int TERMINAL_WINDOW = -1;
+
 ESlipstreamSystem curSystem=ESS_MSU;
 int numClocks;
 int masterClock=0;
@@ -924,9 +927,6 @@ void ParseCommandLine(int argc,char** argv)
 
 void ResetHardware()
 {
-	memset(videoMemory[MAIN_WINDOW],0,WIDTH*HEIGHT*sizeof(unsigned int));
-	memset(videoMemory[TERMINAL_WINDOW],0,640*480*sizeof(unsigned int));
-
 	CPU_RESET();
 	DSP_RESET();
 	FL1DSP_RESET();
@@ -950,10 +950,6 @@ void PDS_Main();
 int main(int argc,char**argv)
 {
 	PDS_Main();
-
-	videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(WIDTH*HEIGHT*sizeof(unsigned int));
-	videoMemory[TERMINAL_WINDOW] = (unsigned char*)malloc(640*480*sizeof(unsigned int));
-
 	ResetHardware();
 		
 	GenerateGenLock();
@@ -968,9 +964,13 @@ int main(int argc,char**argv)
 
 	{
 		VideoInitialise();
-		VideoCreate(WIDTH,HEIGHT,1,2,"Slipstream - V" SLIPSTREAM_VERSION,useFullscreen);
+		MAIN_WINDOW = VideoCreate(WIDTH, HEIGHT, 1, 2, 1, 1, "Slipstream - V" SLIPSTREAM_VERSION, useFullscreen);
+		videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(WIDTH * HEIGHT * sizeof(unsigned int));
+		memset(videoMemory[MAIN_WINDOW], 0, WIDTH * HEIGHT * sizeof(unsigned int));
 #if TERMINAL
-		VideoCreate(640,480,"Terminal Emulation");
+		TERMINAL_WINDOW = VideoCreate(640, 480, 1, 1, 0, 0, "Terminal Emulation");
+		videoMemory[TERMINAL_WINDOW] = (unsigned char*)malloc(640 * 480 * sizeof(unsigned int));
+		memset(videoMemory[TERMINAL_WINDOW], 0, 640 * 480 * sizeof(unsigned int));
 #endif
 		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);

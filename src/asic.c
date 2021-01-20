@@ -35,6 +35,8 @@
 #define BLTDDBG(...)		//if (doShowBlits) { CONSOLE_OUTPUT(__VA_ARGS__); }
 #endif
 
+extern int MAIN_WINDOW;
+
 extern unsigned char PALETTE[256*2];
 extern int doShowPortStuff;
 extern int doDebug;

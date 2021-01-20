@@ -110,10 +110,10 @@ void PDS_kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )
 }
 
 extern GLFWwindow *windows[MAX_WINDOWS];
-
+int PDS_WINDOW = -1;
 void PDS_Keys()
 {
-	glfwSetKeyCallback(windows[MAIN_WINDOW], PDS_kbHandler);
+	glfwSetKeyCallback(windows[PDS_WINDOW], PDS_kbHandler);
 }
 
 
@@ -1000,7 +1000,7 @@ int PSF_Load(const char* filename)
 
 void RenderGlyph(int x, int y, uint8_t glyph, uint32_t ink, uint32_t paper)
 {
-	uint32_t* gfx = (uint32_t*) (videoMemory[MAIN_WINDOW]);
+	uint32_t* gfx = (uint32_t*) (videoMemory[PDS_WINDOW]);
 	gfx += y * 640 + x;
 	uint8_t* ptr = PSF_FONT + 4;	// skip header, font is hardwired here
 	ptr += glyph * 8;				// get to bitmap location
@@ -1097,9 +1097,9 @@ void PDS_Tick()
 
 void PDS_Main()
 {
-	videoMemory[MAIN_WINDOW] = (unsigned char*)malloc(640*200*sizeof(unsigned int));
 	VideoInitialise();
-	VideoCreate(640, 200, 2, 4, "PDS", 0);
+	PDS_WINDOW = VideoCreate(640, 200, 2, 4, 1, 1, "PDS", 0);
+	videoMemory[PDS_WINDOW] = (unsigned char*)malloc(640*200*sizeof(unsigned int));
 	PDS_Keys();
 
 	PSF_Load("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\BM.PSF");		//Extracted from IBM-EGA8x8.FON from old school font pack
