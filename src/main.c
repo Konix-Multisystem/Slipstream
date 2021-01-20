@@ -1047,7 +1047,6 @@ int main(int argc,char**argv)
 			{
 				if (single)
 				{
-					PDS_DebugIt();
 					pause = 1;
 					single = 0;
 				}

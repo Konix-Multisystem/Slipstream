@@ -442,6 +442,11 @@ void LoadSymbolFile(char* filename)
 	}
 }
 
+#if ENABLE_PDS
+void FetchRegistersPDS(char* tmp);
+void FetchDisassemblePDS(char* tmp);
+#endif
+
 int UpdateMemoryMappedDebuggerViews(int isPaused)
 {
 	int cmd = 0xff;
@@ -615,8 +620,13 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 		switch (curSystem)
 		{
 		case ESS_FL1:
+#if ENABLE_PDS
+			FetchRegistersPDS(pMapDSPRegisters);
+			FetchDisassemblePDS(pMapDSP);
+#else
 			FL1_DSP_REGISTERS(pMapDSPRegisters);
 			FL1_DSP_DISASSEMBLE(pMapDSP);
+#endif
 			break;
 		}
 	}

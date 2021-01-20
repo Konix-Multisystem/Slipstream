@@ -533,19 +533,12 @@ void FetchRegistersPDS(char* tmp)
 			PDS_EAX&0xFFFF,PDS_EBX&0xFFFF,PDS_ECX&0xFFFF,PDS_EDX&0xFFFF,PDS_ESP&0xFFFF,PDS_EBP&0xFFFF,PDS_ESI&0xFFFF,PDS_EDI&0xFFFF,PDS_CS,PDS_DS,PDS_ES,PDS_SS);
 }
 
-
-void PDS_DebugIt()
+unsigned int FetchOneDisassemblePDS(char* tmp, uint32_t address)
 {
-	uint32_t address = PDS_GETPHYSICAL_EIP();
-	char blah[65536] = { 0 };
-	char* tmp = blah;
-	char tBuffer[1024];
 	int a;
+	char tBuffer[1024];
 
-	FetchRegistersPDS(blah);
-	printf("%s",blah);
-	blah[0] = 0;
-
+	*tmp = 0;
 	InStream disMe;
 	disMe.cpu = CPU_X86;
 	disMe.bytesRead = 0;
@@ -577,9 +570,30 @@ void PDS_DebugIt()
 		*tmp = 0;
 	}
 
+	return disMe.bytesRead;
+}
+
+void FetchDisassemblePDS(char* tmp)
+{
+	uint32_t address = PDS_GETPHYSICAL_EIP();
+	for (int a = 0; a < 20; a++)
+	{
+		address += FetchOneDisassemblePDS(tmp, address);
+		tmp += strlen(tmp);
+	}
+}
+
+
+void PDS_DebugIt()
+{
+	char blah[65536] = { 0 };
+
+	FetchRegistersPDS(blah);
 	printf("%s",blah);
+	blah[0] = 0;
 
-
+	FetchDisassemblePDS(blah);
+	printf("%s",blah);
 }
 
 
