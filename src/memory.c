@@ -543,149 +543,225 @@ extern uint16_t	ASIC_CP1_MODE;
 extern uint16_t	ASIC_CP1_MODE2;
 extern uint8_t GENLockTestingImage[256 * 256 * 3];		// 8:8:8 RGB
 
+extern uint8_t PDS_HOST_PORTA;
+extern uint8_t PDS_HOST_PORTB;
+
+uint8_t PDS_CLIENT_DATA;
+uint8_t PDS_CLIENT_COMMS;
+uint8_t PDS_CLIENT_CTRL_MODE[2];
+uint8_t PDS_CLIENT_CTRL_DBL[2];
+
+void PDS_SetControl(int number, uint8_t value)
+{
+	if (PDS_CLIENT_CTRL_DBL[number] != 0)
+	{
+		PDS_CLIENT_CTRL_MODE[number] = value;
+	}
+	else
+	{
+		if ((value & 0x0F) != 0xF)
+		{
+			CONSOLE_OUTPUT("Unsupported Control Mode on PDS_CLIENT CTRL %d   [%02X]", number, value);
+			PDS_CLIENT_CTRL_DBL[number] = 0;
+			PDS_CLIENT_CTRL_MODE[number] = 0;
+		}
+		else
+		{
+			if ((value & 0xC0) == 0x00)
+				PDS_CLIENT_CTRL_MODE[number] = 0;
+			else if ((value & 0xC0) == 0x80)
+				PDS_CLIENT_CTRL_MODE[number] = 0xFF;
+			else if ((value & 0xC0) == 0xC0)
+				PDS_CLIENT_CTRL_DBL[number] = 1;
+			else
+			{
+				CONSOLE_OUTPUT("BiDirection not supported");
+			}
+		}
+	}
+}
+
 uint8_t GetPortB(uint16_t port)
 {
 	switch (curSystem)
 	{
-		case ESS_CP1:
-			CONSOLE_OUTPUT("CP1 Port Read %04X\n", port);
-			return 0xFF;	// TODO
-		case ESS_MSU:
-			if (port==0x0C)
+	case ESS_CP1:
+		CONSOLE_OUTPUT("CP1 Port Read %04X\n", port);
+		return 0xFF;	// TODO
+	case ESS_MSU:
+		if (port == 0x0C)
+		{
+			return buttonState;
+		}
+		if (port == 0xE0)
+		{
+			switch (numPadRowSelect)
 			{
-				return buttonState;
-			}
-			if (port==0xE0)
-			{
-				switch (numPadRowSelect)
-				{
-					case 1:
-						return (numPadState&0xF);
-					case 2:
-						return ((numPadState&0xF0)>>4);
-					case 4:
-						return ((numPadState&0xF00)>>8);
-					case 8:
-						return ((numPadState&0xF000)>>12);
-					default:
+			case 1:
+				return (numPadState & 0xF);
+			case 2:
+				return ((numPadState & 0xF0) >> 4);
+			case 4:
+				return ((numPadState & 0xF00) >> 8);
+			case 8:
+				return ((numPadState & 0xF000) >> 12);
+			default:
 #if ENABLE_DEBUG
-						CONSOLE_OUTPUT("Warning unknown numPadRowSelectValue : %02X\n",numPadRowSelect);
+				CONSOLE_OUTPUT("Warning unknown numPadRowSelectValue : %02X\n", numPadRowSelect);
 #endif
-						return 0xFF;
-				}
+				return 0xFF;
 			}
-			break;
-		case ESS_P89:
-			return ASIC_ReadP89(port,doShowPortStuff);
-			break;
-		case ESS_P88:
-			if (port==0x40)
+		}
+		break;
+	case ESS_P89:
+		return ASIC_ReadP89(port, doShowPortStuff);
+		break;
+	case ESS_P88:
+		if (port == 0x40)
+		{
+			return (0xFFFF ^ joyPadState) >> 8;
+		}
+		if (port == 0x50)
+		{
+			return (0xFFFF ^ joyPadState) & 0xFF;
+		}
+		if (port <= 3 || port == 0x71 || port == 0x73)
+		{
+			return ASIC_ReadP88(port, doShowPortStuff);
+		}
+		break;
+	case ESS_FL1:
+		switch (port)
+		{
+			/*				case 0x18:
+								return ASIC_BLTPC&0xFF;
+							case 0x19:
+								return (ASIC_BLTPC>>8)&0xFF;
+							case 0x1A:
+								return (ASIC_BLTPC>>16)&0xFF;*/
+		case 0xE0:
+			switch (ADPSelect)
 			{
-				return (0xFFFF ^ joyPadState)>>8;
+			case 4:
+				return PotZValue;
+			case 5:
+				return PotYValue;
+			case 6:
+				return PotXValue;
 			}
-			if (port==0x50)
+			return 0xFF;
+		case 0x22:
+			/*
+			Bit       Function
+			---------------------------
+			0         Joystick up
+			1         Joystick down
+			2         Joystick left
+			3         Joystick right
+			4         Joystick fire
+			5         Floppy Disk ready
+			6         Spare input 0
+			7         Spare input 1
+			*/
+			return ((0xFFFF ^ joyPadState) >> 10) & 0xDF;
+		case 0xA0:
+			return (0xFFFF ^ joyPadState) >> 8;
+		case 0x0051:
+		case 0x0000:
+		case 0x0001:
+		case 0x0002:
+		case 0x0003:
+		case 0x0004:
+		case 0x0005:
+		case 0x0007:
+		case 0x0010:
+		case 0x0014:
+		case 0x0020:
+		case 0x0021:
+		case 0x0006:		// LPEN3 -- labelled as combined light pen register -- but combined how.. All I know is the bios during interrupt reads from this and takes bit 4 and based on result either
+					//tries to read various peripherals or goes on to clear the interrupt and do other processing.
+					//Speculation : Could bit 4 indicate interrupt source, with a second interrupt firing when devices need processing
+			return ASIC_ReadFL1(port, doShowPortStuff);
+
+		case 0x001C:		// KBSP - Keyboard Status Port -- bit 0 seems to be set when keyboard has data to read
+			return FL1_KBD_ReadStatus();
+		case 0x0018:		// KBDP - Keyboard Data Port -- should be the scan code from the keyboard
+			return FL1_KBD_ReadData();
+
+		case 0x0026:
+			return FL1_UART_MC6850_ReadStatus(0);
+		case 0x0027:
+			return FL1_UART_MC6850_ReadData(0);
+		case 0x002A:
+			return FL1_UART_MC6850_ReadStatus(1);
+		case 0x002B:
+			return FL1_UART_MC6850_ReadData(1);
+		case 0x002E:
+			return FL1_UART_MC6850_ReadStatus(2);
+		case 0x002F:
+			return FL1_UART_MC6850_ReadData(2);
+
+		case 0x0030:
+			return FDC_GetStatus();
+		case 0x0031:
+			return FDC_GetTrack();
+		case 0x0032:
+			return FDC_GetSector();
+		case 0x0033:
+			return FDC_GetData();
+
+		case 0x0040:
+		{
+			// After some reverse engineering, this register is read after setting the interrupt for the line+1 to grab (with genlocking on), and the hscroll register determines the column
+			//and GPO bits 4&5 as follows : R=0x30, G=0x20, B=0x10
+
+			uint8_t currentColumn = -(ASIC_SCROLL & 0xFF);
+			uint8_t currentRow = (ASIC_KINT - 34) & 0xFF;
+			uint8_t currentChannel = (~(ASIC_FL1_GPO >> 4)) & 0x3;
+			if (currentChannel != 3)
+				return GENLockTestingImage[currentRow * 256 * 3 + currentColumn * 3 + currentChannel] >> 2;
+			return 0xAA;
+		}
+		case 0x0080:
+		{
+			static uint8_t last;
+			uint8_t ret = PDS_HOST_PORTA & PDS_CLIENT_CTRL_MODE[0];
+			ret |= PDS_CLIENT_DATA & (~PDS_CLIENT_CTRL_MODE[0]);
+			if (last != ret)
 			{
-				return (0xFFFF ^ joyPadState)&0xFF;
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[0], PDS_HOST_PORTA, PDS_CLIENT_DATA);
+				last = ret;
 			}
-			if (port<=3 || port==0x71 || port==0x73)
+			return ret;
+		}
+		case 0x0081:
+		{
+			static uint8_t last;
+			uint8_t ret = PDS_HOST_PORTB & PDS_CLIENT_CTRL_MODE[1];
+			ret |= PDS_CLIENT_COMMS & (~PDS_CLIENT_CTRL_MODE[1]);
+			if (last != ret)
 			{
-				return ASIC_ReadP88(port,doShowPortStuff);
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[1], PDS_HOST_PORTB, PDS_CLIENT_COMMS);
+				last = ret;
 			}
-			break;
-		case ESS_FL1:
-			switch (port)
-			{
-/*				case 0x18:
-					return ASIC_BLTPC&0xFF;
-				case 0x19:
-					return (ASIC_BLTPC>>8)&0xFF;
-				case 0x1A:
-					return (ASIC_BLTPC>>16)&0xFF;*/
-				case 0xE0:
-					switch (ADPSelect)
-					{
-					case 4:
-						return PotZValue;
-					case 5:
-						return PotYValue;
-					case 6:
-						return PotXValue;
-					}
-					return 0xFF;
-				case 0x22:
-					/*
-                    Bit       Function
-                    ---------------------------
-                    0         Joystick up
-                    1         Joystick down
-                    2         Joystick left
-                    3         Joystick right
-                    4         Joystick fire
-                    5         Floppy Disk ready
-                    6         Spare input 0
-                    7         Spare input 1
-					*/
-					return ((0xFFFF^joyPadState)>>10)&0xDF;
-				case 0xA0:
-					return (0xFFFF^joyPadState)>>8;
-				case 0x0051:
-				case 0x0000:
-				case 0x0001:
-				case 0x0002:
-				case 0x0003:
-				case 0x0004:
-				case 0x0005:
-				case 0x0007:
-				case 0x0010:
-				case 0x0014:
-				case 0x0020:
-				case 0x0021:
-				case 0x0006:		// LPEN3 -- labelled as combined light pen register -- but combined how.. All I know is the bios during interrupt reads from this and takes bit 4 and based on result either
-							//tries to read various peripherals or goes on to clear the interrupt and do other processing.
-							//Speculation : Could bit 4 indicate interrupt source, with a second interrupt firing when devices need processing
-					return ASIC_ReadFL1(port,doShowPortStuff);
-
-				case 0x001C:		// KBSP - Keyboard Status Port -- bit 0 seems to be set when keyboard has data to read
-					return FL1_KBD_ReadStatus();
-				case 0x0018:		// KBDP - Keyboard Data Port -- should be the scan code from the keyboard
-					return FL1_KBD_ReadData();
-
-				case 0x0026:
-					return FL1_UART_MC6850_ReadStatus(0);
-				case 0x0027:
-					return FL1_UART_MC6850_ReadData(0);
-				case 0x002A:
-					return FL1_UART_MC6850_ReadStatus(1);
-				case 0x002B:
-					return FL1_UART_MC6850_ReadData(1);
-				case 0x002E:
-					return FL1_UART_MC6850_ReadStatus(2);
-				case 0x002F:
-					return FL1_UART_MC6850_ReadData(2);
-
-				case 0x0030:
-					return FDC_GetStatus();
-				case 0x0031:
-					return FDC_GetTrack();
-				case 0x0032:
-					return FDC_GetSector();
-				case 0x0033:
-					return FDC_GetData();
-
-				case 0x0040:
-				{
-					// After some reverse engineering, this register is read after setting the interrupt for the line+1 to grab (with genlocking on), and the hscroll register determines the column
-					//and GPO bits 4&5 as follows : R=0x30, G=0x20, B=0x10
-
-					uint8_t currentColumn = -(ASIC_SCROLL & 0xFF);
-					uint8_t currentRow = (ASIC_KINT - 34) & 0xFF;
-					uint8_t currentChannel = (~(ASIC_FL1_GPO >> 4)) & 0x3;
-					if (currentChannel != 3)
-						return GENLockTestingImage[currentRow * 256 * 3 + currentColumn * 3 + currentChannel] >> 2;
-					return 0xAA;
-				}
-			}
-			break;
+			return ret;
+		}
+		/*case 0x0082:
+		{
+			// to determine direction
+			uint8_t ret = PDS_CLIENT_CTRLA;
+			CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLA ->%02X\n", ret);
+			return ret;
+		}
+		case 0x0083:		// PDS
+		{
+			// to determine direction
+			uint8_t ret = PDS_CLIENT_CTRLB;
+			CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLB ->%02X\n", ret);
+			return ret;
+		}*/
+		break;
+		}
 	}
 
 #if ENABLE_DEBUG
@@ -804,6 +880,22 @@ void SetPortB(uint16_t port,uint8_t byte)
 					CONSOLE_OUTPUT("GPO Spare Bits : %02X\n", (byte >> 4) & 0x3);
 				}
 #endif
+				break;
+			case 0x0080:
+				PDS_CLIENT_DATA = byte;
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA <- %02X\n", byte);
+				break;
+			case 0x0081:
+				PDS_CLIENT_COMMS = byte;
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS <- %02X\n", byte);
+				break;
+			case 0x0082:
+				PDS_SetControl(0, byte);
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLA <- %02X\n", byte);
+				break;
+			case 0x0083:
+				PDS_SetControl(1, byte);
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLB <- %02X\n", byte);
 				break;
 			default:
 				ASIC_WriteFL1(port,byte,doShowPortStuff);

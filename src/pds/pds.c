@@ -135,7 +135,13 @@ size_t PDS_EXE_Size = 0;
 
 uint8_t PDS_Ram[1 * 1024 * 1024 + 65536];
 
-uint8_t PDS_COMMS[16];
+uint8_t PDS_HOST_CTRL;
+uint8_t PDS_HOST_PORTA;
+uint8_t PDS_HOST_PORTB;
+extern uint8_t PDS_CLIENT_DATA;
+extern uint8_t PDS_CLIENT_COMMS;
+extern uint8_t PDS_CLIENT_CTRLA;
+extern uint8_t PDS_CLIENT_CTRLB;
 
 #if OS_WINDOWS
 void DebugBreak();
@@ -241,10 +247,40 @@ uint8_t PDS_GetPortB(uint16_t port)
 		}
 		break;*/
 	case 0x0302:	// dunno at present
+		if (PDS_HOST_CTRL & 0x10)
+		{
+			ret = PDS_HOST_PORTA;
+		}
+		else
+		{
+			ret = PDS_CLIENT_DATA;
+		}
+		{
+			static uint8_t last;
+			if (last != ret)
+			{
+				CONSOLE_OUTPUT("HOST_PORTA ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTA, PDS_CLIENT_DATA);
+				last = ret;
+			}
+		}
+		break;
 	case 0x0304:	// dunno at present
-	case 0x0306:	// dunno at present
-		ret = PDS_COMMS[port - 0x300];
-		printf("PDS_COMMS? %04X->0xFF\n", port);
+		if (PDS_HOST_CTRL & 0x02)
+		{
+			ret = PDS_HOST_PORTB;
+		}
+		else
+		{
+			ret = PDS_CLIENT_COMMS;
+		}
+		{
+			static uint8_t last;
+			if (last != ret)
+			{
+				CONSOLE_OUTPUT("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_COMMS);
+				last = ret;
+			}
+		}
 		break;
 	/*case 0x03D9:	// CGA - Palette Register
 		break;*/
@@ -303,10 +339,16 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		KB_Control = byte;
 		return;
 	case 0x0302:	// dunno at present
+		PDS_HOST_PORTA = byte;
+		printf("PDS_HOST_PORTA <-%02X\n", byte);
+		break;
 	case 0x0304:	// dunno at present
+		PDS_HOST_PORTB = byte;
+		printf("PDS_HOST_PORTB <-%02X\n", byte);
+		break;
 	case 0x0306:	// dunno at present
-		PDS_COMMS[port - 0x300] = byte;
-		printf("PDS_COMMS? %04X<-%02X\n", port, byte);
+		PDS_HOST_CTRL = byte;
+		printf("PDS_HOST_CTRL <-%02X\n", byte);
 		break;
 	case 0x03D4:	// CGA Index Register
 	{
