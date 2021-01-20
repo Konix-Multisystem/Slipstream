@@ -259,7 +259,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 			static uint8_t last;
 			if (last != ret)
 			{
-				CONSOLE_OUTPUT("HOST_PORTA ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTA, PDS_CLIENT_DATA);
+				printf("HOST_PORTA ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTA, PDS_CLIENT_DATA);
 				last = ret;
 			}
 		}
@@ -277,7 +277,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 			static uint8_t last;
 			if (last != ret)
 			{
-				CONSOLE_OUTPUT("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_COMMS);
+				printf("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_COMMS);
 				last = ret;
 			}
 		}
@@ -1129,6 +1129,8 @@ int PDS_Tick()
 	}
 	return 0;
 }
+
+int LoadBinary(const char* fname, uint32_t address);
 
 void PDS_Start()
 {
