@@ -945,11 +945,17 @@ int dbg_event = 0;
 int bpaddress = 0;
 int DBG_Cpu_Clocks = 0;
 
+#if ENABLE_PDS
 void PDS_Main();
+void PDS_Start();
+int PDS_Tick();
+#endif
 
 int main(int argc,char**argv)
 {
+#if ENABLE_PDS
 	PDS_Main();
+#endif
 	ResetHardware();
 		
 	GenerateGenLock();
@@ -972,9 +978,14 @@ int main(int argc,char**argv)
 		videoMemory[TERMINAL_WINDOW] = (unsigned char*)malloc(640 * 480 * sizeof(unsigned int));
 		memset(videoMemory[TERMINAL_WINDOW], 0, 640 * 480 * sizeof(unsigned int));
 #endif
+
 		KeysIntialise(useJoystick);
 		AudioInitialise(WIDTH*HEIGHT);
 	}
+
+#if ENABLE_PDS
+	PDS_Start();
+#endif
 	//////////////////
 	
 //	doDebugTrapWriteAt=0x088DAA;
@@ -1010,6 +1021,9 @@ int main(int argc,char**argv)
 		uint32_t ttBltDebug;
 		if (!pause)
 		{
+#if ENABLE_PDS
+			PDS_Tick();
+#endif
 #if MEMORY_MAPPED_DEBUGGER
 			if (single || DBG_Cpu_Clocks == 0)			// Hack to allow cycle stepping
 			{
@@ -1033,6 +1047,7 @@ int main(int argc,char**argv)
 			{
 				if (single)
 				{
+					PDS_DebugIt();
 					pause = 1;
 					single = 0;
 				}
@@ -1084,8 +1099,10 @@ int main(int argc,char**argv)
 
 			AudioUpdate(numClocks);
 		}
+
 		if (masterClock>=WIDTH*HEIGHT || pause)
 		{
+
 #if ENABLE_DEBUG
 			if (curSystem==ESS_P89)
 			{

@@ -492,7 +492,7 @@ void FetchRegistersPDS(char* tmp)
 }
 
 
-void DebugIt()
+void PDS_DebugIt()
 {
 	uint32_t address = PDS_GETPHYSICAL_EIP();
 	char blah[65536] = { 0 };
@@ -941,6 +941,9 @@ void DOS_VECTOR_TRAP(uint8_t vector)
 	case 0x08:
 		// Timer intterrupt - gets redirected by pds eventually
 		break;
+	case 0x09:
+		// Keyboard - gets redirected by pds eventually
+		break;
 	case 0x10:
 		VIDEO_Function((PDS_EAX >> 8) & 0xFF);
 		break;
@@ -957,8 +960,6 @@ void DOS_VECTOR_TRAP(uint8_t vector)
 
 
 void RenderVideo();
-
-const int CLOCK_WAIT = 10000;
 
 uint8_t* PSF_FONT = NULL;
 size_t PSF_FONT_Size = 0;
@@ -1054,60 +1055,68 @@ void RenderVideo()
 	}
 }
 
-void PDS_Tick()
+#define CLOCK_WAIT (10000)
+int clksDelay = CLOCK_WAIT;
+int timerDelay = CLOCK_WAIT * 3;
+
+int PDS_Tick()
 {
-	int clksDelay = CLOCK_WAIT;
-	int timerDelay = CLOCK_WAIT*3;
-	while (1)
+	if (PDSpause)
 	{
-/*		if (PDS_GETPHYSICAL_EIP() == 0x1FC8A)
-			PDSpause = 1;*/
-		if (PDSpause)
-		{
-			DebugIt();
-			getchar();
-		}
-		PDS_STEP();
-		clksDelay--;
-		timerDelay--;
-		if (timerDelay == 0)
-		{
-			timerDelay = CLOCK_WAIT*3;
-			PDS_INTERRUPT(0x08);
-		}
-		if (clksDelay == 0)
-		{
-			clksDelay = CLOCK_WAIT;
-
-			RenderVideo();
-
-			VideoUpdate(0);
-			VideoWait(0.02f);
-
-
-
-			if (PDS_keyBufferRead != PDS_keyBufferWrite)
-			{
-				PDS_INTERRUPT(0x09);
-			}
-		}
+		PDS_DebugIt();
+		getchar();
 	}
+	PDS_STEP();
+	clksDelay--;
+	timerDelay--;
+	if (PDS_keyBufferRead != PDS_keyBufferWrite)
+	{
+		PDS_INTERRUPT(0x09);
+	}
+	if (timerDelay == 0)
+	{
+		timerDelay = CLOCK_WAIT * 3;
+		PDS_INTERRUPT(0x08);
+	}
+	if (clksDelay == 0)
+	{
+		clksDelay = CLOCK_WAIT;
+
+		RenderVideo();
+		return 1;
+	}
+	return 0;
 }
 
-
-void PDS_Main()
+void PDS_Start()
 {
-	VideoInitialise();
 	PDS_WINDOW = VideoCreate(640, 200, 2, 4, 1, 1, "PDS", 0);
 	videoMemory[PDS_WINDOW] = (unsigned char*)malloc(640*200*sizeof(unsigned int));
 	PDS_Keys();
 
 	PSF_Load("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\BM.PSF");		//Extracted from IBM-EGA8x8.FON from old school font pack
 
-	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
+	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
+	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
 	PDS_Setup();
-	PDS_Tick();
+}
+
+// Standalone
+void PDS_Main()
+{
+	return;
+	VideoInitialise();
+	PDS_Start();
+
+	while (1)
+	{
+		if (PDS_Tick())
+		{
+			VideoUpdate(0);
+			VideoWait(0.02f);
+		}
+	}
 }
 
 
