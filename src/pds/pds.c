@@ -138,6 +138,7 @@ uint8_t PDS_Ram[1 * 1024 * 1024 + 65536];
 uint8_t PDS_HOST_CTRL;
 uint8_t PDS_HOST_PORTA;
 uint8_t PDS_HOST_PORTB;
+uint8_t PDS_HOST_PORTC;
 extern uint8_t PDS_CLIENT_DATA;
 extern uint8_t PDS_CLIENT_COMMS;
 extern uint8_t PDS_CLIENT_CTRLA;
@@ -246,14 +247,14 @@ uint8_t PDS_GetPortB(uint16_t port)
 			printf("PIT Mode - %02X  (counter %s | %s | mode %s | %s)\n", byte, counters[byte >> 6], latch[(byte >> 4) & 0x3], mode[(byte >> 1) & 0x7], type[byte & 1]);
 		}
 		break;*/
-	case 0x0302:	// dunno at present
-		if (PDS_HOST_CTRL & 0x10)
+	/*case 0x0300:	
+		if (PDS_HOST_CTRL & 0x01)
 		{
-			ret = PDS_HOST_PORTA;
+			ret = PDS_CLIENT_DATA;
 		}
 		else
 		{
-			ret = PDS_CLIENT_DATA;
+			ret = PDS_HOST_PORTA;
 		}
 		{
 			static uint8_t last;
@@ -263,21 +264,45 @@ uint8_t PDS_GetPortB(uint16_t port)
 				last = ret;
 			}
 		}
-		break;
-	case 0x0304:	// dunno at present
+		break;*/
+	case 0x0302:	// dunno at present
 		if (PDS_HOST_CTRL & 0x02)
 		{
-			ret = PDS_HOST_PORTB;
+			ret = PDS_CLIENT_DATA;
 		}
 		else
 		{
-			ret = PDS_CLIENT_COMMS;
+			ret = PDS_HOST_PORTB;
 		}
 		{
 			static uint8_t last;
 			if (last != ret)
 			{
-				printf("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_COMMS);
+				printf("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_DATA);
+				last = ret;
+			}
+		}
+		break;
+	case 0x0304:	// dunno at present
+		{
+			uint8_t portCMask = 0;
+			if (PDS_HOST_CTRL & 0x01)
+				portCMask |= 0x0F;
+			if (PDS_HOST_CTRL & 0x08)
+				portCMask |= 0xF0;
+
+			ret = PDS_CLIENT_COMMS & portCMask;
+			ret |= PDS_HOST_PORTC & (~portCMask);
+
+			// From PDS_CLIENT_COMMS   B7->C4		B5->C2 (controlled by?)
+
+			ret &= 0xEF;
+			ret |= (PDS_CLIENT_COMMS & 0x80)>>3;
+
+			static uint8_t last;
+			if (last != ret)
+			{
+				printf("HOST_PORTC ->%02X    %02X %02X %02X\n", ret, portCMask, PDS_HOST_PORTC, PDS_CLIENT_COMMS);
 				last = ret;
 			}
 		}
@@ -338,15 +363,15 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		}
 		KB_Control = byte;
 		return;
-	case 0x0302:	// dunno at present
-		PDS_HOST_PORTA = byte;
-		printf("PDS_HOST_PORTA <-%02X\n", byte);
-		break;
-	case 0x0304:	// dunno at present
+	case 0x0302:	// PDS Port A
 		PDS_HOST_PORTB = byte;
 		printf("PDS_HOST_PORTB <-%02X\n", byte);
 		break;
-	case 0x0306:	// dunno at present
+	case 0x0304:	// PDS Port B
+		PDS_HOST_PORTC = byte;
+		printf("PDS_HOST_PORTC <-%02X\n", byte);
+		break;
+	case 0x0306:	// PDS Port C
 		PDS_HOST_CTRL = byte;
 		printf("PDS_HOST_CTRL <-%02X\n", byte);
 		break;
@@ -1112,8 +1137,9 @@ void RenderVideo()
 }
 
 #define CLOCK_WAIT (10000)
+#define TIMER_DELAY (10000*3)
 int clksDelay = CLOCK_WAIT;
-int timerDelay = CLOCK_WAIT * 3;
+int timerDelay = TIMER_DELAY;
 
 int PDS_Tick()
 {
@@ -1125,17 +1151,17 @@ int PDS_Tick()
 	PDS_STEP();
 	clksDelay--;
 	timerDelay--;
-	if (PDS_keyBufferRead != PDS_keyBufferWrite)
-	{
-		PDS_INTERRUPT(0x09);
-	}
 	if (timerDelay == 0)
 	{
-		timerDelay = CLOCK_WAIT * 3;
+		timerDelay = TIMER_DELAY;
 		PDS_INTERRUPT(0x08);
 	}
 	if (clksDelay == 0)
 	{
+		if (PDS_keyBufferRead != PDS_keyBufferWrite)
+		{
+			PDS_INTERRUPT(0x09);
+		}
 		clksDelay = CLOCK_WAIT;
 
 		RenderVideo();

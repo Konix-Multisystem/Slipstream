@@ -543,13 +543,13 @@ extern uint16_t	ASIC_CP1_MODE;
 extern uint16_t	ASIC_CP1_MODE2;
 extern uint8_t GENLockTestingImage[256 * 256 * 3];		// 8:8:8 RGB
 
-extern uint8_t PDS_HOST_PORTA;
 extern uint8_t PDS_HOST_PORTB;
+extern uint8_t PDS_HOST_PORTC;
 
 uint8_t PDS_CLIENT_DATA;
 uint8_t PDS_CLIENT_COMMS;
 uint8_t PDS_CLIENT_CTRL_MODE[2];
-uint8_t PDS_CLIENT_CTRL_DBL[2];
+uint8_t PDS_CLIENT_CTRL_DBL[2] = { 0, 0 };
 
 void PDS_SetControl(int number, uint8_t value)
 {
@@ -725,11 +725,11 @@ uint8_t GetPortB(uint16_t port)
 		case 0x0080:
 		{
 			static uint8_t last;
-			uint8_t ret = PDS_HOST_PORTA & PDS_CLIENT_CTRL_MODE[0];
+			uint8_t ret = PDS_HOST_PORTB & PDS_CLIENT_CTRL_MODE[0];
 			ret |= PDS_CLIENT_DATA & (~PDS_CLIENT_CTRL_MODE[0]);
 			if (last != ret)
 			{
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[0], PDS_HOST_PORTA, PDS_CLIENT_DATA);
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[0], PDS_HOST_PORTB, PDS_CLIENT_DATA);
 				last = ret;
 			}
 			return ret;
@@ -737,11 +737,13 @@ uint8_t GetPortB(uint16_t port)
 		case 0x0081:
 		{
 			static uint8_t last;
-			uint8_t ret = PDS_HOST_PORTB & PDS_CLIENT_CTRL_MODE[1];
+			uint8_t ret = PDS_HOST_PORTC & PDS_CLIENT_CTRL_MODE[1];
 			ret |= PDS_CLIENT_COMMS & (~PDS_CLIENT_CTRL_MODE[1]);
+			ret &= 0xFE;
+			ret |= PDS_HOST_PORTC & 0x01;
 			if (last != ret)
 			{
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[1], PDS_HOST_PORTB, PDS_CLIENT_COMMS);
+				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[1], PDS_HOST_PORTC, PDS_CLIENT_COMMS);
 				last = ret;
 			}
 			return ret;
