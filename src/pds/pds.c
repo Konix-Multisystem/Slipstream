@@ -247,8 +247,8 @@ uint8_t PDS_GetPortB(uint16_t port)
 			printf("PIT Mode - %02X  (counter %s | %s | mode %s | %s)\n", byte, counters[byte >> 6], latch[(byte >> 4) & 0x3], mode[(byte >> 1) & 0x7], type[byte & 1]);
 		}
 		break;*/
-	/*case 0x0300:	
-		if (PDS_HOST_CTRL & 0x01)
+	case 0x0300:	
+		if (PDS_HOST_CTRL & 0x10)
 		{
 			ret = PDS_CLIENT_DATA;
 		}
@@ -256,15 +256,7 @@ uint8_t PDS_GetPortB(uint16_t port)
 		{
 			ret = PDS_HOST_PORTA;
 		}
-		{
-			static uint8_t last;
-			if (last != ret)
-			{
-				printf("HOST_PORTA ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTA, PDS_CLIENT_DATA);
-				last = ret;
-			}
-		}
-		break;*/
+		break;
 	case 0x0302:	// dunno at present
 		if (PDS_HOST_CTRL & 0x02)
 		{
@@ -274,37 +266,13 @@ uint8_t PDS_GetPortB(uint16_t port)
 		{
 			ret = PDS_HOST_PORTB;
 		}
-		{
-			static uint8_t last;
-			if (last != ret)
-			{
-				printf("HOST_PORTB ->%02X    %02X %02X %02X\n", ret, PDS_HOST_CTRL, PDS_HOST_PORTB, PDS_CLIENT_DATA);
-				last = ret;
-			}
-		}
 		break;
-	case 0x0304:	// dunno at present
+	case 0x0304:	// PortC
 		{
-			uint8_t portCMask = 0;
-			if (PDS_HOST_CTRL & 0x01)
-				portCMask |= 0x0F;
-			if (PDS_HOST_CTRL & 0x08)
-				portCMask |= 0xF0;
-
-			ret = PDS_CLIENT_COMMS & portCMask;
-			ret |= PDS_HOST_PORTC & (~portCMask);
-
-			// From PDS_CLIENT_COMMS   B7->C4		B5->C2 (controlled by?)
+			ret = PDS_HOST_PORTC;
 
 			ret &= 0xEF;
 			ret |= (PDS_CLIENT_COMMS & 0x80)>>3;
-
-			static uint8_t last;
-			if (last != ret)
-			{
-				printf("HOST_PORTC ->%02X    %02X %02X %02X\n", ret, portCMask, PDS_HOST_PORTC, PDS_CLIENT_COMMS);
-				last = ret;
-			}
 		}
 		break;
 	/*case 0x03D9:	// CGA - Palette Register
@@ -363,17 +331,14 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		}
 		KB_Control = byte;
 		return;
-	case 0x0302:	// PDS Port A
+	case 0x0302:	// PDS Port B
 		PDS_HOST_PORTB = byte;
-		printf("PDS_HOST_PORTB <-%02X\n", byte);
 		break;
-	case 0x0304:	// PDS Port B
+	case 0x0304:	// PDS Port C
 		PDS_HOST_PORTC = byte;
-		printf("PDS_HOST_PORTC <-%02X\n", byte);
 		break;
-	case 0x0306:	// PDS Port C
+	case 0x0306:	// PDS CTRL
 		PDS_HOST_CTRL = byte;
-		printf("PDS_HOST_CTRL <-%02X\n", byte);
 		break;
 	case 0x03D4:	// CGA Index Register
 	{

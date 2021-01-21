@@ -727,41 +727,16 @@ uint8_t GetPortB(uint16_t port)
 			static uint8_t last;
 			uint8_t ret = PDS_HOST_PORTB & PDS_CLIENT_CTRL_MODE[0];
 			ret |= PDS_CLIENT_DATA & (~PDS_CLIENT_CTRL_MODE[0]);
-			if (last != ret)
-			{
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[0], PDS_HOST_PORTB, PDS_CLIENT_DATA);
-				last = ret;
-			}
 			return ret;
 		}
 		case 0x0081:
 		{
 			static uint8_t last;
-			uint8_t ret = PDS_HOST_PORTC & PDS_CLIENT_CTRL_MODE[1];
-			ret |= PDS_CLIENT_COMMS & (~PDS_CLIENT_CTRL_MODE[1]);
+			uint8_t ret = PDS_CLIENT_COMMS;
 			ret &= 0xFE;
-			ret |= PDS_HOST_PORTC & 0x01;
-			if (last != ret)
-			{
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS ->%02X    %02X %02X %02X\n", ret, PDS_CLIENT_CTRL_MODE[1], PDS_HOST_PORTC, PDS_CLIENT_COMMS);
-				last = ret;
-			}
+			ret |= PDS_HOST_PORTC & 0x01;	// clk bit from host
 			return ret;
 		}
-		/*case 0x0082:
-		{
-			// to determine direction
-			uint8_t ret = PDS_CLIENT_CTRLA;
-			CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLA ->%02X\n", ret);
-			return ret;
-		}
-		case 0x0083:		// PDS
-		{
-			// to determine direction
-			uint8_t ret = PDS_CLIENT_CTRLB;
-			CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLB ->%02X\n", ret);
-			return ret;
-		}*/
 		break;
 		}
 	}
@@ -885,19 +860,15 @@ void SetPortB(uint16_t port,uint8_t byte)
 				break;
 			case 0x0080:
 				PDS_CLIENT_DATA = byte;
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_DATA <- %02X\n", byte);
 				break;
 			case 0x0081:
 				PDS_CLIENT_COMMS = byte;
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_COMMS <- %02X\n", byte);
 				break;
 			case 0x0082:
 				PDS_SetControl(0, byte);
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLA <- %02X\n", byte);
 				break;
 			case 0x0083:
 				PDS_SetControl(1, byte);
-				CONSOLE_OUTPUT("FL1_PDS_CLIENT_CTRLB <- %02X\n", byte);
 				break;
 			default:
 				ASIC_WriteFL1(port,byte,doShowPortStuff);
