@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <memory.h>
+#include <string.h>
 #include <time.h>
 
 #include "GLFW/glfw3.h"
@@ -9,6 +10,13 @@
 #include "../disasm.h"
 #include "../host/video.h"
 #include "pds.h"
+
+#if OS_WINDOWS
+#include "../host/dirent_windows.h"
+#else
+#include <dirent.h>
+#endif
+
 
 /*
  KB STUFF
@@ -130,8 +138,13 @@ int PDSpause = 0;
 const uint32_t exeLoadSegment = 0x1000;
 const uint32_t intRedirectAddress = 0x500;
 
+
+char* RootDisk = NULL;
+
 uint8_t* PDS_EXE = NULL;
 size_t PDS_EXE_Size = 0;
+
+uint32_t DiskTransferAddress = 0xFF80;
 
 uint8_t PDS_Ram[1 * 1024 * 1024 + 65536];
 
@@ -145,7 +158,6 @@ extern uint8_t PDS_CLIENT_CTRLA;
 extern uint8_t PDS_CLIENT_CTRLB;
 
 #if OS_WINDOWS
-void DebugBreak();
 #define DBG_BREAK DebugBreak()
 #else
 #define DBG_BREAK
@@ -165,9 +177,12 @@ uint8_t PDS_GetByte(uint32_t addr)
 		case 0x14:
 		case 0x63:		// Port for CRT
 		case 0x64:
-			break;
 		case 0x17:	// KBD flag byte 0
 		case 0x18:	// KBD flag byte 1
+			break;
+		case 0x85:	// point height of char matrix LSB
+			return 8;
+		case 0x86:	// point height of char matrix MSB
 			return 0;
 		default:
 			printf("BDA Read Access unknown @%04X", addr);
@@ -175,7 +190,7 @@ uint8_t PDS_GetByte(uint32_t addr)
 			break;
 		}
 	}
-	return PDS_Ram[addr];
+	return PDS_Ram[addr&0xFFFFF];
 }
 
 void PDS_SetByte(uint32_t addr,uint8_t byte)
@@ -195,6 +210,9 @@ void PDS_SetByte(uint32_t addr,uint8_t byte)
 	{
 		switch (addr & 0xFF)
 		{
+		case 0x17:	// Kbd Flag
+		case 0x18:
+			break;
 		default:
 			printf("BDA Write Access unknown @%04X", addr);
 			DBG_BREAK;
@@ -309,10 +327,10 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		}
 		break;
 	case 0x0040:	// PIT - counter 0, counter divisor
-		printf("PIT Counter 0 : %02X\n", byte);
+		//printf("PIT Counter 0 : %02X\n", byte);
 		break;
 	case 0x0042:	// PIT - counter 2, casette/speaker (BEEP)
-		printf("PIT Counter 2 : %02X\n", byte);
+		//printf("PIT Counter 2 : %02X\n", byte);
 		break;
 	case 0x0043:	// PIT - Mode Register
 		{
@@ -321,7 +339,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 			const char* mode[8] = { "mode 0 select","one shot","rate generator","square wave","soft strobe","hard strobe","rate generator","square wave" };
 			const char* type[2] = { "binary counter 16 bits","BCD counter" };
 
-			printf("PIT Mode - %02X  (counter %s | %s | mode %s | %s)\n", byte, counters[byte >> 6], latch[(byte >> 4) & 0x3], mode[(byte >> 1) & 0x7], type[byte & 1]);
+			//printf("PIT Mode - %02X  (counter %s | %s | mode %s | %s)\n", byte, counters[byte >> 6], latch[(byte >> 4) & 0x3], mode[(byte >> 1) & 0x7], type[byte & 1]);
 		}
 		break;
 	case 0x0061:	// Kb control
@@ -345,11 +363,11 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		if (byte > 0x11)
 			DBG_BREAK;	// BAD Index
 		CGA_Index = byte;
-		printf("CGA Video Register Index Set : %s\n", CGA_IndexNames[byte]);
+		//printf("CGA Video Register Index Set : %s\n", CGA_IndexNames[byte]);
 		break;
 	}
 	case 0x03D5:	// CGA Data Register
-		printf("CGA Video Register Data Set : %s (%04X)<-%02X\n", CGA_IndexNames[CGA_Index],CGA_Index, byte);
+		//printf("CGA Video Register Data Set : %s (%04X)<-%02X\n", CGA_IndexNames[CGA_Index],CGA_Index, byte);
 		break;
 	case 0x03D9:	// CGA - Palette Register
 		break;
@@ -442,6 +460,7 @@ int PDS_LoadEXE(const char* filename)
 	return 0;
 }
 
+
 struct DOSMZ
 {
 	uint16_t sig;
@@ -505,22 +524,60 @@ struct GCC_PACK DOSPSP
 };
 MSVC_PACK_END;
 
+MSVC_PACK_BEGIN;
+struct GCC_PACK DTA
+{
+	uint8_t		attributeOfSearch;					// 00
+	uint8_t		driveUsedInSearch;					// 01
+	uint8_t		searchName[11];						// 02
+	uint16_t	directoryEntryNumber;				// 0D
+	uint16_t	startingDirectoryClusterNumberV3;	// 0F
+	uint16_t	reserved;							// 11
+	uint16_t	startingDirectoryClusterNumberV2;	// 13
+	uint8_t		attributeOfMatchingFile;			// 15
+	uint16_t	fileTime;							// 16
+	uint16_t	fileDate;							// 18
+	uint32_t	fileSize;							// 1A
+	uint8_t		filenameFound[13];					// 1E
+};
+MSVC_PACK_END;
+
 void FetchRegistersPDS(char* tmp)
 {
-	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
-			PDS_EFLAGS&0x800 ? "1" : "0",
-			PDS_EFLAGS&0x400 ? "1" : "0",
-			PDS_EFLAGS&0x200 ? "1" : "0",
-			PDS_EFLAGS&0x100 ? "1" : "0",
-			PDS_EFLAGS&0x080 ? "1" : "0",
-			PDS_EFLAGS&0x040 ? "1" : "0",
-			PDS_EFLAGS&0x020 ? "1" : "0",
-			PDS_EFLAGS&0x010 ? "1" : "0",
-			PDS_EFLAGS&0x008 ? "1" : "0",
-			PDS_EFLAGS&0x004 ? "1" : "0",
-			PDS_EFLAGS&0x002 ? "1" : "0",
-			PDS_EFLAGS&0x001 ? "1" : "0",
-			PDS_EAX&0xFFFF,PDS_EBX&0xFFFF,PDS_ECX&0xFFFF,PDS_EDX&0xFFFF,PDS_ESP&0xFFFF,PDS_EBP&0xFFFF,PDS_ESI&0xFFFF,PDS_EDI&0xFFFF,PDS_CS,PDS_DS,PDS_ES,PDS_SS);
+	if (1)
+	{
+		sprintf(tmp, "--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nEAX= %08X\nEBX= %08X\nECX= %08X\nEDX= %08X\nESP= %08X\nEBP= %08X\nESI= %08X\nEDI= %08X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\nFS= %04X\nGS= %04X\n\nEIP= %08X\n\nCR0= %08X\nDR7= %08X\n--------\n",
+			PDS_EFLAGS & 0x800 ? "1" : "0",
+			PDS_EFLAGS & 0x400 ? "1" : "0",
+			PDS_EFLAGS & 0x200 ? "1" : "0",
+			PDS_EFLAGS & 0x100 ? "1" : "0",
+			PDS_EFLAGS & 0x080 ? "1" : "0",
+			PDS_EFLAGS & 0x040 ? "1" : "0",
+			PDS_EFLAGS & 0x020 ? "1" : "0",
+			PDS_EFLAGS & 0x010 ? "1" : "0",
+			PDS_EFLAGS & 0x008 ? "1" : "0",
+			PDS_EFLAGS & 0x004 ? "1" : "0",
+			PDS_EFLAGS & 0x002 ? "1" : "0",
+			PDS_EFLAGS & 0x001 ? "1" : "0",
+			PDS_EAX, PDS_EBX, PDS_ECX, PDS_EDX, PDS_ESP, PDS_EBP, PDS_ESI, PDS_EDI, PDS_CS, PDS_DS, PDS_ES, PDS_SS, PDS_FS, PDS_GS, PDS_EIP, PDS_CR0, PDS_DR7);
+	}
+	else
+	{
+		sprintf(tmp, "--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",
+			PDS_EFLAGS & 0x800 ? "1" : "0",
+			PDS_EFLAGS & 0x400 ? "1" : "0",
+			PDS_EFLAGS & 0x200 ? "1" : "0",
+			PDS_EFLAGS & 0x100 ? "1" : "0",
+			PDS_EFLAGS & 0x080 ? "1" : "0",
+			PDS_EFLAGS & 0x040 ? "1" : "0",
+			PDS_EFLAGS & 0x020 ? "1" : "0",
+			PDS_EFLAGS & 0x010 ? "1" : "0",
+			PDS_EFLAGS & 0x008 ? "1" : "0",
+			PDS_EFLAGS & 0x004 ? "1" : "0",
+			PDS_EFLAGS & 0x002 ? "1" : "0",
+			PDS_EFLAGS & 0x001 ? "1" : "0",
+			PDS_EAX & 0xFFFF, PDS_EBX & 0xFFFF, PDS_ECX & 0xFFFF, PDS_EDX & 0xFFFF, PDS_ESP & 0xFFFF, PDS_EBP & 0xFFFF, PDS_ESI & 0xFFFF, PDS_EDI & 0xFFFF, PDS_CS, PDS_DS, PDS_ES, PDS_SS);
+	}
 }
 
 unsigned int FetchOneDisassemblePDS(char* tmp, uint32_t address)
@@ -582,12 +639,12 @@ void PDS_DebugIt()
 	printf("%s",blah);
 	blah[0] = 0;
 
-	FetchDisassemblePDS(blah);
+	FetchOneDisassemblePDS(blah, PDS_GETPHYSICAL_EIP());
 	printf("%s",blah);
 }
 
 
-void PDS_Setup()
+void PDS_Setup(const char* commandLine)
 {
 	PDS_RESET();
 	// Process the exe 
@@ -649,7 +706,8 @@ void PDS_Setup()
 	psp->dosFuncDispatch[1] = 0x21;
 	psp->dosFuncDispatch[2] = 0xCB;		// retf
 	psp->numCharactersAfterProgram = 1;
-	psp->commandLine[0] = 0x0D;
+	strcpy(psp->commandLine, commandLine);
+	strcat(psp->commandLine, "\n");
 
 	// Setup initial registers
 	PDS_CS = exeLoadSegment + header->initialCS;
@@ -686,6 +744,8 @@ void PDS_Setup()
 	*BDA = 0x3BF;				// Base Port for LPT1
 	BDA = (uint16_t*) (PDS_Ram + 0x410);
 	*BDA = 0x422C;				// 1 drive 80x25 color initial mode 11 (64k normal or mouse and unused), 1 parallel, 1 serial
+	BDA = (uint16_t*) (PDS_Ram + 0x417);
+	*BDA = 0x0000;				// kbd flag bytees
 }
 
 enum FCBOffset
@@ -707,6 +767,8 @@ uint8_t GetFCBByte(uint32_t fcbAddress, enum FCBOffset offset)
 {
 	if (PDS_Ram[fcbAddress] == 0xFF)
 		return PDS_Ram[fcbAddress + 7 + offset];
+	if (offset < 0)
+		return 0;	// only applies to attribute basically
 	return PDS_Ram[fcbAddress + offset];
 }
 
@@ -816,15 +878,244 @@ void SYSTEM_Values(uint8_t functionNumber)
 }
 
 
+/*
+	|7|6|5|4|3|2|1|0| Directory Attribute Flags
+	 | | | | | | | `--- 1 = read only
+	 | | | | | | `---- 1 = hidden
+	 | | | | | `----- 1 = system
+	 | | | | `------ 1 = volume label  (exclusive)
+	 | | | `------- 1 = subdirectory
+	 | | `-------- 1 = archive
+	 `----------- unused
+	 */
+
+#define MAX_EMU_HANDLES	(16)
+FILE* handles[MAX_EMU_HANDLES] = { 0 };
+
+int PDS_FileOpen(const char* filename, uint8_t kind)
+{
+	char path[2048];
+	struct DTA* dta = &PDS_Ram[DiskTransferAddress];
+	struct stat status;
+	int statusOk;
+		
+	printf("Open File : '%s'  %s (%02X)\n", filename, (kind&3) == 0 ? "for read" : ((kind&3) == 1 ? "for write" : "read/write"), kind);
+
+	if (filename[0] == 'A' && filename[1] == ':' && filename[2] == '\\')
+		filename += 3;
+	else if (filename[0] == 'A' && filename[1] == ':')
+		filename += 2;
+
+	if (strnicmp(filename, "D:\\PDS\\WORK\\", 12) == 0)
+		filename += 12;
+	if (strnicmp(filename, "\\PDS\\WORK\\", 10) == 0)
+		filename += 10;
+
+	sprintf(path, "%s%s", RootDisk, filename);
+
+	int a = 2;
+	for (; a < MAX_EMU_HANDLES; a++)
+	{
+		if (handles[a] == NULL)
+			break;
+	}
+
+	if (a >= MAX_EMU_HANDLES)
+		return -TooManyOpenFiles;
+
+	handles[a] = fopen(path, "rb");
+	if (handles[a])
+		return a;
+
+	return -FileNotFound;
+}
+
+int PDS_CloseHandle(uint16_t handle)
+{
+	printf("Close File : %04X\n", handle);
+
+	if (handle > MAX_EMU_HANDLES || handles[handle] == NULL)
+	{
+		return -InvalidHandle;
+	}
+	fclose(handles[handle]);
+	handles[handle] = NULL;
+	return 0;
+}
+
+int PDS_FileRead(uint32_t destination, uint16_t size, uint16_t handle)
+{
+	printf("Read File : %04X  (%04X) to (%08X)\n", handle, size, destination);
+	if (handle > MAX_EMU_HANDLES || handles[handle] == NULL)
+	{
+		return -InvalidHandle;
+	}
+
+	int read = 0;
+	while (size > 0)
+	{
+		uint8_t b;
+		if (1 != fread(&b, 1, 1, handles[handle]))
+		{
+			return read;
+		}
+		PDS_SetByte(destination++, b);
+		size--;
+		read++;
+	}
+	return read;
+}
+
+int PDS_GetFileDateTime(uint16_t* time, uint16_t* date, uint16_t handle)
+{
+	printf("Get File Data Time: %04X\n", handle);
+	struct stat status;
+	struct tm* t;
+
+	if (handle > MAX_EMU_HANDLES || handles[handle] == NULL)
+	{
+		return -InvalidHandle;
+	}
+
+	int fd = fileno(handles[handle]);
+	if (fstat(fd, &status) != 0)
+		return -FileNotFound;
+
+	t = localtime(&status.st_mtime);
+	*date = ((1993 - 1980) << 9) | ((t->tm_mon + 1) << 5) | ((t->tm_mday) << 0);
+	*time = ((t->tm_hour) << 11) | ((t->tm_min) << 5) | (t->tm_sec & 0x1E);
+
+	return 0;
+}
+
+int PDS_FileSeek(uint8_t origin, uint16_t numHi, uint16_t numLo, uint16_t handle)
+{
+	printf("Seek File : %04X  (%04X%04X) (%02X)\n", handle, numHi,numLo, origin);
+	struct stat status;
+	struct tm* t;
+
+	if (handle > MAX_EMU_HANDLES || handles[handle] == NULL)
+	{
+		return -InvalidHandle;
+	}
+
+	int seekOrigin = SEEK_SET;
+	if (origin == 1)
+		seekOrigin = SEEK_CUR;
+	if (origin == 2)
+		seekOrigin = SEEK_END;
+
+	int move = (numHi << 16) + numLo;
+	if (fseek(handles[handle], move, seekOrigin) != 0)
+		return -FileNotFound;
+	long result = ftell(handles[handle]);
+	if (result < 0)
+		return -FileNotFound;
+
+	return result & 0xFFFFFFFF;
+}
+
+void CreateFXCBFromEntry(uint8_t searchAttr, const char* searchName, struct dirent* entry)
+{
+	char path[2048];
+	struct DTA* dta = &PDS_Ram[DiskTransferAddress];
+	struct stat status;
+	int statusOk;
+
+	sprintf(path, "%s%s", RootDisk, entry->d_name);
+	statusOk = stat(path, &status);
+
+	dta->attributeOfMatchingFile = 0;
+	if (entry->d_type == DT_DIR)
+		dta->attributeOfMatchingFile = 0x10;
+	dta->attributeOfSearch = searchAttr;
+	dta->directoryEntryNumber = 0;
+	dta->driveUsedInSearch = 0;
+	strncpy(dta->searchName, searchName, 11);
+	strncpy(dta->filenameFound, entry->d_name, 13);
+	if (statusOk == 0)
+	{
+		struct tm* t;
+		t = localtime(&status.st_mtime);
+		dta->fileDate = ((1993 - 1980) << 9) | ((t->tm_mon+1) << 5) | ((t->tm_mday) << 0);
+		dta->fileTime = ((t->tm_hour) << 11) | ((t->tm_min) << 5) | (t->tm_sec & 0x1E);
+		dta->fileSize = status.st_size;
+	}
+	else
+	{
+		dta->fileDate = ((1993 - 1980) << 9) | ((1) << 5) | ((1) << 0);
+		dta->fileTime = ((10) << 11) | ((30) << 5) | (30);
+		dta->fileSize = 0;
+	}
+	dta->startingDirectoryClusterNumberV2 = 0;
+	dta->startingDirectoryClusterNumberV3 = 0;
+
+}
+
+DIR* search = NULL;
+
+int IsMatch(const char* searchName, const char* filename)
+{
+	if (strcmp(searchName, "???????????") == 0)
+		return 1;
+
+	if (searchName[0] == 0)
+		return 1;
+
+	DBG_BREAK;
+	return 0;
+}
+
+uint8_t ContinueSearch(uint8_t searchAttribute, const char* filename)
+{
+	if (search)
+	{
+		// Get first entry
+		struct dirent* entry;
+		while (entry = readdir(search))
+		{
+			if (entry)
+			{
+				if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+					continue;
+
+				if ((entry->d_type == DT_DIR) && (searchAttribute & 0x10) == 0)
+					continue;
+
+				if (IsMatch(filename, entry->d_name))
+				{
+					CreateFXCBFromEntry(searchAttribute, filename, entry);
+					return 0;
+				}
+			}
+		}
+	}
+	search = NULL;
+	return 0xFF;
+}
+
+uint8_t StartSearch(uint8_t searchAttribute, const char* filename)
+{
+	search = opendir(RootDisk);
+
+	return ContinueSearch(searchAttribute, filename);
+}
+
+
 void DOS_Function(uint8_t functionNumber)
 {
 	uint8_t AL = PDS_EAX & 0xFF;
 	uint16_t DS = PDS_DS;
+	uint16_t ES = PDS_ES;
+	uint16_t BX = PDS_EBX & 0xFFFF;
+	uint16_t CX = PDS_ECX & 0xFFFF;
 	uint16_t DX = PDS_EDX & 0xFFFF;
 	uint8_t DL = PDS_EDX & 0xFF;
 	uint16_t SI = PDS_ESI & 0xFFFF;
+	uint16_t DI = PDS_EDI & 0xFFFF;
 	uint32_t addrDSDX = DS * 16 + DX;
 	uint32_t addrDSSI = DS * 16 + SI;
+	uint32_t addrESDI = ES * 16 + DI;
 	switch (functionNumber)
 	{
 	case 0x09:		// Print String
@@ -842,14 +1133,22 @@ void DOS_Function(uint8_t functionNumber)
 		PDS_EAX |= 0x01;		// one drive installed
 		break;
 	case 0x11:		// Search for first entry using FCB
-		printf("Search : Drive %d Filename %s\n", GetFCBByte(addrDSDX, DriveNumber), GetFCBFilename(addrDSDX));
+		printf("Start Search : Drive %d Filename '%s'\n", GetFCBByte(addrDSDX, DriveNumber), GetFCBFilename(addrDSDX));
 		//for now return 0
-		PDS_EAX |= 0x00FF;		// nothing found
+		PDS_EAX &= 0xFF00;
+		PDS_EAX = StartSearch(GetFCBByte(addrDSDX, FileAttributeExt), GetFCBFilename(addrDSDX));
+		break;
+	case 0x12:		// Find next?
+		printf("Continue Search : Drive %d Filename '%s'\n", GetFCBByte(addrDSDX, DriveNumber), GetFCBFilename(addrDSDX));
+		//for now return 0
+		PDS_EAX &= 0xFF00;
+		PDS_EAX = ContinueSearch(GetFCBByte(addrDSDX, FileAttributeExt), GetFCBFilename(addrDSDX));
 		break;
 	case 0x19:		// Get Current Default Drive Number
 		PDS_EAX &= 0xFF00;	// drive = 0 (A)
 		break;
 	case 0x1A:		// Set Disk Transfer Address
+		DiskTransferAddress = addrDSDX;
 		printf("DTA : %08X\n", addrDSDX);
 		break;
 	case 0x25:		// Set Interrupt Vector
@@ -908,8 +1207,8 @@ void DOS_Function(uint8_t functionNumber)
 		}
 		break;
 	case 0x3B:		// Change current directory
-		printf("CHDIR : %s\n", &PDS_Ram[addrDSDX]);
-		if (strncmp(&PDS_Ram[addrDSDX], "A:\\", 3) == 0)
+		printf("CHDIR : '%s'\n", &PDS_Ram[addrDSDX]);
+		if (strncmp(&PDS_Ram[addrDSDX], "A:\\", 3) == 0 || PDS_Ram[addrDSDX]==0)
 		{
 			ClearCarry();
 		}
@@ -920,28 +1219,133 @@ void DOS_Function(uint8_t functionNumber)
 		}
 		break;
 	case 0x3D:		// Open File return handle
-		printf("Open File : %s  %s (%02X)", &PDS_Ram[addrDSDX], AL == 0 ? "for read" : (AL == 1 ? "for write" : "read/write"), AL);
 		if (AL == 0)
 		{
-			DOSError(FileNotFound);
+			int result = PDS_FileOpen(&PDS_Ram[addrDSDX], 0);
+			if (result < 0)
+				DOSError(-result);
+			else
+			{
+				ClearCarry();
+				PDS_EAX = result;
+			}
 		}
 		else
 		{
+			DBG_BREAK;	// TODO
+
 			ClearCarry();
 			PDS_EAX = 5;		// temporary handle.. we should implement file stuffs
 			PDSpause = 1;
 		}
 		break;
+	case 0x3E:		// Close handle
+	{
+		int result = PDS_CloseHandle(BX);
+		if (result < 0)
+			DOSError(-result);
+		else
+		{
+			ClearCarry();
+		}
+		break;
+	}
+	case 0x3F:		// Read From Handle
+	{
+		int result = PDS_FileRead(addrDSDX, CX, BX);
+		if (result < 0)
+			DOSError(-result);
+		else
+		{
+			ClearCarry();
+			PDS_EAX = result;
+		}
+		break;
+	}
+	case 0x42:
+	{
+		int result = PDS_FileSeek(AL, CX, DX, BX);
+		if (result < 0)
+			DOSError(-result);
+		else
+		{
+			ClearCarry();
+			PDS_EDX = result >> 16;
+			PDS_EAX = result & 0xFFFF;
+		}
+		break;
+	}
 	case 0x44:		// IOCTRL
 		IOCTL(AL);
 		break;
 	case 0x47:		// Get Current Directory
 		ClearCarry();
-		PDS_EAX = 0;	// Error code if carry
+		PDS_EAX = 0x100;
 		PDS_Ram[addrDSSI] = 0;	// A:/
+		break;
+	case 0x4A:			// Modify Allocated Memory Block
+		if (PDS_ES == 0xFF0)
+		{
+			ClearCarry();
+			PDS_EBX = 0x9000;	// allow PDS to realise there is enough ram
+		}
+		else
+		{
+			SetCarry();
+			PDSpause = 1;
+		}
+		break;
+	case 0x4E:		// Find first matching file
+		printf("Start Search : Filename '%s'\n", &PDS_Ram[addrDSDX]);
+		//for now return 0
+		if (0xFF == StartSearch(CX, &PDS_Ram[addrDSDX]))
+		{
+			DOSError(FileNotFound);
+		}
+		else
+		{
+			if (AL == 1)
+			{
+				// Additionally copy the filename back?
+				struct DTA* dta = &PDS_Ram[DiskTransferAddress];
+				strcpy(&PDS_Ram[addrDSDX], dta->filenameFound);
+			}
+			ClearCarry();
+		}
 		break;
 	case 0x54:		// Get Verify Flag
 		PDS_EAX &= 0xFF00;	// verify off
+		break;
+	case 0x57:
+		if (AL == 0)
+		{
+			uint16_t time, date;
+			int result = PDS_GetFileDateTime(&time,&date,BX);
+			if (result < 0)
+				DOSError(-result);
+			else
+			{
+				ClearCarry();
+				PDS_ECX = time;
+				PDS_EDX = date;
+			}
+			break;
+		}
+		else
+		{
+			DBG_BREAK;
+		}
+		break;
+	case 0x60:		// Get Fully Qualified file name
+	{
+		const char* filename = &PDS_Ram[addrDSSI];
+		char* dstBuffer = &PDS_Ram[addrESDI];
+		snprintf(dstBuffer, 127, "A:\\%s", filename);
+		ClearCarry();
+	}
+		break;
+	case 0x62:		// Get PSP address
+		PDS_EBX = 0xFF0;
 		break;
 	default:
 		printf("Unimplemented DOS Function %02X\n", functionNumber);
@@ -950,9 +1354,61 @@ void DOS_Function(uint8_t functionNumber)
 	}
 }
 
+void VIDEO_CONFIG(uint8_t functionNumber)
+{
+	switch (functionNumber)
+	{
+	case 0x10: // Get Video Information
+
+		PDS_EBX = 0x0010;		// colour 64k
+		PDS_ECX = 0xffff;		// features/switch status
+		break;
+	default:
+		printf("Unimplemented VIDEO_CONFIG %02X\n", functionNumber);
+		DBG_BREAK;//unhandled vector
+		break;
+	}
+}
+
+void CHAR_CURRENT_INFO(uint8_t functionNumber)
+{
+	switch (functionNumber)
+	{
+	case 0x00:
+		PDS_ECX = 8;
+		PDS_EDX &= 0xFF00;
+		PDS_EDX |= 7;
+		PDS_ES = 0xB000;
+		PDS_SegBase[2] = PDS_ES * 16;
+		PDS_EBP = 0x0000;
+		break;
+	default:
+		printf("Unimplemented CHAR_CURRENT_INFO %02X\n", functionNumber);
+		DBG_BREAK;//unhandled vector
+		break;
+	}
+}
+
+void CHARACTER_GENERATOR_ROUTINE(uint8_t functionNumber)
+{
+	uint8_t BH = (PDS_EBX >> 8) & 0xFF;
+	switch (functionNumber)
+	{
+	case 0x30:	// Get current character generator information
+		CHAR_CURRENT_INFO(BH);
+		break;
+	default:
+		printf("Unimplemented CHARACTER_GENERATOR_ROUTINE %02X\n", functionNumber);
+		DBG_BREAK;//unhandled vector
+		break;
+	}
+}
+
+
 void VIDEO_Function(uint8_t functionNumber)
 {
 	uint8_t AL = PDS_EAX & 0xFF;
+	uint8_t BL = PDS_EBX & 0xFF;
 	uint16_t DS = PDS_DS;
 	uint16_t DX = PDS_EDX & 0xFFFF;
 
@@ -968,12 +1424,34 @@ void VIDEO_Function(uint8_t functionNumber)
 		break;
 	case 0x01:		// Cursor Kind
 		break;
+	case 0x02:		// Set cursor Pos
+		printf("Set Cursor : %02X,%02X  [page %02X]\n", PDS_EDX & 0xFF, (PDS_EDX >> 8) & 0xFF, (PDS_EBX >> 8) & 0xFF);
+		break;
 	case 0x0F:		// Get current video state
 		PDS_EAX = 0x5003;	// 80 col, mode 3
 		PDS_EBX &= 0xFF;	// page 0
 		break;
+	case 0x11:		// Character Generator Routines
+		CHARACTER_GENERATOR_ROUTINE(AL);
+		break;
+	case 0x12:		// Video System Configuration
+		VIDEO_CONFIG(BL);
+		break;
 	default:
 		printf("Unimplemented VIDEO Function %02X\n", functionNumber);
+		DBG_BREAK;//unhandled vector
+		break;
+	}
+}
+
+void MOUSE_Function(uint8_t functionNumber)
+{
+	switch (functionNumber)
+	{
+	case 0x0000:
+		break;
+	default:
+		printf("Unimplemented MOUSE Function %04X\n", functionNumber);
 		DBG_BREAK;//unhandled vector
 		break;
 	}
@@ -995,6 +1473,9 @@ void DOS_VECTOR_TRAP(uint8_t vector)
 		break;
 	case 0x21:
 		DOS_Function((PDS_EAX >> 8) & 0xFF);
+		break;
+	case 0x33:
+		MOUSE_Function(PDS_EAX & 0xFFFF);
 		break;
 
 	default:
@@ -1148,7 +1629,9 @@ void PDS_Start()
 	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
-	PDS_Setup();
+	PDS_Setup("");// A:\\A.PRJ");
+
+	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/DISK_ROOT_Trans/";
 
 	// Download Alternate Flare 1 rom... (4 bytes at head of image for some reason)
 	LoadBinary("C:\\Users\\savou\\Downloads\\External Contributions\\ST_DISK_Z80_PROGS_FLARE_1\\PDS\\PDS_RO0.P", -4);
