@@ -3576,43 +3576,6 @@ INSTRUCTION	TABLE_LEA	""		leaMod:reg[3]:rm[3]
 		CALL SetWordRegister(reg,EFF);
 	}
 }
-MAPPING LDESMap[1]
-{
-	%0	"ES"	%0;
-	%1	"DS"	%1;
-}
-
-MAPPING ldsReg[1]
-{
-	%0	"ES"	%000;
-	%1	"DS"	%011;
-}
-
-INSTRUCTION	"L%M0 #MODleaRM#"		%1100010:LDESMap
-{
-	DECLARE IR[9]	ALIAS	lds[1]:opcode[8];
-
-	CALL GetImmediateByte()->opcode;
-	LDESMap->lds;
-
-	EXECUTE TABLE_LDES IR;
-}
-
-INSTRUCTION	TABLE_LDES	""		ldsReg:leaMod:regw:rm[3]
-{
-	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
-
-	IF oSize | aSize
-	{
-		DEBUG_TRACE "LDES FAR 32bit mode?";
-		CALL unimplemented(0);
-	}
-
-	CALL CalcEffectiveAddress(leaMod,rm,16)->SEGEA;
-
-	CALL GetEffectiveAddressWord(leaMod,rm,SEGREG,SEG,EFF)->regw;
-	CALL SetSegmentRegister(ldsReg,CALL GetEffectiveAddressWord(leaMod,rm,SEGREG,SEG,EFF+2));
-}
 
 MAPPING operationMapping[6]
 {
@@ -5231,6 +5194,50 @@ INSTRUCTION	FTABLE	"MOV from DRx"	%00100001
 	CALL SetLongRegister(rm,CALL GetDebugRegister(reg));
 
 	4+CYCLES->CYCLES;
+}
+
+FUNCTION LoadFarPointerInstruction segment[3]
+{
+	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
+	DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
+
+	mrm<-CALL GetImmediateByte();
+
+	CALL CalcEffectiveAddress(mod,rm,16)->SEGEA;
+
+	IF oSize
+	{
+		CALL SetLongRegister(reg, CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF));
+		CALL SetSegmentRegister(segment,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+4));
+	}
+	ELSE
+	{
+		CALL SetWordRegister(reg, CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF));
+		CALL SetSegmentRegister(segment,CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2));
+	}
+}
+
+MAPPING loadFar[1]
+{
+	%0	"ES"	%000;
+	%1	"DS"	%011;
+}
+
+INSTRUCTION "L%M0 "			%1100010:loadFar
+{
+	CALL LoadFarPointerInstruction(loadFar);
+}
+
+MAPPING loadFarFTable[3]
+{
+	%010	"SS"	%010;
+	%100	"FS"	%100;
+	%101	"GS"	%101;
+}
+
+INSTRUCTION FTABLE "L%M0 "			%10110:loadFarFTable
+{
+	CALL LoadFarPointerInstruction(loadFarFTable);
 }
 
 INSTRUCTION FTABLE "MOVZX "			%10110110
