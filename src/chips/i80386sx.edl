@@ -2988,15 +2988,46 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte[1]
 
 		IF wrdbyte
 		{
-			DECLARE TMP[16];
-			CALL FetchWordNoOveride(SegES,ES,EDI)->TMP;
-			CALL SubWord(AX,TMP,0);
-			adjust<-2;
+			IF oSize
+			{
+				DECLARE TMP[32];
+				IF aSize
+				{
+					CALL FetchLongNoOveride(SegES,ES,EDI)->TMP;
+				}
+				ELSE
+				{
+					CALL FetchLongNoOveride(SegES,ES,DI)->TMP;
+				}
+				CALL SubLong(EAX,TMP,0);
+				adjust<-4;
+			}
+			ELSE
+			{
+				DECLARE TMP[16];
+				IF aSize
+				{
+					CALL FetchWordNoOveride(SegES,ES,EDI)->TMP;
+				}
+				ELSE
+				{
+					CALL FetchWordNoOveride(SegES,ES,DI)->TMP;
+				}
+				CALL SubWord(AX,TMP,0);
+				adjust<-2;
+			}
 		}
 		ELSE
 		{
 			DECLARE TMP[8];
-			CALL FetchByteNoOveride(SegES,ES,EDI)->TMP;
+			IF aSize
+			{
+				CALL FetchByteNoOveride(SegES,ES,EDI)->TMP;
+			}
+			ELSE
+			{
+				CALL FetchByteNoOveride(SegES,ES,DI)->TMP;
+			}
 			CALL SubByte(AL,TMP,0);
 			adjust<-1;
 		}
@@ -3006,7 +3037,15 @@ INSTRUCTION	"SCAS%M0"		%1010111:wrdbyte[1]
 			adjust<-0-adjust;
 		}
 
-		DI<-DI+adjust;
+		IF aSize
+		{
+			EDI<-EDI+adjust;
+		}
+		ELSE
+		{
+			DI<-DI+adjust;
+		}
+
 		IF (~REPEAT) | (ZF!=REPEATZ)
 		{
 			REPEAT<-0;
