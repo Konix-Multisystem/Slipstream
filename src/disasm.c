@@ -338,6 +338,9 @@ const char* Mnemonics[]= 		{
 						"VMUL",			//77
 						"VADD",			//78
                         "WBINVD",		//79
+						"LSS ",			//80
+						"LFS ",			//81
+						"LGS ",			//82
 					};
 
 const char* grp1Mnemonics[8]=	{
@@ -1088,10 +1091,10 @@ const Table _2byte[NUM_OPS]=	{
 					{25, OF_None, { OM_Illegal } },								//0x0FAF
 					{25, OF_None, { OM_Illegal } },								//0x0FB0
 					{25, OF_None, { OM_Illegal } },								//0x0FB1
-					{25, OF_None, { OM_Illegal } },								//0x0FB2
+					{80, OF_None , { OM_MODRM, OM_Gz, OM_Mp, OM_NoOperands } },	//0x0FB2
 					{25, OF_None, { OM_Illegal } },								//0x0FB3
-					{25, OF_None, { OM_Illegal } },								//0x0FB4
-					{25, OF_None, { OM_Illegal } },								//0x0FB5
+					{81, OF_None , { OM_MODRM, OM_Gz, OM_Mp, OM_NoOperands } },	//0x0FB4
+					{82, OF_None , { OM_MODRM, OM_Gz, OM_Mp, OM_NoOperands } },	//0x0FB5
 					{70, OF_None, { OM_MODRM, OM_Gv, OM_Eb, OM_NoOperands } },				//0x0FB6
 					{70, OF_None, { OM_MODRM, OM_Gv, OM_Ew, OM_NoOperands } },				//0x0FB7
 					{25, OF_None, { OM_Illegal } },								//0x0FB8
