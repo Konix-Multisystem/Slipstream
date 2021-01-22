@@ -2892,31 +2892,61 @@ INSTRUCTION	"STOS%M0"		%1010101:wrdbyte[1]
 
 INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte[1]
 {
-	IF oSize | aSize
-	{
-		DEBUG_TRACE "CALL FAR long mode";
-		CALL unimplemented(0);
-	}
-
 	IF CALL DoRepeat()
 	{
 		DECLARE adjust[16];
 
 		IF wrdbyte
 		{
-			DECLARE TMP[16];
-			DECLARE TMPCMP[16];
-			CALL FetchWord(SegDS,DS,ESI)->TMP;
-			CALL FetchWordNoOveride(SegES,ES,EDI)->TMPCMP;
-			CALL SubWord(TMP,TMPCMP,0);
-			adjust<-2;
+			IF oSize
+			{
+				DECLARE TMP[32];
+				DECLARE TMPCMP[32];
+				IF aSize
+				{
+					CALL FetchLong(SegDS,DS,ESI)->TMP;
+					CALL FetchLongNoOveride(SegES,ES,EDI)->TMPCMP;
+				}
+				ELSE
+				{
+					CALL FetchLong(SegDS,DS,SI)->TMP;
+					CALL FetchLongNoOveride(SegES,ES,DI)->TMPCMP;
+				}
+				CALL SubLong(TMP,TMPCMP,0);
+				adjust<-4;
+			}
+			ELSE
+			{
+				DECLARE TMP[16];
+				DECLARE TMPCMP[16];
+				IF aSize
+				{
+					CALL FetchWord(SegDS,DS,ESI)->TMP;
+					CALL FetchWordNoOveride(SegES,ES,EDI)->TMPCMP;
+				}
+				ELSE
+				{
+					CALL FetchWord(SegDS,DS,SI)->TMP;
+					CALL FetchWordNoOveride(SegES,ES,DI)->TMPCMP;
+				}
+				CALL SubWord(TMP,TMPCMP,0);
+				adjust<-2;
+			}
 		}
 		ELSE
 		{
 			DECLARE TMP[8];
 			DECLARE TMPCMP[8];
-			CALL FetchByte(SegDS,DS,ESI)->TMP;
-			CALL FetchByteNoOveride(SegES,ES,EDI)->TMPCMP;
+			IF aSize
+			{
+				CALL FetchByte(SegDS,DS,ESI)->TMP;
+				CALL FetchByteNoOveride(SegES,ES,EDI)->TMPCMP;
+			}
+			ELSE
+			{
+				CALL FetchByte(SegDS,DS,SI)->TMP;
+				CALL FetchByteNoOveride(SegES,ES,DI)->TMPCMP;
+			}
 			CALL SubByte(TMP,TMPCMP,0);
 			adjust<-1;
 		}
@@ -2926,8 +2956,16 @@ INSTRUCTION	"CMPS%M0"		%1010011:wrdbyte[1]
 			adjust<-0-adjust;
 		}
 
-		SI<-SI+adjust;
-		DI<-DI+adjust;
+		IF aSize
+		{
+			ESI<-ESI+adjust;
+			EDI<-EDI+adjust;
+		}
+		ELSE
+		{
+			SI<-SI+adjust;
+			DI<-DI+adjust;
+		}
 		IF (~REPEAT) | (ZF!=REPEATZ)
 		{
 			REPEAT<-0;
