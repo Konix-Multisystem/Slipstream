@@ -1240,7 +1240,15 @@ FUNCTION INTERNAL	val[16]	GetSegmentRegister		reg[3]		## Because we can't look u
 	{
 		DS->val;
 	}
-	IF reg>%011
+	IF reg==%100
+	{
+		FS->val;
+	}
+	IF reg==%101
+	{
+		GS->val;
+	}
+	IF reg>%101
 	{
 		DEBUG_TRACE "GetSeg ",reg;
 		CALL unimplemented(0);
