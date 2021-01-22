@@ -3084,18 +3084,22 @@ INSTRUCTION	"CALL #16DISP#"		%11101000
 
 INSTRUCTION	"CALL #FAR#"		%10011010
 {
-	IF oSize | aSize
-	{
-		DEBUG_TRACE "CALL FAR long mode";
-		CALL unimplemented(0);
-	}
-
-	DECLARE offset[16];
 	DECLARE segment[16];
-	offset<-CALL GetImmediateWord();
-	segment<-CALL GetImmediateWord();
-	CALL PushWord(CS);
-	CALL PushWord(EIP);
+	DECLARE offset[32];
+	IF oSize
+	{
+		offset<-CALL GetImmediateLong();
+		segment<-CALL GetImmediateWord();
+		CALL PushLong(CS);
+		CALL PushLong(EIP);
+	}
+	ELSE
+	{
+		offset<-CALL GetImmediateWord();
+		segment<-CALL GetImmediateWord();
+		CALL PushWord(CS);
+		CALL PushWord(EIP);
+	}
 	CS<-segment;
 	EIP<-offset;
 	CALL SetSegByDescriptor(SegCS,CS);
