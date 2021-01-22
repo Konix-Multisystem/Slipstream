@@ -1192,7 +1192,7 @@ FUNCTION INTERNAL	SetSegmentRegister		reg[3],val[16]		## Because we can't look u
 	IF reg==%001
 	{
 		DEBUG_TRACE "Illegal SetRegCS";
-		CALL unimplemented(0);
+		CALL Exception(6);
 	}
 	IF reg==%010
 	{
