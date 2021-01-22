@@ -5007,19 +5007,23 @@ INSTRUCTION	TABLE_OP_MOD	"CALL FAR #MODnnnRM#"	mod[2]:%011:rm[3]
 {
 	DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
 
-	IF oSize | aSize
-	{
-		DEBUG_TRACE "CALL FAR 32bit mode?";
-		CALL unimplemented(0);
-	}
-
 	CALL CalcEffectiveAddress(mod,rm,0)->SEGEA;
 	37+CYCLES->CYCLES;
 
-	CALL PushWord(CS);
-	CALL PushWord(EIP);
-	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
-	CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
+	IF oSize
+	{
+		CALL PushLong(CS);
+		CALL PushLong(EIP);
+		CALL GetEffectiveAddressLong(mod,rm,SEGREG,SEG,EFF)->EIP;
+		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+4)->CS;
+	}
+	ELSE
+	{
+		CALL PushWord(CS);
+		CALL PushWord(EIP);
+		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF)->IP;
+		CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF+2)->CS;
+	}
 
 	CALL SetSegByDescriptor(SegCS,CS);
 }
