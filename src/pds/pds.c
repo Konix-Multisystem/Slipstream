@@ -893,6 +893,12 @@ void SYSTEM_Values(uint8_t functionNumber)
 #define MAX_EMU_HANDLES	(16)
 FILE* handles[MAX_EMU_HANDLES] = { 0 };
 
+#if OS_WINDOWS
+#define NCASE_CMP	strnicmp
+#else
+#define NCASE_CMP	strncasecmp
+#endif
+
 int PDS_FileOpen(const char* filename, uint8_t kind)
 {
 	char path[2048];
@@ -907,9 +913,9 @@ int PDS_FileOpen(const char* filename, uint8_t kind)
 	else if (filename[0] == 'A' && filename[1] == ':')
 		filename += 2;
 
-	if (strnicmp(filename, "D:\\PDS\\WORK\\", 12) == 0)
+	if (NCASE_CMP(filename, "D:\\PDS\\WORK\\", 12) == 0)
 		filename += 12;
-	if (strnicmp(filename, "\\PDS\\WORK\\", 10) == 0)
+	if (NCASE_CMP(filename, "\\PDS\\WORK\\", 10) == 0)
 		filename += 10;
 
 	sprintf(path, "%s%s", RootDisk, filename);
