@@ -15,6 +15,7 @@
 #include "../host/dirent_windows.h"
 #else
 #include <dirent.h>
+#include <sys/stat.h>
 #endif
 
 
