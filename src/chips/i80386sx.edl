@@ -3234,8 +3234,16 @@ INSTRUCTION	"RET #IMM16#"		%11000010
 
 INSTRUCTION	"RETF"			%11001011
 {
-	EIP<-CALL PopWord();
-	CS<-CALL PopWord();
+	IF oSize
+	{
+		EIP<-CALL PopLong();
+		CS<-CALL PopLong();
+	}
+	ELSE
+	{
+		EIP<-CALL PopWord();
+		CS<-CALL PopWord();
+	}
 	CALL SetSegByDescriptor(SegCS,CS);
 	18+CYCLES->CYCLES;
 }
