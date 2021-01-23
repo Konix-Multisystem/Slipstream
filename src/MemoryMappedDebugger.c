@@ -239,6 +239,8 @@ uint32_t getZ80LinearAddress()
 
 void FL1_DSP_REGISTERS(char* output);
 void FL1_DSP_DISASSEMBLE(char* output);
+void DSP_REGISTERS(char* output);
+void DSP_DISASSEMBLE(char* output);
 
 #include <stdio.h>>
 
@@ -617,18 +619,23 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 
 
 		// DSP Registers
+#if ENABLE_PDS
+		FetchRegistersPDS(pMapDSPRegisters);
+		FetchDisassemblePDS(pMapDSP);
+#else
 		switch (curSystem)
 		{
 		case ESS_FL1:
-#if ENABLE_PDS
-			FetchRegistersPDS(pMapDSPRegisters);
-			FetchDisassemblePDS(pMapDSP);
-#else
 			FL1_DSP_REGISTERS(pMapDSPRegisters);
 			FL1_DSP_DISASSEMBLE(pMapDSP);
-#endif
+			break;
+		case ESS_P88:
+		case ESS_P89:
+			DSP_REGISTERS(pMapDSPRegisters);
+			DSP_DISASSEMBLE(pMapDSP);
 			break;
 		}
+#endif
 	}
 
 	if (pMapControl[0] != pMapControl[1])
@@ -738,4 +745,284 @@ const char* FL1DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
 	return temporaryBuffer;
 }
 
+// Later DSP models
+
+/*
+extern uint16_t DSP_DEBUG_FETCH(uint32_t reg, uint16_t offset);
+
+void DSP_REGISTERS(char* output)
+{
+	char tmp[1024];
+	sprintf(tmp, "IR               %04X\n", DSP_DEBUG_FETCH(2,0)); strcpy(output, tmp);
+	sprintf(tmp, "NextInstruction  %04X\n", DSP_DEBUG_FETCH(3,0)); strcat(output, tmp);
+	sprintf(tmp, "DataAddress      %04X\n", DSP_DEBUG_FETCH(4,0)); strcat(output, tmp);
+	sprintf(tmp, "PC               %04X\n", DSP_DEBUG_FETCH(5,0)&0x7FF); strcat(output, tmp);
+	sprintf(tmp, "IX               %04X\n", DSP_DEBUG_FETCH(6,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA0             %04X\n", DSP_DEBUG_FETCH(7,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA1             %04X\n", DSP_DEBUG_FETCH(8,0)); strcat(output, tmp);
+	sprintf(tmp, "DMD              %04X\n", DSP_DEBUG_FETCH(9,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ0              %04X\n", DSP_DEBUG_FETCH(10,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ1              %04X\n", DSP_DEBUG_FETCH(11,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ2              %04X\n", DSP_DEBUG_FETCH(12,0)); strcat(output, tmp);
+	sprintf(tmp, "MODE             %04X\n\t\n", DSP_DEBUG_FETCH(13,0)); strcat(output, tmp);
+	sprintf(tmp, "X                %04X\n", DSP_DEBUG_FETCH(14,0)); strcat(output, tmp);
+	sprintf(tmp, "AZ               %04X\n", DSP_DEBUG_FETCH(15,0)); strcat(output, tmp);
+}
+
+extern uint16_t	DSP_DEBUG_PC;
+
+const char* DSP_decodeDisasm(uint8_t* table[32], uint16_t word);
+extern uint8_t *DSP_DIS_[32];			// FROM EDL
+
+const char* DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+	uint16_t data=word&0x7FF;
+	const char* mnemonic=(char*)table[(word&0xF800)>>11];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='%')
+			{
+				doingDecode=1;
+			}
+			else
+			{
+				*dPtr++=*sPtr;
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			sprintf(sprintBuffer,"%03X (%04X)",data,DSP_PEEK(data));
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	
+	return temporaryBuffer;
+}
+*/
+extern uint8_t *DSP_DIS_[32];			// FROM EDL
+
+extern uint16_t	DSP_DEBUG_PC;
+
+void DSP_REGISTERS(char* output)
+{
+	char tmp[1024];
+
+	sprintf(tmp, "FLAGS = C\n"); strcpy(output, tmp);
+	sprintf(tmp, "        %s\n", DSP_PEEK(0x147) & 0x20 ? "1" : "0"); strcat(output, tmp);
+	sprintf(tmp, "IX = %04X\n",DSP_PEEK(0x141)); strcat(output, tmp);
+	sprintf(tmp, "MZ0= %04X\n",DSP_PEEK(0x145)); strcat(output, tmp);
+	sprintf(tmp, "MZ1= %04X\n",DSP_PEEK(0x146)); strcat(output, tmp);
+	sprintf(tmp, "MZ2= %04X\n",DSP_PEEK(0x147)); strcat(output, tmp);
+	sprintf(tmp, "MDE= %04X\n",DSP_PEEK(0x14B)); strcat(output, tmp);
+	sprintf(tmp, "X  = %04X\n",DSP_PEEK(0x14C)); strcat(output, tmp);
+	sprintf(tmp, "AZ = %04X\n",DSP_PEEK(0x14D)); strcat(output, tmp);
+	sprintf(tmp, "DMD= %04X\n",DSP_PEEK(0x144)); strcat(output, tmp);
+	uint32_t dma0=DSP_PEEK(0x142);
+	uint32_t dma1=DSP_PEEK(0x143);
+	sprintf(tmp, "DMA0= %04X\n",dma0); strcat(output, tmp);
+	sprintf(tmp, "DMA1= %04X    (HOLD=%d)(RW=%d)(BW=%d)(DMA ADDR=%06X)\n\t\n",dma1,(dma1&0x800)>>11,(dma1&0x400)>>10,(dma1&0x200)>>9,((dma1&0xF)<<16)|(dma0)); strcat(output, tmp);
+
+	sprintf(tmp, "\t\n        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F\n"); strcat(output, tmp);
+	for (int a = 0x100; a < 0x180; a+=16)
+	{
+		sprintf(tmp, "%04X: ", a); strcat(output, tmp);
+		for (int b = 0; b < 16; b++)
+		{
+			sprintf(tmp, "%04X ", DSP_PEEK(a + b)); strcat(output, tmp);
+		}
+		sprintf(tmp, "\n"); strcat(output, tmp);
+	}
+	sprintf(tmp, "\t\n        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F\n"); strcat(output, tmp);
+	for (int a = 0x180; a < 0x200; a+=16)
+	{
+		sprintf(tmp, "%04X: ", a); strcat(output, tmp);
+		for (int b = 0; b < 16; b++)
+		{
+			sprintf(tmp, "%04X ", DSP_PEEK(a + b)); strcat(output, tmp);
+		}
+		sprintf(tmp, "\n"); strcat(output, tmp);
+	}
+
+}
+
+const char* DSP_LookupAddress(uint16_t inaddress, int indexed)
+{
+	static char sprintBuffer[256];
+
+	uint16_t address = inaddress;
+	if (indexed)
+		address = (address + DSP_PEEK(0x141)) & 0x3FF;
+
+	switch (address)
+	{
+		case 0x014A:
+			return "PC";
+		case 0x0141:
+			return "IX";
+		case 0x0145:
+			return "MZ0";
+		case 0x0146:
+			return "MZ1";
+		case 0x0147:
+			return "MZ2";
+		case 0x014B:
+			return "MODE";
+		case 0x014C:
+			return "X";
+		case 0x014D:
+			return "AZ";
+		default:
+			break;
+	}
+
+	if (indexed)
+		sprintf(sprintBuffer, "(%04X)  (%04X + IX)", address, inaddress);
+	else
+		sprintf(sprintBuffer,"(%04X)",address);
+	return sprintBuffer;
+}
+
+const char* DSP_decodeDisasm(uint8_t *table[32], uint16_t word)
+{
+	static char temporaryBuffer[2048];
+	char sprintBuffer[256];
+	uint16_t data=word&0x1FF;
+	int index=(word&0x200)>>9;
+	int cond=(word&0x400)>>9;
+	const char* mnemonic=(char*)table[(word&0xF800)>>11];
+	const char* sPtr=mnemonic;
+	char* dPtr=temporaryBuffer;
+	int counting = 0;
+	int doingDecode=0;
+
+	if (sPtr==NULL)
+	{
+		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
+		return temporaryBuffer;
+	}
+	
+	while (*sPtr)
+	{
+		if (!doingDecode)
+		{
+			if (*sPtr=='.')
+			{
+				if (cond)
+				{
+					*dPtr++=*sPtr;
+					*dPtr++='C';
+				}
+				if (index)
+				{
+					*dPtr++=*sPtr;
+					*dPtr++='X';
+				}
+			}
+			else
+			{
+				if (*sPtr=='%')
+				{
+					doingDecode=1;
+				}
+				else
+				{
+					*dPtr++=*sPtr;
+				}
+			}
+		}
+		else
+		{
+			char *tPtr=sprintBuffer;
+			if (index)
+				sprintf(sprintBuffer, "%s", DSP_LookupAddress(data, 1));
+			else
+				sprintf(sprintBuffer, "%s", DSP_LookupAddress(data, 0));
+			while (*tPtr)
+			{
+				*dPtr++=*tPtr++;
+			}
+			doingDecode=0;
+			counting++;
+		}
+		sPtr++;
+	}
+	*dPtr=0;
+	
+	return temporaryBuffer;
+}
+
+void DSP_DISASSEMBLE(char* output)
+{
+	char tmp[1024];
+	unsigned int address = 0x400+DSP_DEBUG_PC;
+
+	const char* retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(2, 0));
+	sprintf(tmp, "LAST :     \t%s\n", retVal);
+	strcpy(output, tmp);
+	retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(3, 0));
+	sprintf(tmp, "NEXT :     \t%s\n\t\n", retVal);
+	strcat(output, tmp);
+	for (int a = 0; a < 16; a++)
+	{
+		uint16_t word = DSP_PEEK(address);
+		retVal = DSP_decodeDisasm(DSP_DIS_, word);
+		sprintf(tmp, "%04X : %04X\t%s\n", address&0x3FF, DSP_PEEK(address), retVal);
+		strcat(output, tmp);
+		address++;
+		address &= 0x3FF;
+		address |= 0x400;
+	}
+}
+
+
+/*
+int DSP_Disassemble(unsigned int address,int registers)
+{
+	const char* retVal = DSP_decodeDisasm(DSP_DIS_,address);
+
+	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
+	{
+		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
+		CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
+		CONSOLE_OUTPUT("\n");
+		DSP_DUMP_REGISTERS();
+		exit(-1);
+	}
+
+	if (registers)
+	{
+		DSP_DUMP_REGISTERS();
+	}
+	CONSOLE_OUTPUT("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
+
+	CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
+	CONSOLE_OUTPUT("   ");
+	CONSOLE_OUTPUT("%s\n",retVal);
+
+	return 1;
+}
+*/
 #endif
