@@ -1066,6 +1066,14 @@ int main(int argc,char**argv)
 						debugWatchWrites = 1;
 					}
 					break;
+				case ESS_P88:
+				case ESS_P89:
+					if (((CS * 16 + IP) & 0xFFFFF) == bpaddress)
+					{
+						pause = 1;
+						dbg_event = 0;
+					}
+					break;
 				case ESS_FL1:
 					if (getZ80LinearAddress() == bpaddress)
 					{
