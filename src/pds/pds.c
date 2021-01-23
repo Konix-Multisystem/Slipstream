@@ -351,12 +351,15 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		KB_Control = byte;
 		return;
 	case 0x0302:	// PDS Port B
+		printf("PrtB : %02X\n", byte);
 		PDS_HOST_PORTB = byte;
 		break;
 	case 0x0304:	// PDS Port C
+		printf("PrtC : %02X\n", byte);
 		PDS_HOST_PORTC = byte;
 		break;
 	case 0x0306:	// PDS CTRL
+		printf("Ctrl : %02X\n", byte);
 		PDS_HOST_CTRL = byte;
 		break;
 	case 0x03D4:	// CGA Index Register
@@ -706,9 +709,9 @@ void PDS_Setup(const char* commandLine)
 	psp->dosFuncDispatch[0] = 0xCD;		// Int 21h
 	psp->dosFuncDispatch[1] = 0x21;
 	psp->dosFuncDispatch[2] = 0xCB;		// retf
-	psp->numCharactersAfterProgram = 1;
+	psp->numCharactersAfterProgram = strlen(commandLine);
 	strcpy(psp->commandLine, commandLine);
-	strcat(psp->commandLine, "\n");
+//	strcat(psp->commandLine, "\n");
 
 	// Setup initial registers
 	PDS_CS = exeLoadSegment + header->initialCS;
@@ -899,6 +902,8 @@ FILE* handles[MAX_EMU_HANDLES] = { 0 };
 #define NCASE_CMP	strncasecmp
 #endif
 
+extern int pause;
+
 int PDS_FileOpen(const char* filename, uint8_t kind)
 {
 	char path[2048];
@@ -917,6 +922,8 @@ int PDS_FileOpen(const char* filename, uint8_t kind)
 		filename += 12;
 	if (NCASE_CMP(filename, "\\PDS\\WORK\\", 10) == 0)
 		filename += 10;
+	if (NCASE_CMP(filename, "..\\", 3) == 0)
+		filename += 3;
 
 	sprintf(path, "%s%s", RootDisk, filename);
 
@@ -932,7 +939,10 @@ int PDS_FileOpen(const char* filename, uint8_t kind)
 
 	handles[a] = fopen(path, "rb");
 	if (handles[a])
+	{
+		printf("Opened %04X\n", a);
 		return a;
+	}
 
 	return -FileNotFound;
 }
@@ -1061,15 +1071,35 @@ void CreateFXCBFromEntry(uint8_t searchAttr, const char* searchName, struct dire
 
 DIR* search = NULL;
 
+int HasWildcard(const char* name)
+{
+	while (*name!=0)
+	{
+		if (*name == '?' || *name == '*')
+			return 1;
+		name++;
+	}
+	return 0;
+}
+
 int IsMatch(const char* searchName, const char* filename)
 {
-	if (strcmp(searchName, "???????????") == 0)
-		return 1;
+	if (HasWildcard(searchName))
+	{
+		if (NCASE_CMP(searchName, "???????????", 11) == 0)
+			return 1;
 
-	if (searchName[0] == 0)
-		return 1;
+		if (NCASE_CMP(searchName, "*.PRJ", 5) == 0)
+		{
+			if (NCASE_CMP(filename + strlen(filename) - 4, ".PRJ", 4) == 0)
+				return 1;
+		}
+		DBG_BREAK;
+		return 0;
+	}
 
-	DBG_BREAK;
+	if (NCASE_CMP(searchName, filename, strlen(searchName)) == 0)
+		return 1;
 	return 0;
 }
 
@@ -1261,7 +1291,10 @@ void DOS_Function(uint8_t functionNumber)
 	{
 		int result = PDS_FileRead(addrDSDX, CX, BX);
 		if (result < 0)
-			DOSError(-result);
+		{
+			SetCarry();
+			PDS_EAX = 0;
+		}
 		else
 		{
 			ClearCarry();
@@ -1311,12 +1344,12 @@ void DOS_Function(uint8_t functionNumber)
 		}
 		else
 		{
-			if (AL == 1)
+			/*if (AL == 1)
 			{
 				// Additionally copy the filename back?
 				struct DTA* dta = &PDS_Ram[DiskTransferAddress];
 				strcpy(&PDS_Ram[addrDSDX], dta->filenameFound);
-			}
+			}*/
 			ClearCarry();
 		}
 		break;
@@ -1633,12 +1666,12 @@ void PDS_Start()
 
 	PSF_Load("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\BM.PSF");		//Extracted from IBM-EGA8x8.FON from old school font pack
 
-	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
+	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
-	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
-	PDS_Setup("");// A:\\A.PRJ");
+	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
+	PDS_Setup("");// "A.PRJ");// A:\\A.PRJ");
 
-	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/DISK_ROOT_Trans/";
+	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/DISK_ROOT/";
 
 	// Download Alternate Flare 1 rom... (4 bytes at head of image for some reason)
 	LoadBinary("C:\\Users\\savou\\Downloads\\External Contributions\\ST_DISK_Z80_PROGS_FLARE_1\\PDS\\PDS_RO0.P", -4);
