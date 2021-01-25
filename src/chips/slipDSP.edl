@@ -121,23 +121,23 @@ FUNCTION STEP
 	MODE<-RAM[[AddrMODE]];
 	IF MSUAlternateDataPage
 	{
-		DECLARE INeedElseInstruction[1];
-		INeedElseInstruction<-0;
 		IF DataAddress<$100
 		{
 			DataAddress<-DataAddress+$180;
-			INeedElseInstruction<-1;
 		}
-		IF (DataAddress>=$180) & (DataAddress<$300) & (~INeedElseInstruction)
+		ELSE
 		{
-			DataAddress<-DataAddress-$180;
+			IF (DataAddress>=$180) & (DataAddress<$300)
+			{
+				DataAddress<-DataAddress-$180;
+			}
 		}
 	}
 
 	MZ2<-RAM[[AddrMZ2]];
 	IF (~Conditional) | C
 	{
-						##TODO Address Memory Mapping adjustment
+		##TODO Address Memory Mapping adjustment
 		EXECUTE	Instruction;
 	}
 }
@@ -317,7 +317,7 @@ FUNCTION INTERNAL	MZR[40]	MultiplyAccumulate	ACC[36],A[16],X[16],TCX[1],TCYN[1]
 	{
 		xExt<-$0000000000++X;
 	}
-	IF ~TCX
+	ELSE
 	{
 		xExt<-X;
 	}
@@ -325,7 +325,7 @@ FUNCTION INTERNAL	MZR[40]	MultiplyAccumulate	ACC[36],A[16],X[16],TCX[1],TCYN[1]
 	{
 		aExt<-A;
 	}
-	IF ~TCYN
+	ELSE
 	{
 		aExt<-$0000000000++A;
 	}
