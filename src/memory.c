@@ -205,7 +205,7 @@ uint8_t GetByteP88(uint32_t addr)
 	}
 	if (addr>=0x41000 && addr<=0x41FFF)
 	{
-		return ASIC_HostDSPMemReadP88(addr-0x41000);
+		return ASIC_HostDSPMemReadP89(addr-0x41000);
 	}
 #if ENABLE_DEBUG
 	CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
@@ -482,7 +482,7 @@ void SetByteP88(uint32_t addr,uint8_t byte)
 	}
 	if (addr>=0x41000 && addr<=0x41FFF)
 	{
-		ASIC_HostDSPMemWriteP88(addr-0x41000,byte);
+		ASIC_HostDSPMemWriteP89(addr-0x41000,byte);
 		return;
 	}
 #if ENABLE_DEBUG
