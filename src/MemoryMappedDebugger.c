@@ -826,6 +826,9 @@ extern uint8_t *DSP_DIS_[32];			// FROM EDL
 
 extern uint16_t	DSP_DEBUG_PC;
 
+extern uint16_t DSP_PEEK(uint16_t addr);
+extern uint8_t DSP_INTRUDE_STATE;
+
 void DSP_REGISTERS(char* output)
 {
 	char tmp[1024];
@@ -844,6 +847,9 @@ void DSP_REGISTERS(char* output)
 	uint32_t dma1=DSP_PEEK(0x143);
 	sprintf(tmp, "DMA0= %04X\n",dma0); strcat(output, tmp);
 	sprintf(tmp, "DMA1= %04X    (HOLD=%d)(RW=%d)(BW=%d)(DMA ADDR=%06X)\n\t\n",dma1,(dma1&0x800)>>11,(dma1&0x400)>>10,(dma1&0x200)>>9,((dma1&0xF)<<16)|(dma0)); strcat(output, tmp);
+	sprintf(tmp, "InDa= %04X\n",DSP_PEEK(0x140)); strcat(output, tmp);
+	sprintf(tmp, "InAd= %04X\n",DSP_PEEK(0x14E)); strcat(output, tmp);
+	sprintf(tmp, "INTR= %04X\n",DSP_INTRUDE_STATE); strcat(output, tmp);
 
 	sprintf(tmp, "\t\n        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F\n"); strcat(output, tmp);
 	for (int a = 0x100; a < 0x180; a+=16)

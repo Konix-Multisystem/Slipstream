@@ -72,7 +72,7 @@ DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original
 DECLARE			DEBUG_PC[16];
 DECLARE			CPU_HOLD[8];
 
-DECLARE			INTRUDE_HACK[2];
+DECLARE			INTRUDE_STATE[8]	ALIAS	%000:RUN[1]:%0:IntrudeWait[1]:Read2Wait[1]:IntrudeDSP2Host[1];
 
 ############
 
@@ -81,6 +81,7 @@ DECLARE INTERNAL	PIPE[32]	ALIAS	currentInstruction[16]:nextInstruction[16];
 
 DECLARE INTERNAL	DataAddress[16];
 
+DECLARE INTERNAL	IntrudeDataRegister[16]	ALIAS	$0140;
 DECLARE INTERNAL	AddrPC[16]	ALIAS	$014A;		#	ALIAS	%0000010:PC_ACTUAL[9];
 DECLARE INTERNAL	AddrIX[16]	ALIAS	$0141;		#	ALIAS	IXdc[7]:IX_ACTUAL[9];
 DECLARE INTERNAL	AddrDMA0[16]	ALIAS	$0142;		#	ALIAS	DMA_ADD_LO[16]
@@ -92,6 +93,7 @@ DECLARE INTERNAL	AddrMZ2[16]	ALIAS	$0147;		#	ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4
 DECLARE INTERNAL	AddrMODE[16]	ALIAS	$014B;		#	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 DECLARE INTERNAL	AddrX[16]	ALIAS	$014C;
 DECLARE INTERNAL	AddrAZ[16]	ALIAS	$014D;
+DECLARE INTERNAL	IntrudeAddressRegister[16]	ALIAS	$014E;
 
 ############
 
@@ -223,32 +225,97 @@ FUNCTION POKE_BYTE	ramAddress[16],value[8]
 	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
 	byteAddress<-ramAddress;
-	access<-RAM[[wordAddress]];
-	IF upper
+
+	IF RUN
 	{
-		msb<-value;
+		access <- RAM[[IntrudeDataRegister]];
+		IF upper
+		{
+			IF IntrudeWait | IntrudeDSP2Host
+			{
+				DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+			}
+			ELSE
+			{
+				# Set address for next intrude instruction
+				RAM[[IntrudeAddressRegister]]<-wordAddress;
+				IntrudeWait<-1;
+				IntrudeDSP2Host<-0;
+				msb<-value;
+			}
+		}
+		ELSE
+		{
+			IF IntrudeWait | IntrudeDSP2Host
+			{
+				DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+			}
+			ELSE
+			{
+				lsb<-value;
+			}
+		}
+		RAM[[IntrudeDataRegister]]<-access;
 	}
-	IF ~upper
+	ELSE
 	{
-		lsb<-value;
+		access<-RAM[[wordAddress]];
+		IF upper
+		{
+			msb<-value;
+		}
+		IF ~upper
+		{
+			lsb<-value;
+		}
+		RAM[[wordAddress]]<-access;
 	}
-	RAM[[wordAddress]]<-access;
 }
 
-FUNCTION value[16]	PEEK_BYTE	ramAddress[16]
+FUNCTION value[8]	PEEK_BYTE	ramAddress[16]
 {
 	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
 	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
 	byteAddress<-ramAddress;
-	access<-RAM[[wordAddress]];
-	IF upper
+
+	IF RUN
 	{
-		value<-msb;
+		IF IntrudeWait | IntrudeDSP2Host
+		{
+			DEBUG_TRACE "DSP RUNNING : Read when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+		}
+		ELSE
+		{
+			# Set address for next intrude instruction
+			RAM[[IntrudeAddressRegister]]<-wordAddress;
+			IntrudeWait<-1;
+			IntrudeDSP2Host<-1;
+		}
+		access <- RAM[[IntrudeDataRegister]];
+		IF Read2Wait
+		{
+			value<-msb;
+			Read2Wait<-0;
+		}
+		ELSE
+		{
+			value<-lsb;
+			Read2Wait<-1;
+		}
 	}
-	IF ~upper
+	ELSE
 	{
-		value<-lsb;
+		access<-RAM[[wordAddress]];
+		
+		IF upper
+		{
+			value<-msb;
+		}
+		IF ~upper
+		{
+			value<-lsb;
+		}
 	}
 }
 
@@ -517,9 +584,92 @@ INSTRUCTION	"NOP."			%11110
 
 INSTRUCTION	"INTRUDE."		%11111
 {
-# TODO 	INTRUDE_HACK<-INTRUDE_HACK + 1;
-#	DEBUG_TRACE "DO I REACH HERE";
+	IF IntrudeWait
+	{
+		DECLARE addr[16];
+		addr<-RAM[[IntrudeAddressRegister]];
+		IF IntrudeDSP2Host
+		{
+			RAM[[IntrudeDataRegister]]<-RAM[[addr]];
+			IntrudeWait<-0;
+			IntrudeDSP2Host<-0;
+		}
+		ELSE
+		{
+			RAM[[addr]]<-RAM[[IntrudeDataRegister]];
+			IntrudeWait<-0;
+		}
+	}
+}
 
+FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
+{
+	value<-$FFFF;
+
+	IF reg==0
+	{
+		value<-RAM[[offset & $3FF]];
+	}
+	IF reg==1
+	{
+		value<-RAM[[(offset & $3FF)+$400]];
+	}
+	IF reg==2
+	{
+		value<-IR;
+	}
+	IF reg==3
+	{
+		value<-nextInstruction;
+	}
+	IF reg==4
+	{
+		value<-DataAddress;
+	}
+	IF reg==5
+	{
+		value<-RAM[[AddrPC]];
+	}
+	IF reg==6
+	{
+		value<-RAM[[AddrIX]];
+	}
+	IF reg==7
+	{
+		value<-RAM[[AddrDMA0]];
+	}
+	IF reg==8
+	{
+		value<-RAM[[AddrDMA1]];
+	}
+	IF reg==9
+	{
+		value<-RAM[[AddrDMD]];
+	}
+	IF reg==10
+	{
+		value<-RAM[[AddrMZ0]];
+	}
+	IF reg==11
+	{
+		value<-RAM[[AddrMZ1]];
+	}
+	IF reg==12
+	{
+		value<-RAM[[AddrMZ2]];
+	}
+	IF reg==13
+	{
+		value<-RAM[[AddrMODE]];
+	}
+	IF reg==14
+	{
+		value<-RAM[[AddrX]];
+	}
+	IF reg==15
+	{
+		value<-RAM[[AddrAZ]];
+	}
 }
 
 

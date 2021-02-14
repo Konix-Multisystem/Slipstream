@@ -22,8 +22,6 @@
 
 uint16_t DSP_STATUS=0;
 
-extern uint8_t DSP_INTRUDE_HACK;
-
 uint8_t GetByte(uint32_t addr);
 void SetByte(uint32_t addr,uint8_t byte);
 
@@ -35,6 +33,8 @@ void FL1DSP_POKE(uint16_t,uint16_t);
 uint16_t FL1DSP_PEEK(uint16_t);
 void FL1DSP_POKE_BYTE(uint16_t,uint8_t);
 uint8_t FL1DSP_PEEK_BYTE(uint16_t);
+
+extern uint8_t DSP_INTRUDE_STATE;
 
 int doDSPDisassemble=0;
 int doShowHostDSPWrites=0;
@@ -502,9 +502,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		{
 			if (doShowHostDSPWrites)
 			{
-				uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
-				DSP_TranslateInstruction(addr-1,pWord);
+				CONSOLE_OUTPUT("Host Write To DSP Prog %04X",addr-1);
 			}
 		}
 #endif
@@ -519,8 +517,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -533,8 +530,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -542,15 +538,14 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		}
 		if (addr<0x200)
 		{
-			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK(0x14B) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (addr&1)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						CONSOLE_OUTPUT("Host Write To DSP Data (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP Data (Alternate Memory Mapping) : %04X\n",addr-1);
 					}
 				}
 #endif
@@ -563,8 +558,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X\n",addr-1);
 					}
 				}
 #endif
@@ -573,15 +567,14 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 		}
 		if (addr>=0x300 && addr<0x500)
 		{
-			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK(0x14B) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (addr&1)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Alternate Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Alternate Memory Mapping) : %04X <- %04X\n",addr-1);
 					}
 				}
 #endif
@@ -594,8 +587,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 				{
 					if (doShowHostDSPWrites)
 					{
-						uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-						CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+						CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X\n",addr-1);
 					}
 				}
 #endif
@@ -609,8 +601,7 @@ void ASIC_HostDSPMemWriteMSU(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Data : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Data : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -657,7 +648,7 @@ uint8_t ASIC_HostDSPMemReadMSU(uint16_t addr)
 	{
 		if (addr<0x800)
 		{
-			if (DSP_PEEK_BYTE(0x14B*2) & 0x80)		// Alternate memory mapping enabled
+			if (DSP_PEEK(0x14B) & 0x80)		// Alternate memory mapping enabled
 			{
 #if ENABLE_DEBUG
 				if (doShowHostDSPReads)
@@ -715,9 +706,7 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 		{
 			if (doShowHostDSPWrites)
 			{
-				uint16_t pWord = DSP_PEEK_BYTE((addr+0x400)-1) | (byte<<8);
-				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
-				DSP_TranslateInstruction(addr-1,pWord);
+				CONSOLE_OUTPUT("Host Write To DSP Prog %04X\n",addr-1);
 			}
 		}
 #endif
@@ -727,13 +716,23 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 	{
 		if (addr>=0x280 && addr<0x300)
 		{
+			if (doShowHostDSPReads)
+			{
+				if (addr == 0x280)
+				{
+					CONSOLE_OUTPUT("Write Intrude Data Register");
+				}
+				if (addr == 0x29C)
+				{
+					CONSOLE_OUTPUT("Write Intrude Address Register");
+				}
+			}
 #if ENABLE_DEBUG
 			if (addr&1)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -746,8 +745,7 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1);
 				}
 			}
 #endif
@@ -760,8 +758,7 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -773,8 +770,7 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 			{
 				if (doShowHostDSPWrites)
 				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
+					CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X\n",addr-1);
 				}
 			}
 #endif
@@ -782,125 +778,28 @@ void ASIC_HostDSPMemWriteP89(uint16_t addr,uint8_t byte)
 		}
 		if (addr>=0x600)
 		{
-#if ENABLE_DEBUG
-			if (doShowHostDSPWrites)
-			{
-				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X<-%02X\n",addr,byte);
-			}
-#endif
 			if (addr==0x600)
 			{
 				DSP_STATUS&=0xFF00;
-				DSP_STATUS|=byte;
+				DSP_STATUS|=byte&0xF8;
+				DSP_INTRUDE_STATE &= 0xFFEF;
+				DSP_INTRUDE_STATE |= (byte & 0x10);
+				if ((byte & 0x10) != 0x10)
+					DSP_STEP();
 				return;
 			}
 			if (addr==0x601)
 			{
 				DSP_STATUS&=0x00FF;
-				DSP_STATUS|=byte<<8;
+				DSP_STATUS|=(byte&0x00)<<8;
 				return;
 			}
-			DSP_POKE_BYTE(addr,byte);
-		}
-	}
-}
-
-
-
-void ASIC_HostDSPMemWriteP88(uint16_t addr,uint8_t byte)
-{
-	if (addr>=0x400 && addr<0x600 )
-	{
-#if ENABLE_DEBUG
-		if (addr&1)
-		{
-			if (doShowHostDSPWrites)
-			{
-				uint16_t pWord = DSP_PEEK_BYTE((addr+0x400)-1) | (byte<<8);
-				CONSOLE_OUTPUT("Host Write To DSP Prog %04X <- %04X ",addr-1,pWord);
-				DSP_TranslateInstruction(addr-1,pWord);
-			}
-		}
-#endif
-		DSP_POKE_BYTE(addr+0x400,byte);
-	}
-	else
-	{
-		if (addr>=0x280 && addr<0x300)
-		{
-#if ENABLE_DEBUG
-			if (addr&1)
-			{
-				if (doShowHostDSPWrites)
-				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Registers : %04X <- %04X\n",addr-1,pWord);
-				}
-			}
-#endif
-			DSP_POKE_BYTE(addr,byte);
-		}
-		if (addr>=0x200 && addr<0x280)
-		{
-#if ENABLE_DEBUG
-			if (addr&1)
-			{
-				if (doShowHostDSPWrites)
-				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Constants (ignored) : %04X <- %04X\n",addr-1,pWord);
-				}
-			}
-#endif
-			// Don't preform write (this is rom space)
-		}
-		if (addr<0x200)
-		{
-#if ENABLE_DEBUG
-			if (addr&1)
-			{
-				if (doShowHostDSPWrites)
-				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP ROM (ignored) (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
-				}
-			}
-#endif
-		}
-		if (addr>=0x300 && addr<0x400)
-		{
-#if ENABLE_DEBUG
-			if (addr&1)
-			{
-				if (doShowHostDSPWrites)
-				{
-					uint16_t pWord = DSP_PEEK_BYTE(addr-1) | (byte<<8);
-					CONSOLE_OUTPUT("Host Write To DSP Data (Normal Memory Mapping) : %04X <- %04X\n",addr-1,pWord);
-				}
-			}
-#endif
-			DSP_POKE_BYTE(addr,byte);
-		}
-		if (addr>=0x600)
-		{
 #if ENABLE_DEBUG
 			if (doShowHostDSPWrites)
 			{
-				CONSOLE_OUTPUT("Host Write to DSP Data (Unknown (600 status!)) : %04X\n",addr);
+				CONSOLE_OUTPUT("Host Write to DSP Data (unknown) : %04X<-%02X\n",addr,byte);
 			}
 #endif
-			if (addr==0x600)
-			{
-				DSP_STATUS&=0xFF00;
-				DSP_STATUS|=byte;
-				return;
-			}
-			if (addr==0x601)
-			{
-				DSP_STATUS&=0x00FF;
-				DSP_STATUS|=byte<<8;
-				return;
-			}
 			DSP_POKE_BYTE(addr,byte);
 		}
 	}
@@ -930,71 +829,32 @@ uint8_t ASIC_HostDSPMemReadP89(uint16_t addr)
 #endif
 			return DSP_PEEK_BYTE(addr);
 		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doShowHostDSPReads)
-			{
-				CONSOLE_OUTPUT("Host DSP Data Read (Unknown (600 status!)) : %04X\n",addr);
-			}
-#endif
-		}
 	}
 	if (addr==0x600)
 	{
-		return DSP_STATUS&0XFF;
+		DSP_STATUS &= 0xFFF8;
+		DSP_STATUS |= DSP_INTRUDE_STATE;
+		return DSP_STATUS&0xFF;
 	}
 	if (addr==0x601)
 	{
-		return DSP_STATUS>>8;
+		return DSP_STATUS >> 8;
 	}
 
-	return DSP_PEEK_BYTE(addr);
-}
-
-uint8_t ASIC_HostDSPMemReadP88(uint16_t addr)
-{
-	if (addr>=0x400 && addr<0x600)
+#if ENABLE_DEBUG
+	if (doShowHostDSPReads)
 	{
-#if ENABLE_DEBUG
-		if (doShowHostDSPReads)
+		CONSOLE_OUTPUT("Host DSP Data Read (unknown) : %04X\n",addr);
+		if (addr == 0x280)
 		{
-			CONSOLE_OUTPUT("Host DSP Prog Read (TODO deny when running) : %04X\n",addr);
+			CONSOLE_OUTPUT("Read Intrude Data Register");
 		}
-#endif
-		return DSP_PEEK_BYTE(addr+0x400);
-	}
-	else
-	{
-		if (addr<0x400)
+		if (addr == 0x29C)
 		{
-#if ENABLE_DEBUG
-			if (doShowHostDSPReads)
-			{
-				CONSOLE_OUTPUT("Host DSP Data Read (Normal Map) : %04X\n",addr);
-			}
-#endif
-			return DSP_PEEK_BYTE(addr);
-		}
-		else
-		{
-#if ENABLE_DEBUG
-			if (doShowHostDSPReads)
-			{
-				CONSOLE_OUTPUT("Host DSP Data Read (Unknown (600 status!)) : %04X\n",addr);
-			}
-#endif
+			CONSOLE_OUTPUT("Read Intrude Address Register");
 		}
 	}
-	if (addr==0x600)
-	{
-		DSP_INTRUDE_HACK ^= 0x04;
-		return (DSP_STATUS&0XFF) | DSP_INTRUDE_HACK;
-	}
-	if (addr==0x601)
-	{
-		return DSP_STATUS>>8;
-	}
+#endif
 
 	return DSP_PEEK_BYTE(addr);
 }
