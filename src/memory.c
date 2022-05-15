@@ -860,15 +860,19 @@ void SetPortB(uint16_t port,uint8_t byte)
 				break;
 			case 0x0080:
 				PDS_CLIENT_DATA = byte;
+				printf("PDS_CLIENT_DATA : %02X\n",byte);
 				break;
 			case 0x0081:
 				PDS_CLIENT_COMMS = byte;
+				printf("PDS_CLIENT_COMMS : %02X\n",byte);
 				break;
 			case 0x0082:
 				PDS_SetControl(0, byte);
+				printf("PDS_CLIENT_CTRLA : %02X\n",byte);
 				break;
 			case 0x0083:
 				PDS_SetControl(1, byte);
+				printf("PDS_CLIENT_CTRLB : %02X\n",byte);
 				break;
 			default:
 				ASIC_WriteFL1(port,byte,doShowPortStuff);
@@ -1399,7 +1403,7 @@ void VECTORS_INIT()
             /*	ROM[0xAE]=0x90;
 	        ROM[0xAF]=0x90;
 	        ROM[0xB0]=0x90;*/
-            ROM[0xB1] = 0xEB;
+            //ROM[0xB1] = 0xEB;
             /*	ROM[0xB2]=0x90;*/
 			break;
 		case ESS_MSU:

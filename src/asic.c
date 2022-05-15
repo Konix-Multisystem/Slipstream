@@ -2061,6 +2061,7 @@ uint8_t ASIC_ReadP89(uint16_t port,int warnIgnore)
 			CONSOLE_OUTPUT("Read from Floppy Drive Status Status %d\n",(EDDY_Track==0)?2:3);
 #endif
 			return (EDDY_Track==0)?2:3;		// Status inverted for Track 0 
+			
 		default:
 #if ENABLE_DEBUG
 			if (warnIgnore)
@@ -2836,6 +2837,13 @@ void TickAsicMSU(int cycles)
 void PrintAt(unsigned char* buffer,unsigned int width,unsigned char r,unsigned char g,unsigned char b,unsigned int x,unsigned int y,const char *msg,...);
 
 extern uint8_t DISK_IMAGE[5632*2*80];
+
+int16_t GetEDDY_Bit()
+{
+	int16_t toReturn = DISK_IMAGE[EDDY_Track*5632*2 + EDDY_Side*5632 + (EDDY_BitPos/8)];
+	toReturn >>= EDDY_BitPos & 7;
+	return EDDY_BitPos & 1;
+}
 
 void TickAsicP89(int cycles)
 {

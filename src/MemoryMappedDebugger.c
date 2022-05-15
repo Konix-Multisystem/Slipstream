@@ -619,7 +619,7 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 
 
 		// DSP Registers
-#if ENABLE_PDS
+#if 0//ENABLE_PDS
 		FetchRegistersPDS(pMapDSPRegisters);
 		FetchDisassemblePDS(pMapDSP);
 #else

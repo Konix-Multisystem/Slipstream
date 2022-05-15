@@ -235,6 +235,11 @@ void FL1DSP_SetDAC(uint8_t channels,uint16_t value)
 
 extern int emulateDSP;
 
+extern uint16_t DSP_DEBUG_PC;
+
+extern int pause;
+int16_t GetEDDY_Bit();
+
 void TickDSP()
 {
 #if !DISABLE_DSP
@@ -245,7 +250,11 @@ void TickDSP()
 	{
 		if (iamslow==0)
 		{
+			//DSP_POKE(0x14F, GetEDDY_Bit());
 			DSP_STEP();
+
+//			if ((DSP_DEBUG_PC & 0x3FF) == 0x0012)
+//				pause = 1;
 
 			iamslow=RATE_ADJUST;
 		}

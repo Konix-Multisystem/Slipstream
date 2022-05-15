@@ -726,9 +726,7 @@ void Usage()
 	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
 	CONSOLE_OUTPUT("-2 [disk]  mount disk to floppy drive b\n");
 	CONSOLE_OUTPUT("-V [256x256x3] truecolour image raw format for use with flare one genlocking\n");
-#if MEMORY_MAPPED_DEBUGGER
 	CONSOLE_OUTPUT("-S [symbols] load a symbol file\n");
-#endif
 	CONSOLE_OUTPUT("\nFor example to load the PROPLAY.MSU :\n");
 	CONSOLE_OUTPUT("slipstream -b 90000 RCBONUS.MOD PROPLAY.MSU\n");
 	exit(1);
@@ -773,12 +771,13 @@ void ParseCommandLine(int argc,char** argv)
 				LoadRom("roms/konixBios.bin",0);
 				continue;
 			}
-#if MEMORY_MAPPED_DEBUGGER
 			if (strcmp(argv[a], "-S") == 0)
 			{
 				if ((a+1)<argc)
 				{
+#if MEMORY_MAPPED_DEBUGGER
 					LoadSymbolFile(argv[a+1]);
+#endif
 				}
 				else
 				{
@@ -788,7 +787,6 @@ void ParseCommandLine(int argc,char** argv)
 				a+=1;
 				continue;
 			}
-#endif
 			if (strcmp(argv[a], "-V") == 0)
 			{
 				if ((a+1)<argc)
@@ -962,6 +960,16 @@ int main(int argc,char**argv)
 	
 	ParseCommandLine(argc,argv);
 
+// PDS HACKING
+#if 1
+
+	curSystem = ESS_P88;
+
+	SetByte(0xFFFF0, 0xEB);
+	SetByte(0xFFFF1, 0xFE);
+#endif
+// PDS HACKING
+
 	VECTORS_INIT();				// Workarounds for problematic roms that rely on a bios (we don't have) to have initialised memory state
 
 #if MEMORY_MAPPED_DEBUGGER
@@ -1002,7 +1010,6 @@ int main(int argc,char**argv)
 /*		doShowDMA=1;
 		doShowBlits=1;*/
 
-	//pause = 1;
 	dbg_event= 0;
 //	bpaddress = 0xFE0DD5;
 //	bpaddress = 0xFE2223;		// Flash/PC communications (could be interesting)
@@ -1016,6 +1023,18 @@ int main(int argc,char**argv)
 	bpaddress = 0x88;
 	pause = 1;
 #endif
+
+	dbg_event = 1;
+	bpaddress = 0x80000;// 0x800b9;
+	pause = 0;
+
+/*
+	SetByte(0xE8, 0xAD);
+	SetByte(0xE9, 0xDE);
+	SetByte(0xEA, 0xDE);
+	SetByte(0xEB, 0xC0);
+	*/
+
 	while (1==1)
 	{
 		uint32_t ttBltDebug;
@@ -1027,13 +1046,12 @@ int main(int argc,char**argv)
 #if MEMORY_MAPPED_DEBUGGER
 			if (single || DBG_Cpu_Clocks == 0)			// Hack to allow cycle stepping
 			{
-				if (single) 
-					single = 1;
 				numClocks = DBG_Cpu_Clocks;
 				DBG_Cpu_Clocks = CPU_STEP(doDebug);
 			}
+			else
+				DBG_Cpu_Clocks--;
 
-			DBG_Cpu_Clocks--;
 			if (single)
 				numClocks += 1;
 			else
@@ -1153,6 +1171,8 @@ int main(int argc,char**argv)
 					bpaddress = getZ80LinearAddress() + GetILength80386(getZ80LinearAddress(), 0);
 				if (curSystem == ESS_MSU)
 					bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP(), 1);
+				if (curSystem == ESS_P88 || curSystem == ESS_P89)
+					bpaddress = (CS * 16) + IP + GetILength86(CS * 16 + IP, 1);
 				break;
 			case 4:
 				pause = 0;
@@ -1265,7 +1285,7 @@ int main(int argc,char**argv)
 				}*/
 
 #if !ENABLE_DEBUG
-				VideoWait(curSystem==ESS_MSU? 0.04f : 0.02f);
+				VideoWait(curSystem==ESS_MSU? 0.02f : 0.02f);
 #endif
 			}
 		}

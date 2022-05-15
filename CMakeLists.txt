@@ -29,7 +29,7 @@ find_package(OpenGL REQUIRED)
 find_package(OpenAL REQUIRED)
 
 add_definitions(-DENABLE_PDS=1)
-add_definitions(-DMEMORY_MAPPED_DEBUGGER=0)
+add_definitions(-DMEMORY_MAPPED_DEBUGGER=1)
 add_definitions(-DTERMINAL=0)
 add_definitions(-DDISABLE_DSP=0)
 add_definitions(-DDISABLE_AUDIO=0)

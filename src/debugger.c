@@ -841,6 +841,21 @@ int GetILength80386(unsigned int address, int x86)
 	return disMe.bytesRead;
 }
 
+int GetILength86(unsigned int address, int x86)
+{
+	InStream disMe;
+	disMe.cpu = CPU_X86;
+	disMe.bytesRead = 0;
+	disMe.curAddress = address;
+	disMe.useAddress = 1;
+	disMe.findSymbol = NULL;
+	disMe.PeekByte = PeekByte;
+	Disassemble(&disMe, 0);
+
+	return disMe.bytesRead;
+}
+
+
 void FETCH_REGISTERS8086(char* tmp)
 {
 	sprintf(tmp,"--------\nFLAGS = O  D  I  T  S  Z  -  A  -  P  -  C\n        %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s  %s\nAX= %04X\nBX= %04X\nCX= %04X\nDX= %04X\nSP= %04X\nBP= %04X\nSI= %04X\nDI= %04X\nCS= %04X\nDS= %04X\nES= %04X\nSS= %04X\n--------\n",

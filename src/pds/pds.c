@@ -8,6 +8,9 @@
 #include "GLFW/glfw3.h"
 
 #include "../disasm.h"
+#include "../system.h"
+#include "../memory.h"
+#include "../debugger.h"
 #include "../host/video.h"
 #include "pds.h"
 
@@ -18,6 +21,7 @@
 #include <sys/stat.h>
 #endif
 
+#define PDS_INTERCEPT_DIRECT 1		//experiment to see if i can "pretend" the comms 
 
 /*
  KB STUFF
@@ -92,7 +96,7 @@ void PDS_kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )
 		}
 		if (((uint8_t)(PDS_keyBufferWrite + 1)) != PDS_keyBufferRead)
 		{
-			printf("KeyCode Logged : %02X\n", scanCodeNum);
+			//printf("KeyCode Logged : %02X\n", scanCodeNum);
 			PDS_keyBuffer[PDS_keyBufferWrite++] = scanCodeNum;
 		}
 	}
@@ -111,7 +115,7 @@ void PDS_kbHandler( GLFWwindow* window, int key, int scan, int action, int mod )
 			}
 			if (((uint8_t)(PDS_keyBufferWrite + 1)) != PDS_keyBufferRead)
 			{
-				printf("Extended KeyCode Logged : 0xE0 %02X\n", scanCodeNum);
+				//printf("Extended KeyCode Logged : 0xE0 %02X\n", scanCodeNum);
 				PDS_keyBuffer[PDS_keyBufferWrite++] = scanCodeNum;
 			}
 		}
@@ -312,6 +316,119 @@ void PDS_SetPortW(uint16_t port,uint16_t word)
 uint8_t CGA_Index = 0;
 uint8_t KB_Control = 0;
 
+int state = 0;
+
+uint16_t segment;
+uint16_t offset;
+uint16_t dontcare;
+uint16_t size;
+
+// TO MOVE TO CLIENT SIDE lib
+void PDS_Recieve(uint8_t byte)
+{
+	if (curSystem == ESS_P88)
+	{
+		switch (state)
+		{
+		case 0:	// Waiting for command
+			if (byte == 0xC8)
+				state = 100;
+			else if (byte == 0xCA)
+				state = 200;
+			else if (byte == 0xB3)
+				printf("PDS_dummyByte? B3\n");
+			else
+				printf("PDS_Unknown command : %02X\n", byte);
+			break;
+
+			// DOWNLOAD DATA
+		case 100:	// SegmentLo
+			segment = byte;
+			state++;
+			break;
+		case 101:	// SegmentHi
+			segment = (segment & 0x00FF) | (byte << 8);
+			state++;
+			break;
+		case 102:	// OffsetLo
+			offset = byte;
+			state++;
+			break;
+		case 103:	// OffsetHi
+			offset = (offset & 0x00FF) | (byte << 8);
+			state++;
+			break;
+		case 104:	// unknown
+		case 105:
+			if (byte != 0)
+			{
+				printf("Unknown PDS Data Byte : %d - %02X", state, byte);
+			}
+			state++;
+			break;
+		case 106:	// SizeLo
+			size = byte;
+			state++;
+			break;
+		case 107:	// SizeHi
+			size = (size & 0x00FF) | (byte << 8);
+			state++;
+			printf("Load Section : %04X:%04X %04X\n", segment, offset, size);
+			break;
+		case 108:	// data
+			size--;
+			SetByte(segment * 16 + offset, byte);
+			if (offset == 0xFFFF)
+			{
+				printf("Offset wrap ... ");
+			}
+			offset++;
+			if (size == 0)
+				state = 0;
+			break;
+			// EXECUTE SECTION
+		case 200:	// SegmentLo
+			segment = byte;
+			state++;
+			break;
+		case 201:	// SegmentHi
+			segment = (segment & 0x00FF) | (byte << 8);
+			state++;
+			break;
+		case 202:	// OffsetLo
+			offset = byte;
+			state++;
+			break;
+		case 203:	// OffsetHi
+			offset = (offset & 0x00FF) | (byte << 8);
+			state = 0;
+			printf("Execute Section : %04X:%04X\n", segment, offset);
+			CS = segment;
+			IP = offset;
+			break;
+		}
+	}
+	else
+	{
+		printf("WARNING: PDS CLIENT LIB MISSING IMPLEMENTATION FOR SYSTEM : %d\n", curSystem);
+	}
+}
+
+static int initialSync = 0;
+static uint8_t byteFromPDS = 0;
+int PDS_GetAByte()
+{
+	uint8_t comms = PDS_HOST_PORTC & 0x01;	// clk bit from host
+	comms = comms^ initialSync;
+	if (comms & 1)
+		return 0;
+	byteFromPDS = PDS_HOST_PORTB;
+	PDS_CLIENT_COMMS = initialSync;
+	initialSync ^= 129;
+	return 1;
+}
+
+
 void PDS_SetPortB(uint16_t port,uint8_t byte)
 {
 	const char* CGA_IndexNames[18] = { "Horizontal Total","Horizontal Displayed","Horizontal Sync Position","Horizontal Sync Width",
@@ -351,15 +468,22 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 		KB_Control = byte;
 		return;
 	case 0x0302:	// PDS Port B
-		printf("PrtB : %02X\n", byte);
+		//printf("PrtB : %02X\n", byte);
 		PDS_HOST_PORTB = byte;
 		break;
 	case 0x0304:	// PDS Port C
-		printf("PrtC : %02X\n", byte);
+		//printf("PrtC : %02X\n", byte);
 		PDS_HOST_PORTC = byte;
+#if PDS_INTERCEPT_DIRECT
+		if (PDS_GetAByte())
+		{
+			printf("PDS_DATA_VALUE : %02X\n", byteFromPDS);
+			PDS_Recieve(byteFromPDS);
+		}
+#endif
 		break;
 	case 0x0306:	// PDS CTRL
-		printf("Ctrl : %02X\n", byte);
+		//printf("Ctrl : %02X\n", byte);
 		PDS_HOST_CTRL = byte;
 		break;
 	case 0x03D4:	// CGA Index Register
@@ -1093,6 +1217,7 @@ int IsMatch(const char* searchName, const char* filename)
 		{
 			if (NCASE_CMP(filename + strlen(filename) - 4, ".PRJ", 4) == 0)
 				return 1;
+			return 0;
 		}
 		DBG_BREAK;
 		return 0;
@@ -1678,8 +1803,18 @@ void PDS_Start()
 }
 
 // Standalone
+void PDS_SetControl(int number, uint8_t value);
+
 void PDS_Main()
 {
+#if PDS_INTERCEPT_DIRECT
+	PDS_SetControl(1, 255);
+	PDS_CLIENT_COMMS = 255;
+	PDS_SetControl(1, 63);
+	PDS_SetControl(0, 255);
+	PDS_SetControl(0, 255);
+#endif
+
 	return;
 	VideoInitialise();
 	PDS_Start();
