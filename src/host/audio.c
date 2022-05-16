@@ -36,7 +36,10 @@ ALboolean ALFWInitOpenAL()
 		pContext = alcCreateContext(pDevice, NULL);
 		if (pContext)
 		{
-			CONSOLE_OUTPUT("\nOpened %s Device\n", alcGetString(pDevice, ALC_DEVICE_SPECIFIER));
+			const ALCchar* str = alcGetString(pDevice, ALC_DEVICE_SPECIFIER);
+			CONSOLE_OUTPUT("\nOpened Audio Device :");
+			CONSOLE_OUTPUT(str);
+			CONSOLE_OUTPUT("\n");
 			alcMakeContextCurrent(pContext);
 			bReturn = AL_TRUE;
 		}

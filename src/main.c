@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.7 - Flare One Blitter Improved"
+#define SLIPSTREAM_VERSION	"0.9"
 
 #include <GLFW/glfw3.h>
 

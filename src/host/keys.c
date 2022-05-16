@@ -75,7 +75,7 @@ unsigned int reverse(register unsigned int x)
 // Flare 1 keyboard interface
 
 #define KEYBUF_LEN	(256)
-unsigned char keyBuffer[KEYBUF_LEN] = { 0 };
+static unsigned char keyBuffer[KEYBUF_LEN] = { 0 };
 
 uint8_t keyBufferRead = 0;
 uint8_t keyBufferWrite = 0;

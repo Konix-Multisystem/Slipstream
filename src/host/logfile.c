@@ -14,7 +14,7 @@
 
 FILE* logFile=NULL;
 
-void CONSOLE_OUTPUT(char* fmt,...)
+void CONSOLE_OUTPUT(const char* fmt,...)
 {
 	va_list args;
 
