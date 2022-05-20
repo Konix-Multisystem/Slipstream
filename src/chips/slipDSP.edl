@@ -88,7 +88,7 @@ DECLARE INTERNAL	AddrDMA1[16]	ALIAS	$0143;		#	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:D
 DECLARE INTERNAL	AddrDMD[16]	ALIAS	$0144;		#	ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
 DECLARE INTERNAL	AddrMZ0[16]	ALIAS	$0145;
 DECLARE INTERNAL	AddrMZ1[16]	ALIAS	$0146;
-DECLARE INTERNAL	AddrMZ2[16]	ALIAS	$0147;		#	ALIAS	%00000000000:C[1]:ZMSB[4];
+DECLARE INTERNAL	AddrMZ2[16]	ALIAS	$0147;		#	ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 DECLARE INTERNAL	AddrMODE[16]	ALIAS	$014B;		#	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 DECLARE INTERNAL	AddrX[16]	ALIAS	$014C;
 DECLARE INTERNAL	AddrAZ[16]	ALIAS	$014D;
@@ -98,8 +98,8 @@ DECLARE INTERNAL	AddrAZ[16]	ALIAS	$014D;
 FUNCTION STEP
 {
 	DECLARE PC[16]		ALIAS	%0000010:PC_ACTUAL[9];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 
 	PC<-RAM[[AddrPC]];
 
@@ -277,7 +277,7 @@ INSTRUCTION	"MOV. MZ1,%$1"		%00011
 
 INSTRUCTION	"CCF."			%00100
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 	MZ2<-RAM[[AddrMZ2]];
 	C<-~C;
 	RAM[[AddrMZ2]]<-MZ2;
@@ -307,49 +307,53 @@ INSTRUCTION	"MOV. %$1,DMD"		%01000
 	RAM[[DataAddress]]<-RAM[[AddrDMD]];
 }
 
-INSTRUCTION	"MAC. %$1"		%01001
+FUNCTION INTERNAL	MZR[40]	MultiplyAccumulate	ACC[36],A[16],X[16],TCX[1],TCYN[1]
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
 	DECLARE xExt[40];
-	DECLARE tExt[40];
+	DECLARE aExt[40];
 	DECLARE result[40];
-	DECLARE mac[40];
-
-	MODE<-RAM[[AddrMODE]];
 
 	IF TCX
 	{
-		xExt<-$0000000000++RAM[[AddrX]];
+		xExt<-$0000000000++X;
 	}
 	IF ~TCX
 	{
-		xExt<-RAM[[AddrX]];
+		xExt<-X;
 	}
 	IF TCYN
 	{
-		tExt<-RAM[[DataAddress]];
+		aExt<-A;
 	}
 	IF ~TCYN
 	{
-		tExt<-$0000000000++RAM[[DataAddress]];
+		aExt<-$0000000000++A;
 	}
 
-	result<-xExt * tExt;
+	MZR<-(xExt * aExt)+ACC;
+}
 
+INSTRUCTION	"MAC. %$1"		%01001
+{
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+	DECLARE result[40]	ALIAS	dc[3]:O[1]:rMSB[4]:rMID[16]:rLOW[16];
+	DECLARE acc[36]		ALIAS	MSB[4]:MID[16]:LOW[16];
+
+	MODE<-RAM[[AddrMODE]];
+	
 	RAM[[AddrMZ2]]->MZ2;
+	RAM[[AddrMZ0]]->LOW;
+	RAM[[AddrMZ1]]->MID;
+	ZMSB->MSB;
+	
+	result<-CALL MultiplyAccumulate(acc,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
 
-	RAM[[AddrMZ0]]->mac[0..15];
-	RAM[[AddrMZ1]]->mac[16..31];
-	ZMSB->mac[32..35];
-
-	mac + result->mac;
-
-	mac[0..15]->RAM[[AddrMZ0]];
-	mac[16..31]->RAM[[AddrMZ1]];
-	mac[32..35]->ZMSB;
-	C<-mac[36..36];
-	RAM[[AddrMZ2]]<-MZ2;
+	rLOW->RAM[[AddrMZ0]];
+	rMID->RAM[[AddrMZ1]];
+	rMSB->ZMSB;
+	O->ZO;
+	MZ2->RAM[[AddrMZ2]];
 }
 
 INSTRUCTION	"MOV. MODE,%$1"		%01010
@@ -379,46 +383,24 @@ INSTRUCTION	"MOV. %$1,X"		%01110
 
 INSTRUCTION	"MULT. %$1"		%01111
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
-	# Multiplier is 16x16 which would generate a 32bit result, but carry is taken from 35-36 so will perform calculation as 40x40 bit?
-	DECLARE xExt[40];
-	DECLARE tExt[40];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
 	DECLARE result[40];
 
 	MODE<-RAM[[AddrMODE]];
-	IF TCX
-	{
-		xExt<-$0000000000++RAM[[AddrX]];
-	}
-	IF ~TCX
-	{
-		xExt<-RAM[[AddrX]];
-	}
-	IF TCYN
-	{
-		tExt<-RAM[[DataAddress]];
-	}
-	IF ~TCYN
-	{
-		tExt<-$0000000000++RAM[[DataAddress]];
-	}
-
-	result<-xExt * tExt;
-
-	RAM[[AddrMZ2]]->MZ2;
+	
+	result<-CALL MultiplyAccumulate($0,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
 
 	result[0..15]->RAM[[AddrMZ0]];
 	result[16..31]->RAM[[AddrMZ1]];
 	result[32..35]->ZMSB;
-	C<-result[36..36];
-
+	result[36..36]->ZO;
 	RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"ADD. %$1"		%10000
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 	DECLARE tmp[16];
 
 	MZ2<-RAM[[AddrMZ2]];
@@ -429,7 +411,7 @@ INSTRUCTION	"ADD. %$1"		%10000
 
 INSTRUCTION	"SUB. %$1"		%10001
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 	DECLARE tmp[16];
 
 	MZ2<-RAM[[AddrMZ2]];
@@ -450,7 +432,7 @@ INSTRUCTION	"OR. %$1"		%10011
 
 INSTRUCTION	"ADC. %$1"		%10100
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 	DECLARE tmp[16];
 
 	MZ2<-RAM[[AddrMZ2]];
@@ -461,7 +443,7 @@ INSTRUCTION	"ADC. %$1"		%10100
 
 INSTRUCTION	"SBC. %$1"		%10101
 {
-	DECLARE MZ2[16]		ALIAS	%00000000000:C[1]:ZMSB[4];
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 	DECLARE tmp[16];
 
 	MZ2<-RAM[[AddrMZ2]];
@@ -497,7 +479,7 @@ INSTRUCTION	"MOV. DAC12,%$1"	%11011
 
 INSTRUCTION	"GAI. %$1"		%11100
 {
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCX[1]:TCYN[1]:M[1]:S[4];
+	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
 	DECLARE A[16];
 	DECLARE B[16];
 
