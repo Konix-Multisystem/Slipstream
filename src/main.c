@@ -46,6 +46,9 @@ extern uint8_t FL1_VECTOR;
 uint8_t dskABuffer[720*1024];
 uint8_t dskBBuffer[720*1024];
 
+const char* dskAPath=NULL;
+const char* dskBPath=NULL;
+
 #if MEMORY_MAPPED_DEBUGGER
 void InitMemoryMappedDebugger();
 int UpdateMemoryMappedDebuggerViews();
@@ -707,6 +710,7 @@ void Usage()
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
+	CONSOLE_OUTPUT("-2 [disk]  mount disk to floppy drive b\n");
 	CONSOLE_OUTPUT("-V [256x256x3] truecolour image raw format for use with flare one genlocking\n");
 #if MEMORY_MAPPED_DEBUGGER
 	CONSOLE_OUTPUT("-S [symbols] load a symbol file\n");
@@ -868,13 +872,36 @@ void ParseCommandLine(int argc,char** argv)
 			}
 			if (strcmp(argv[a],"-1")==0)
 			{
-				FL1LoadDisk(dskABuffer,"SYSTEM.DSK");
-				FL1LoadDisk(dskBBuffer,"BLANK.DSK");
-
-				LoadBinary("FL1_ROM0_0000.rom",0);
-				LoadBinary("FL1_ROM1_CC00.rom",4*16384);
-				curSystem=ESS_FL1;
-				return;
+				if ((a+1)<argc)
+				{
+					dskAPath=argv[a+1];
+					FL1LoadDisk(dskABuffer,dskAPath);
+					LoadBinary("roms/FL1_ROM0_0000.rom",0);
+					LoadBinary("roms/FL1_ROM1_CC00.rom",4*16384);
+					curSystem=ESS_FL1;
+				}
+				else
+				{
+					Usage();
+					return;
+				}
+				a+=1;
+				continue;
+			}
+			if (strcmp(argv[a],"-2")==0)
+			{
+				if ((a+1)<argc)
+				{
+					dskBPath=argv[a+1];
+					FL1LoadDisk(dskBBuffer,dskBPath);
+				}
+				else
+				{
+					Usage();
+					return;
+				}
+				a+=1;
+				continue;
 			}
 		}
 		else
@@ -1209,8 +1236,14 @@ int main(int argc,char**argv)
 	AudioKill();
 	VideoKill();
 
-	FL1SaveDisk(dskABuffer, "SYSTEM.DSK", 720*1024);
-	FL1SaveDisk(dskBBuffer, "BLANK.DSK", 720*1024);
+	if (dskAPath!=NULL)
+	{
+		FL1SaveDisk(dskABuffer, dskAPath, 720*1024);
+	}
+	if (dskBPath!=NULL)
+	{
+		FL1SaveDisk(dskBBuffer, dskBPath, 720*1024);
+	}
 
 	return 0;
 }
