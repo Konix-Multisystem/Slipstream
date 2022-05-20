@@ -1277,17 +1277,6 @@ void DoBlitOuter()
 	{
 		step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
 		innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
-
-		switch (BLT_OUTER_MODE&0x60)
-		{
-			case 0x00:
-			case 0x40:
-				innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd
-				break;
-			case 0x20:
-			case 0x60:
-				break;
-		}
 	}
 
 	//Not clear if reloaded for between blocks (but for now assume it is)
@@ -1382,17 +1371,6 @@ void DoBlitOuter()
 			{
 				step = (BLT_INNER_STEP<<1)|(BLT_OUTER_MODE&1);			// STEP-1  (nibble bit is used only in high resolution mode according to docs, hmmm)
 				innerCnt = ((BLT_OUTER_MODE&0x2)<<7) | BLT_INNER_CNT;			//TODO PARRD will cause this (and BLT_INNER_PAT and BLT_INNER_STEP) to need to be re-read 
-
-				switch (BLT_OUTER_MODE&0x60)
-				{
-					case 0x00:
-					case 0x40:
-						innerCnt<<=1;					// 4bit modes double cnt -- but 16 bit modes dont half it... very odd -- Investigate Camels
-						break;
-					case 0x20:
-					case 0x60:
-						break;
-				}
 			}
 
 			//Not clear if reloaded for between blocks (but for now assume it is)
