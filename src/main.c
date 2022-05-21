@@ -438,6 +438,16 @@ void CPU_RESET()
 extern uint16_t numPadState;
 extern uint16_t joyPadState;
 
+void ForceUpperCase(char* tmp)
+{
+	while (*tmp!=0)
+	{
+		if (*tmp>='a' && *tmp<='z')
+			*tmp-=0x20;
+		tmp++;
+	}
+}
+
 void DoCPU8086()
 {
 #if ENABLE_DEBUG
@@ -628,6 +638,7 @@ void DoCPU80386sx()
 				CONSOLE_OUTPUT("CONTINUATION : %s + %08X\n",&RAM[dirAddr+lastEntry*20],fileOffset);
 			}
 			sprintf(tmp,"ROBOCOD/CRUNCH/%s",&RAM[dirAddr+lastEntry*20]);
+			ForceUpperCase(tmp);
 			CONSOLE_OUTPUT("Loading : %s\n",tmp);
 			LoadBinaryMaxSizeOffset(tmp,SEGTOPHYS(MSU_ES,MSU_EDI&0xFFFF),MSU_ECX&0xFFFF,fileOffset);
 
