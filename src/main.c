@@ -954,7 +954,7 @@ void ResetHardware()
 }
 
 void DebugDrawOffScreen();
-int GetILength80386(unsigned int address);
+int GetILength80386(unsigned int address, int cpu);
 
 int dbg_event = 0;
 int bpaddress = 0;
