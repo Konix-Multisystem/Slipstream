@@ -63,8 +63,8 @@ jobs:
         cmake_args: -DEDL_COMMAND=${{ runner.temp }}/edl/edl.exe;-Dglfw3_DIR=${{ runner.temp }}/glfw/lib/cmake/glfw3/;-DOPENAL_LIBRARY=${{ runner.temp }}/openal/lib/openal32.lib;-DOPENAL_INCLUDE_DIR=${{ runner.temp }}/openal/include
     - name: Tar build
       run: tar -cvf build.tar build
-    - name: Update Tar
-      uses: actions/upload-artifact@v2
+    - name: Upload Tar
+      uses: actions/upload-artifact@v4
       with:
         path: build.tar
         name: artifact_${{ matrix.os }}_${{ matrix.configs }}
