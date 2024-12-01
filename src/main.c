@@ -737,7 +737,7 @@ void Usage()
 	CONSOLE_OUTPUT("-K boot production konix bios\n");
 	CONSOLE_OUTPUT("-M load MSU bios\n");
 	CONSOLE_OUTPUT("-C load CARD1 bios (developer bios)\n");
-	CONSOLE_OUTPUT("-D [floppy] load [floppy]\n");
+	CONSOLE_OUTPUT("-D [floppy] load [floppy] to drive (needs -K to boot)\n");
 	CONSOLE_OUTPUT("-z filename [load a file as FL1 binary]\n");
 	CONSOLE_OUTPUT("-j [disable joystick]\n");
 	CONSOLE_OUTPUT("-1 [disk] boot in flare 1 bios mode and mount disk to floppy drive\n");
@@ -786,6 +786,7 @@ void ParseCommandLine(int argc,char** argv)
 			{
 				curSystem=ESS_P89;
 				LoadRom("roms/konixBios.bin",0);
+				ROM[0xB1] = 0xEB;		// Disable floppy security check
 				continue;
 			}
 			if (strcmp(argv[a], "-S") == 0)
@@ -889,7 +890,6 @@ void ParseCommandLine(int argc,char** argv)
 				if ((a+1)<argc)
 				{
 					LoadDisk(argv[a+1]);
-					return;
 				}
 				else
 				{
