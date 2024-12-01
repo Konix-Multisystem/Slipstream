@@ -48,13 +48,18 @@ uint8_t PeekByte(uint32_t addr)
 #endif
 }
 
+extern int pause;
 uint8_t PeekByteZ80(uint32_t addr)
 {
 #if ENABLE_DEBUG
 	uint8_t ret;
+	int opause = pause;
 	int tmp=debugWatchReads;
 	debugWatchReads=0;
+	pause = -1;
 	ret=Z80_GetByte(addr);
+	if (pause == -1)
+		pause = opause;
 	debugWatchReads=tmp;
 	return ret;
 #else
@@ -970,6 +975,9 @@ void FETCH_REGISTERSZ80(char* tmp)
 	REGISTER_ADDRESS_Z80(tmpBuffer, "IR", Z80_IR); strcat(tmp, tmpBuffer);
 	REGISTER_ADDRESS_Z80_MEM(tmpBuffer, "SP", Z80_SP); strcat(tmp, tmpBuffer);
 	REGISTER_ADDRESS_Z80_MEM(tmpBuffer, "PC", Z80_PC); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS_Z80(tmpBuffer, "IFF1", Z80_IFF1&1); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS_Z80(tmpBuffer, "IFF2", Z80_IFF2&1); strcat(tmp, tmpBuffer);
+	REGISTER_ADDRESS_Z80(tmpBuffer, "IM", Z80_IM&0x3); strcat(tmp, tmpBuffer);
 }
 
 #endif

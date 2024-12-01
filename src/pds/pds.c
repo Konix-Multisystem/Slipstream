@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #endif
 
-#define PDS_INTERCEPT_DIRECT 1		//experiment to see if i can "pretend" the comms 
+#define PDS_INTERCEPT_DIRECT 0		//experiment to see if i can "pretend" the comms 
 
 /*
  KB STUFF
@@ -323,9 +323,26 @@ uint16_t offset;
 uint16_t dontcare;
 uint16_t size;
 
+uint8_t fl1_cur_bank0=0x10;
+uint8_t fl1_cur_bank1=0x11;
+uint8_t fl1_cur_bank2=0x12;
+uint8_t fl1_cur_bank3=0x13;
+uint16_t fl1_start;
+uint16_t fl1_length;
+
+#define SAVE_AS_ROM	1
+
+#if SAVE_AS_ROM
+FILE* outputRom = NULL;
+const char outFileName[65536];
+#endif
+
 // TO MOVE TO CLIENT SIDE lib
 void PDS_Recieve(uint8_t byte)
 {
+#if SAVE_AS_ROM
+	uint8_t outByte;
+#endif
 	if (curSystem == ESS_P88)
 	{
 		switch (state)
@@ -408,6 +425,161 @@ void PDS_Recieve(uint8_t byte)
 			break;
 		}
 	}
+	else if (curSystem == ESS_FL1)
+	{
+		// Initial bank layouts for PDS
+		// 3 = 13H - Only bank that gets switched
+		// 2 = 12H
+		// 1 = 11H
+		// 0 = 10H
+
+		switch (state)
+		{
+		case 0:	// Waiting for command
+
+			switch (byte)
+			{
+			case 179:	//PAD
+				break;
+			case 180:		// Download block
+				state = 200;
+				break;
+			case 181:		// Jump to address
+				state = 300;
+				break;
+			case 183:		// Select Bank
+				state = 100;
+				break;
+			case 0xFF:		// Dummy At Startup
+#if SAVE_AS_ROM
+				sprintf(outFileName, "%s%s", RootDisk, "OUT.FL1");
+				outputRom = fopen(outFileName, "wb");
+				outByte = 0xF1;	// F1 ROM 
+				fwrite(&outByte, 1, 1, outputRom);
+#endif
+				break;
+			case 0x8B:		// Dummy At Startup
+				break;
+			default:
+				printf("UNIMPLEMENTED");
+				break;
+			}
+			/*if (byte == 0xC8)
+				state = 100;
+			else if (byte == 0xCA)
+				state = 200;
+			else if (byte == 0xB3)
+				printf("PDS_dummyByte? B3\n");
+			else
+				printf("PDS_Unknown command : %02X\n", byte);*/
+			break;
+
+		case 100:	// select bank
+			fl1_cur_bank3 = byte;
+			state = 0;
+			break;
+
+		case 200:	// download 
+			fl1_start = byte << 8;
+			state++;
+			break;
+		case 201:
+			fl1_start |= byte;
+			state++;
+			break;
+		case 202:
+			fl1_length = byte << 8;
+			state++;
+			break;
+		case 203:
+			fl1_length |= byte;
+#if SAVE_AS_ROM
+			outByte = 0xC8;
+			fwrite(&outByte, 1, 1, outputRom);
+
+			// Compute Linear Address From Bank and fl1_start
+			{
+				uint32_t address;
+				uint32_t bnk = fl1_start / 16384;
+				switch (bnk)
+				{
+				case 0:
+					address = fl1_cur_bank0 * 16384;
+					break;
+				case 1:
+					address = fl1_cur_bank1 * 16384;
+					break;
+				case 2:
+					address = fl1_cur_bank2 * 16384;
+					break;
+				case 3:
+					address = fl1_cur_bank3 * 16384;
+					break;
+				}
+				address += fl1_start & 16383;
+				uint16_t seg = (address >> 4)&0xF000;
+				uint16_t off = address & 0xFFFF;
+				fwrite(&seg, 1, 2, outputRom);
+				fwrite(&off, 1, 2, outputRom);
+				seg = 0;
+				off = fl1_length;
+				fwrite(&seg, 1, 2, outputRom);
+				fwrite(&off, 1, 2, outputRom);
+			}
+#endif
+			state++;
+			break;
+		case 204:
+#if SAVE_AS_ROM
+			fwrite(&byte, 1, 1, outputRom);
+#endif
+			fl1_length--;
+			fl1_start++;
+			if (fl1_length == 0)
+				state = 0;
+			break;
+
+		case 300:	// download 
+			fl1_start = byte << 8;
+			state++;
+			break;
+		case 301:
+			fl1_start |= byte;
+#if SAVE_AS_ROM
+			outByte = 0xCA;
+			fwrite(&outByte, 1, 1, outputRom);
+
+			// Compute Linear Address From Bank and fl1_start
+			{
+				uint32_t address;
+				uint32_t bnk = fl1_start / 16384;
+				switch (bnk)
+				{
+				case 0:
+					address = fl1_cur_bank0 * 16384;
+					break;
+				case 1:
+					address = fl1_cur_bank1 * 16384;
+					break;
+				case 2:
+					address = fl1_cur_bank2 * 16384;
+					break;
+				case 3:
+					address = fl1_cur_bank3 * 16384;
+					break;
+				}
+				address += fl1_start & (16384-1);
+				uint16_t seg = (address >> 4)&0xF000;
+				uint16_t off = address & 0xFFFF;
+				fwrite(&seg, 1, 2, outputRom);
+				fwrite(&off, 1, 2, outputRom);
+				fclose(outputRom);
+			}
+#endif
+			state=0;
+			break;
+		}
+	}
 	else
 	{
 		printf("WARNING: PDS CLIENT LIB MISSING IMPLEMENTATION FOR SYSTEM : %d\n", curSystem);
@@ -477,7 +649,7 @@ void PDS_SetPortB(uint16_t port,uint8_t byte)
 #if PDS_INTERCEPT_DIRECT
 		if (PDS_GetAByte())
 		{
-			printf("PDS_DATA_VALUE : %02X\n", byteFromPDS);
+			//printf("PDS_DATA_VALUE : %02X\n", byteFromPDS);
 			PDS_Recieve(byteFromPDS);
 		}
 #endif
@@ -1028,15 +1200,8 @@ FILE* handles[MAX_EMU_HANDLES] = { 0 };
 
 extern int pause;
 
-int PDS_FileOpen(const char* filename, uint8_t kind)
+void PDS_FileName(char* dstPath, const char* filename)
 {
-	char path[2048];
-	struct DTA* dta = &PDS_Ram[DiskTransferAddress];
-	struct stat status;
-	int statusOk;
-		
-	printf("Open File : '%s'  %s (%02X)\n", filename, (kind&3) == 0 ? "for read" : ((kind&3) == 1 ? "for write" : "read/write"), kind);
-
 	if (filename[0] == 'A' && filename[1] == ':' && filename[2] == '\\')
 		filename += 3;
 	else if (filename[0] == 'A' && filename[1] == ':')
@@ -1049,7 +1214,50 @@ int PDS_FileOpen(const char* filename, uint8_t kind)
 	if (NCASE_CMP(filename, "..\\", 3) == 0)
 		filename += 3;
 
-	sprintf(path, "%s%s", RootDisk, filename);
+	sprintf(dstPath, "%s%s", RootDisk, filename);
+
+	char* killSpace = dstPath + strlen(dstPath)-1;
+	while (killSpace > dstPath)
+	{
+		if (*killSpace == ' ')
+			*killSpace-- = 0;
+		else
+			break;
+	}
+}
+
+int PDS_FileDelete(const char* filename, uint8_t mask)
+{
+	char path[2048];
+	struct DTA* dta = &PDS_Ram[DiskTransferAddress];
+	struct stat status;
+	int statusOk;
+		
+	printf("Delete File : '%s'  (%02X)\n", filename, mask);
+
+	PDS_FileName(path, filename);
+
+	// Should we delete though ?
+	struct stat buffer;
+	int exist = stat(path, &buffer);
+	if (exist)
+	{
+		return 0;
+	}
+
+	return -FileNotFound;
+}
+
+int PDS_FileOpen(const char* filename, uint8_t kind)
+{
+	char path[2048];
+	struct DTA* dta = &PDS_Ram[DiskTransferAddress];
+	struct stat status;
+	int statusOk;
+		
+	printf("Open File : '%s'  %s (%02X)\n", filename, (kind&3) == 0 ? "for read" : ((kind&3) == 1 ? "for write" : "read/write"), kind);
+	
+	PDS_FileName(path, filename);
 
 	int a = 2;
 	for (; a < MAX_EMU_HANDLES; a++)
@@ -1272,6 +1480,7 @@ void DOS_Function(uint8_t functionNumber)
 	uint16_t BX = PDS_EBX & 0xFFFF;
 	uint16_t CX = PDS_ECX & 0xFFFF;
 	uint16_t DX = PDS_EDX & 0xFFFF;
+	uint8_t CL = PDS_ECX & 0xFF;
 	uint8_t DL = PDS_EDX & 0xFF;
 	uint16_t SI = PDS_ESI & 0xFFFF;
 	uint16_t DI = PDS_EDI & 0xFFFF;
@@ -1415,6 +1624,21 @@ void DOS_Function(uint8_t functionNumber)
 	case 0x3F:		// Read From Handle
 	{
 		int result = PDS_FileRead(addrDSDX, CX, BX);
+		if (result < 0)
+		{
+			SetCarry();
+			PDS_EAX = 0;
+		}
+		else
+		{
+			ClearCarry();
+			PDS_EAX = result;
+		}
+		break;
+	}
+	case 0x41:
+	{
+		int result = PDS_FileDelete(&PDS_Ram[addrDSDX], CL);
 		if (result < 0)
 		{
 			SetCarry();
@@ -1791,12 +2015,23 @@ void PDS_Start()
 
 	PSF_Load("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\BM.PSF");		//Extracted from IBM-EGA8x8.FON from old school font pack
 
-	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
+	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\atd\\pdsz80.exe");
 	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\version121_pdsz80.exe");
-	PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
+	//PDS_LoadEXE("C:\\Users\\savou\\Downloads\\PDS\\PDS_executables\\P89.exe");
 	PDS_Setup("");// "A.PRJ");// A:\\A.PRJ");
 
-	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/DISK_ROOT/";
+//	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/DISK_ROOT_Trans/";
+
+	RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/TRANSFOR/";	// CHAIR VERSION
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/HITCH/";
+	///RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/NINJA2/";
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/PALETTE/";
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/SLIDE/";
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/JOYSTICK_DEMOS/CUBE/";
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/LATER/CUBE/";	// DONE.FL1
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/LATER/HITCH/";
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/LATER/INVADERS/"; /// INVESTIGATE
+	//RootDisk = "C:/Users/savou/Downloads/PDS/PDS_executables/LATER/TRANSFOR/";
 
 	// Download Alternate Flare 1 rom... (4 bytes at head of image for some reason)
 	LoadBinary("C:\\Users\\savou\\Downloads\\External Contributions\\ST_DISK_Z80_PROGS_FLARE_1\\PDS\\PDS_RO0.P", -4);

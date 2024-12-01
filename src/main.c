@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"0.9"
+#define SLIPSTREAM_VERSION	"1.0"
 
 #include <GLFW/glfw3.h>
 
@@ -117,10 +117,15 @@ int HandleExecuteSection(FILE* inFile)
 	CS=segment;
 	IP=offset;
 	Z80_PC=offset;
-	ASIC_BANK0=(segment<<4);
-	ASIC_BANK1=(segment<<4)+16384;
-	ASIC_BANK2=(segment<<4)+32768;
-	ASIC_BANK3=0x4C000;				// PAGE 19 - 
+	Z80_SP = 0x3FC;	// PDS sets the stack here
+	ASIC_WriteFL1(0, 0x10,0);
+	ASIC_WriteFL1(1, 0x11,0);
+	ASIC_WriteFL1(2, 0x12,0);
+	ASIC_WriteFL1(3, 0x13,0);
+	//ASIC_WriteFL1(7, 0xFF, 0);
+	//ASIC_WriteFL1(8, 0x04, 0);
+	//ASIC_WriteFL1(10, 0x40, 0);
+	
 
 	CONSOLE_OUTPUT("Found Section Execute : %04X:%04X\n",segment,offset);
 
@@ -165,12 +170,23 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 			case 0xF1:						// Not original specification - added to indicate system type is FL1
 				CONSOLE_OUTPUT("Found Section Flare One\n");
 				curSystem=ESS_FL1;
-				// FL1 binaries are generally intended to be run from within an initialised system (presumably they were downloaded via PDS)
-				//
-				// The flare one bios expects to with cpu in IM 0 (with 00/NOP supplied as vector) it switches over to IM1 during bootup
-				//we fake this by setting the Interrupt instruction here to FF (RST38) which is the same as IM 1 when running binaries directly
-				FL1_VECTOR = 0xFF;
-				SetByte(0x40038, 0xc9);		//Patch a dummy ret in case the image assumes a vector (the older CUBE demo for instance)
+				// FL1 binaries are generally intended to be run from within an initialised system (they were downloaded via PDS)
+				Z80_IM = 1;
+				// PDS rom sets up a standard vector
+				SetByte(0x40038, 0xF3);
+				SetByte(0x40039, 0xF5);
+				SetByte(0x4003A, 0xDB);
+				SetByte(0x4003B, 0x07);
+				SetByte(0x4003C, 0xF1);
+				SetByte(0x4003D, 0xFB);
+				SetByte(0x4003E, 0xED);
+				SetByte(0x4003F, 0x4D);
+				// TRANSFORMERS FIX
+				SetByte(0x40001, 0xFF);	// Due to a mistake in the original sources, the transformers demo does not reserve space for a byte to indicate if the 
+										//screen swapping is enabled, so it ends up uses the SWAPPING equate instead (which is 1). So the code polls address 1
+										//to see if screen swapping is enabled, if PDS has been used to download the code, then the pds ROM occupies address 1
+										//causing address 1 to return a non zero value. The FL1 image does not set a value to this address, and thus it reads
+										//0, and thinks screen swapping is disabled, causing flickering on the roads
 				break;
 			case 0xC8:
 				expectedSize-=HandleLoadSection(inFile);
@@ -186,6 +202,7 @@ int LoadMSU(const char* fname)					// Load an MSU file which will fill some memo
 
 	fclose(inFile);
 
+	//pause = 1;
 	return 0;
 }
 
@@ -961,7 +978,7 @@ int main(int argc,char**argv)
 	ParseCommandLine(argc,argv);
 
 // PDS HACKING
-#if 1
+#if 0
 
 	curSystem = ESS_P88;
 
@@ -1014,9 +1031,9 @@ int main(int argc,char**argv)
 //	bpaddress = 0xFE0DD5;
 //	bpaddress = 0xFE2223;		// Flash/PC communications (could be interesting)
 //	bpaddress = 0x725563;		// FRONT.REX goes wrong
-	bpaddress = 0x726A9B;		// CART.REX goes wrong
+//	bpaddress = 0x726A9B;		// CART.REX goes wrong
 //	bpaddress = 0xFFE350;		// JAMES5.BIN 
-
+	bpaddress = 0x40400;
 
 #if 0 
 	dbg_event = 1;
@@ -1025,8 +1042,8 @@ int main(int argc,char**argv)
 #endif
 
 	dbg_event = 1;
-	bpaddress = 0x80000;// 0x800b9;
-	pause = 0;
+//	bpaddress = 0x80000;// 0x800b9;
+	//pause = 0;
 
 /*
 	SetByte(0xE8, 0xAD);
@@ -1035,7 +1052,8 @@ int main(int argc,char**argv)
 	SetByte(0xEB, 0xC0);
 	*/
 
-	while (1==1)
+	extern int g_Quit;
+	while (g_Quit)
 	{
 		uint32_t ttBltDebug;
 		if (!pause)
@@ -1290,6 +1308,15 @@ int main(int argc,char**argv)
 			}
 		}
 	}
+
+/*
+	FILE* ramDump = fopen("C:\\work\\F1.RAM", "wb");
+	for (int a = 0; a < RAM_SIZE; a++)
+	{
+		fwrite(&RAM[a], 1, 1, ramDump);
+	}
+	fclose(ramDump);
+*/
 
 	KeysKill();
 	AudioKill();

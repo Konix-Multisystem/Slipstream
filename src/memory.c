@@ -271,6 +271,7 @@ uint8_t GetByteFL1(uint32_t addr)
 	return RAM[addr];
 }
 
+extern int pause;
 uint8_t GetByte(uint32_t addr)
 {
 	uint8_t retVal;

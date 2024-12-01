@@ -102,9 +102,11 @@ void VideoSizeHandler(GLFWwindow *window,int xs,int ys)
 	glViewport(offsx, offsy, xs, ys);
 }
 
+int g_Quit = 1;
+
 void VideoCloseHandler(GLFWwindow *window)
 {
-	exit(0);
+	g_Quit = 0;
 }
 
 void VideoInitialise()
