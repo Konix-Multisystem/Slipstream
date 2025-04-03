@@ -1310,9 +1310,10 @@ const char regMMX[8][5]={
 
 const char hex[16][2]={"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"};
 
-void AppendHexValue32(unsigned int value)
+void AppendHexValue32(InStream* stream, unsigned int value)
 {
 	int a;
+	unsigned int oValue=value;
 
 	for (a=0;a<8;a++)
 	{
@@ -1320,11 +1321,22 @@ void AppendHexValue32(unsigned int value)
 		AddToOutput(hex[val]);
 		value<<=4;
 	}
+	if (stream->findSymbol)
+	{
+		const char* symbol = stream->findSymbol(oValue);
+		if (symbol!=NULL)
+		{
+			AddToOutput(" ");
+			AddToOutput(symbol);
+			AddToOutput(" ");
+		}
+	}
 }
 
-void AppendHexValue16(unsigned short value)
+void AppendHexValue16(InStream* stream, unsigned short value)
 {
 	int a;
+	unsigned int oValue=value;
 
 	for (a=0;a<4;a++)
 	{
@@ -1332,17 +1344,38 @@ void AppendHexValue16(unsigned short value)
 		AddToOutput(hex[val]);
 		value<<=4;
 	}
+	if (stream->findSymbol)
+	{
+		const char* symbol = stream->findSymbol(oValue);
+		if (symbol!=NULL)
+		{
+			AddToOutput(" ");
+			AddToOutput(symbol);
+			AddToOutput(" ");
+		}
+	}
 }
 
-void AppendHexValue8(unsigned char value)
+void AppendHexValue8(InStream* stream, unsigned char value)
 {
 	int a;
+	unsigned int oValue=value;
 
 	for (a=0;a<2;a++)
 	{
 		int val=(value&0xF0)>>4;
 		AddToOutput(hex[val]);
 		value<<=4;
+	}
+	if (stream->findSymbol)
+	{
+		const char* symbol = stream->findSymbol(oValue);
+		if (symbol!=NULL)
+		{
+			AddToOutput(" ");
+			AddToOutput(symbol);
+			AddToOutput(" ");
+		}
 	}
 }
 
@@ -1355,7 +1388,7 @@ void Extract8BitDisp(InStream* stream)
 		immediate+=stream->curAddress;
 	}
 	
-	AppendHexValue32(immediate);
+	AppendHexValue32(stream,immediate);
 }
 
 unsigned int Get32BitImm(InStream* stream)
@@ -1390,7 +1423,7 @@ void Extract16BitDisp(InStream* stream)
 	{
 		immediate+=stream->curAddress;
 	}
-	AppendHexValue32(immediate);
+	AppendHexValue32(stream,immediate);
 }
 
 void Extract32BitDisp(InStream* stream)
@@ -1401,22 +1434,22 @@ void Extract32BitDisp(InStream* stream)
 	{
 		immediate+=stream->curAddress;
 	}
-	AppendHexValue32(immediate);
+	AppendHexValue32(stream,immediate);
 }
 
 void Extract8BitImm(InStream* stream)
 {
-	AppendHexValue8(GetNextByteFromStream(stream));
+	AppendHexValue8(stream,GetNextByteFromStream(stream));
 }
 
 void Extract16BitImm(InStream* stream)
 {
-	AppendHexValue16(Get16BitImm(stream));
+	AppendHexValue16(stream, Get16BitImm(stream));
 }
 
 void Extract32BitImm(InStream* stream)
 {
-	AppendHexValue32(Get32BitImm(stream));
+	AppendHexValue32(stream,Get32BitImm(stream));
 }
 				
 void ExtractImm(int rSize,InStream* stream)
@@ -2031,7 +2064,7 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 							AddToOutput("0x");
 							Extract16BitImm(stream);
 							AddToOutput(":0x");
-							AppendHexValue16(addr);
+							AppendHexValue16(stream,addr);
 							break;
 
 						}
@@ -2041,7 +2074,7 @@ void ProcessOperands(int seg,int rSize,int mSize,unsigned char opcode,const Tabl
 							AddToOutput("0x");
 							Extract16BitImm(stream);
 							AddToOutput(":0x");
-							AppendHexValue32(addr);
+							AppendHexValue32(stream,addr);
 							break;
 						}
 					default:

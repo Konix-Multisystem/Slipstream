@@ -16,12 +16,13 @@
 #include "memory.h"
 #include "disasm.h"
 
-int disable_exit=0;
+int disable_exit=1;
 int doDebug=0;
-int doShowPortStuff=0;
+int doShowPortStuff=1;
 uint32_t doDebugTrapWriteAt=0xFFFFF;
 int debugWatchWrites=0;
 int debugWatchReads=0;
+int sourceMemoryMappedDebugger = 0;
 
 #define exit brkExit
 
@@ -67,10 +68,13 @@ uint8_t PeekByteZ80(uint32_t addr)
 #endif
 }
 
-
 void DebugWPort(uint16_t port)
 {
 #if ENABLE_DEBUG
+    if (sourceMemoryMappedDebugger)
+    {
+        return;
+    }
 	switch (curSystem)
 	{
 		case ESS_P89:
@@ -619,6 +623,10 @@ void DebugWPort(uint16_t port)
 void DebugRPort(uint16_t port)
 {
 #if ENABLE_DEBUG
+    if (sourceMemoryMappedDebugger)
+    {
+        return;
+    }
 	switch (curSystem)
 	{
 		case ESS_P89:

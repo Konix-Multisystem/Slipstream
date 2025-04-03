@@ -34,7 +34,7 @@ int single=0;
 int framestep = 0;
 int cyclestep = 0;
 int noBorders = 0;
-
+int curAddress=-1;
 extern uint8_t DSP_CPU_HOLD;		// For now, DSP will hold CPU during relevant DMAs like this
 
 int useJoystick=1;
@@ -707,6 +707,10 @@ int CPU_STEP(int doDebug)
 			case ESS_P88:
 			case ESS_P89:
 				DoCPU8086();
+				if (CYCLES<=0)
+				{
+					return 1;
+				}
 				if (use6MhzP88Cpu)
 					return CYCLES*2;		// 6Mhz
 				else
@@ -957,7 +961,7 @@ void DebugDrawOffScreen();
 int GetILength80386(unsigned int address, int cpu);
 
 int dbg_event = 0;
-int bpaddress = 0;
+int bpaddress = -1;
 int DBG_Cpu_Clocks = 0;
 
 #if ENABLE_PDS
@@ -1033,7 +1037,10 @@ int main(int argc,char**argv)
 //	bpaddress = 0x725563;		// FRONT.REX goes wrong
 //	bpaddress = 0x726A9B;		// CART.REX goes wrong
 //	bpaddress = 0xFFE350;		// JAMES5.BIN 
-	bpaddress = 0x40400;
+
+#if MEMORY_MAPPED_DEBUGGER
+	pause=1;
+#endif
 
 #if 0 
 	dbg_event = 1;
@@ -1062,7 +1069,7 @@ int main(int argc,char**argv)
 			PDS_Tick();
 #endif
 #if MEMORY_MAPPED_DEBUGGER
-			if (single || DBG_Cpu_Clocks == 0)			// Hack to allow cycle stepping
+			if (DBG_Cpu_Clocks == 0)			// Hack to allow cycle stepping
 			{
 				numClocks = DBG_Cpu_Clocks;
 				DBG_Cpu_Clocks = CPU_STEP(doDebug);
@@ -1081,11 +1088,6 @@ int main(int argc,char**argv)
 #if MEMORY_MAPPED_DEBUGGER
 			if (dbg_event)
 			{
-				if (single)
-				{
-					pause = 1;
-					single = 0;
-				}
 				if (cyclestep)
 				{
 					pause = 1;
@@ -1093,21 +1095,34 @@ int main(int argc,char**argv)
 				}
 				switch (curSystem)
 				{
+				case ESS_P88:
+				case ESS_P89:
+					if (SEGTOPHYS(CS,IP) == bpaddress)
+					{
+						pause = 1;
+						dbg_event = 0;
+						bpaddress=-1;
+					}
+					if (SEGTOPHYS(CS,IP) != curAddress && curAddress!=-1)
+					{
+						pause = 1;
+						dbg_event = 0;
+						curAddress=-1;
+					}
+					break;
 				case ESS_CP1:
 				case ESS_MSU:
 					if (MSU_GETPHYSICAL_EIP() == bpaddress)
 					{
 						pause = 1;
 						dbg_event = 0;
-						debugWatchWrites = 1;
+						bpaddress=-1;
 					}
-					break;
-				case ESS_P88:
-				case ESS_P89:
-					if (((CS * 16 + IP) & 0xFFFFF) == bpaddress)
+					if (MSU_GETPHYSICAL_EIP() != curAddress && curAddress!=-1)
 					{
 						pause = 1;
 						dbg_event = 0;
+						curAddress=-1;
 					}
 					break;
 				case ESS_FL1:
@@ -1115,6 +1130,13 @@ int main(int argc,char**argv)
 					{
 						pause = 1;
 						dbg_event = 0;
+						bpaddress=-1;
+					}
+					if (getZ80LinearAddress() != curAddress && curAddress!=-1)
+					{
+						pause = 1;
+						dbg_event = 0;
+						curAddress=-1;
 					}
 					break;
 				}
@@ -1178,19 +1200,42 @@ int main(int argc,char**argv)
 				break;
 			case 2:
 				pause = 0;
-				single = 1;
+				switch (curSystem)
+				{
+					case ESS_FL1:
+						curAddress= getZ80LinearAddress();
+						break;
+					case ESS_MSU:
+					case ESS_CP1:
+						curAddress= MSU_GETPHYSICAL_EIP();
+						break;
+					case ESS_P88:
+					case ESS_P89:
+						curAddress= SEGTOPHYS(CS,IP);
+						break;
+
+				}
 				dbg_event = 1;
 				break;
 			case 3:
 				// Get Length of current instruction and set a global bp on it (not strictly a step over, ideally we would decode the next address properly)
 				dbg_event = 1;
 				pause = 0;
-				if (curSystem == ESS_FL1)
-					bpaddress = getZ80LinearAddress() + GetILength80386(getZ80LinearAddress(), 0);
-				if (curSystem == ESS_MSU)
-					bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP(), 1);
-				if (curSystem == ESS_P88 || curSystem == ESS_P89)
-					bpaddress = (CS * 16) + IP + GetILength86(CS * 16 + IP, 1);
+				switch (curSystem)
+				{
+					case ESS_FL1:
+						bpaddress = getZ80LinearAddress() + GetILength80386(getZ80LinearAddress(), 0);
+						break;
+					case ESS_MSU:
+					case ESS_CP1:
+						bpaddress = MSU_GETPHYSICAL_EIP() + GetILength80386(MSU_GETPHYSICAL_EIP(), 1);
+						break;
+					case ESS_P88:
+					case ESS_P89:
+						bpaddress = SEGTOPHYS(CS,IP+GetILength80386(SEGTOPHYS(CS,IP), 1));
+						break;
+
+				}
 				break;
 			case 4:
 				pause = 0;

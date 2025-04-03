@@ -1,11 +1,37 @@
 #if MEMORY_MAPPED_DEBUGGER 
 
+#include <string.h>
 #include <stdint.h>
 #include "system.h"
 #include "disasm.h"
 #include "debugger.h"
 
+#if defined(_WIN32)
 #include <windows.h>
+
+volatile unsigned char* GetSharedMemory(const char* name, int bufferSize)
+{
+	HANDLE hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, bufferSize, name);
+
+	return (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, bufferSize);
+}
+#else
+
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
+volatile unsigned char* GetSharedMemory(const char* name, int bufferSize)
+{
+	int fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+	ftruncate(fd, bufferSize);
+
+	return (volatile unsigned char*)mmap(NULL, bufferSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+}
+#endif
 
 #define SEGTOPHYS(seg,off)	( ((seg)<<4) + (off) )				// Convert Segment,offset pair to physical address
 
@@ -18,34 +44,31 @@ volatile unsigned char* pMapControl = NULL;
 
 volatile unsigned char* pMapIO = NULL;
 
+extern int sourceMemoryMappedDebugger;
+extern int offscreenAddress;
+
 void InitMemoryMappedDebugger()
 {
-	HANDLE hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_Registers");
+	pMapRegisters = GetSharedMemory("Slip_Registers",32768);
 
-	pMapRegisters = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
+	pMapDisassm = GetSharedMemory("Slip_Disassm",32768);
 	
-	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_Disassm");
+	pMapASIC = GetSharedMemory("Slip_ASIC",32768);
 
-	pMapDisassm = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
+	pMapDSP = GetSharedMemory("Slip_DSP",32768);
 	
-	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_ASIC");
+	pMapDSPRegisters = GetSharedMemory("Slip_DSPReg",32768);
 
-	pMapASIC = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
-	
-	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_DSP");
+	pMapControl = GetSharedMemory("Slip_Control",4096);
 
-	pMapDSP = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
-
-	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 32768, "Slip_DSPReg");
-
-	pMapDSPRegisters = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 32768);
-
-	hMapRead = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "Slip_Control");
-
-	pMapControl = (volatile unsigned char*)MapViewOfFile(hMapRead, FILE_MAP_ALL_ACCESS, 0, 0, 4096);
-
-	pMapControl[0] = 0xFF;
-	pMapControl[1] = 0xFF;
+    for (int a=0;a<2;a++)
+    {
+        pMapControl[a] = 0xFF;
+    }
+    pMapControl[2] = offscreenAddress & 0xFF;
+    pMapControl[3] = (offscreenAddress>>8) & 0xFF;
+    pMapControl[4] = (offscreenAddress>>16) & 0xFF;
+    pMapControl[5] = (offscreenAddress>>24) & 0xFF;
 	
 #if ENABLE_MEMORY_MAPPED_IO
 	hMapRead = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, "Slip_PC_IO");
@@ -242,13 +265,13 @@ void FL1_DSP_DISASSEMBLE(char* output);
 void DSP_REGISTERS(char* output);
 void DSP_DISASSEMBLE(char* output);
 
-#include <stdio.h>>
+#include <stdio.h>
 
 struct SymbolElement
 {
 	struct SymbolElement* Previous;
 	struct SymbolElement* Next;
-	const char* Symbol;
+	char* Symbol;
 	int Address;
 };
 
@@ -307,7 +330,7 @@ void InsertSymbol(int address, const char* symbol)
 			if (SymbolNotPresent(element, symbol))
 			{
 				// Multiply defined symbol for address (append name)
-				const char* tmp = element->Symbol;
+				char* tmp = element->Symbol;
 				element->Symbol = malloc(strlen(tmp) + 1 + strlen(symbol) + 1);
 				strcpy(element->Symbol, tmp);
 				strcat(element->Symbol, ",");
@@ -377,7 +400,7 @@ void InsertSymbol(int address, const char* symbol)
 	}
 }
 
-const char* FetchSymbolForAddress(int address)
+const char* FetchSymbolForAddress(unsigned int address)
 {
 	struct SymbolElement* element = SymbolHead;
 	while (element)
@@ -504,7 +527,7 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 			disMe.curAddress = address;
 			disMe.useAddress = 1;
 			disMe.PeekByte = PeekByte;
-			Disassemble(&disMe, MSU_cSize);
+			Disassemble(&disMe, code_size);
 			int a;
 
 			if (disMe.bytesRead != 0)
@@ -571,6 +594,7 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 		if (WPort != NULL && RPort != NULL)
 		{
 			tmp = (char*)pMapASIC;
+			sourceMemoryMappedDebugger=1;
 			for (int a = 0; a < regCnt; a++)
 			{
 				char* ptr = tBuffer;
@@ -615,6 +639,7 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 					tmp += strlen(tmp);
 				}
 			}
+			sourceMemoryMappedDebugger=0;
 		}
 
 
@@ -622,20 +647,18 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 #if 0//ENABLE_PDS
 		FetchRegistersPDS(pMapDSPRegisters);
 		FetchDisassemblePDS(pMapDSP);
-#else
+#endif
 		switch (curSystem)
 		{
 		case ESS_FL1:
 			FL1_DSP_REGISTERS(pMapDSPRegisters);
 			FL1_DSP_DISASSEMBLE(pMapDSP);
 			break;
-		case ESS_P88:
-		case ESS_P89:
+		default:
 			DSP_REGISTERS(pMapDSPRegisters);
 			DSP_DISASSEMBLE(pMapDSP);
 			break;
 		}
-#endif
 	}
 
 	if (pMapControl[0] != pMapControl[1])
@@ -643,6 +666,10 @@ int UpdateMemoryMappedDebuggerViews(int isPaused)
 		cmd = pMapControl[0];
 		pMapControl[1] = pMapControl[0];
 	}
+    offscreenAddress = pMapControl[2];
+    offscreenAddress|= (pMapControl[3]<<8);
+    offscreenAddress|= (pMapControl[4]<<16);
+    offscreenAddress|= (pMapControl[5]<<24);
 	return cmd;
 }
 
@@ -745,9 +772,6 @@ const char* FL1DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
 	return temporaryBuffer;
 }
 
-// Later DSP models
-
-/*
 extern uint16_t DSP_DEBUG_FETCH(uint32_t reg, uint16_t offset);
 
 void DSP_REGISTERS(char* output)
@@ -755,24 +779,47 @@ void DSP_REGISTERS(char* output)
 	char tmp[1024];
 	sprintf(tmp, "IR               %04X\n", DSP_DEBUG_FETCH(2,0)); strcpy(output, tmp);
 	sprintf(tmp, "NextInstruction  %04X\n", DSP_DEBUG_FETCH(3,0)); strcat(output, tmp);
-	sprintf(tmp, "DataAddress      %04X\n", DSP_DEBUG_FETCH(4,0)); strcat(output, tmp);
-	sprintf(tmp, "PC               %04X\n", DSP_DEBUG_FETCH(5,0)&0x7FF); strcat(output, tmp);
-	sprintf(tmp, "IX               %04X\n", DSP_DEBUG_FETCH(6,0)); strcat(output, tmp);
-	sprintf(tmp, "DMA0             %04X\n", DSP_DEBUG_FETCH(7,0)); strcat(output, tmp);
-	sprintf(tmp, "DMA1             %04X\n", DSP_DEBUG_FETCH(8,0)); strcat(output, tmp);
-	sprintf(tmp, "DMD              %04X\n", DSP_DEBUG_FETCH(9,0)); strcat(output, tmp);
-	sprintf(tmp, "MZ0              %04X\n", DSP_DEBUG_FETCH(10,0)); strcat(output, tmp);
-	sprintf(tmp, "MZ1              %04X\n", DSP_DEBUG_FETCH(11,0)); strcat(output, tmp);
-	sprintf(tmp, "MZ2              %04X\n", DSP_DEBUG_FETCH(12,0)); strcat(output, tmp);
-	sprintf(tmp, "MODE             %04X\n\t\n", DSP_DEBUG_FETCH(13,0)); strcat(output, tmp);
-	sprintf(tmp, "X                %04X\n", DSP_DEBUG_FETCH(14,0)); strcat(output, tmp);
-	sprintf(tmp, "AZ               %04X\n", DSP_DEBUG_FETCH(15,0)); strcat(output, tmp);
+	sprintf(tmp, "DataAddress      %04X\n\t\n", DSP_DEBUG_FETCH(4,0)); strcat(output, tmp);
+	sprintf(tmp, "PC               %04X\n", DSP_DEBUG_FETCH(6,0)&0x7FF); strcat(output, tmp);
+	sprintf(tmp, "MZ0              %04X\n", DSP_DEBUG_FETCH(7,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ1              %04X\n", DSP_DEBUG_FETCH(8,0)); strcat(output, tmp);
+	sprintf(tmp, "MZ2              %04X\n", DSP_DEBUG_FETCH(9,0)); strcat(output, tmp);
+	sprintf(tmp, "IX               %04X\n", DSP_DEBUG_FETCH(10,0)); strcat(output, tmp);
+	sprintf(tmp, "X                %04X\n", DSP_DEBUG_FETCH(16,0)); strcat(output, tmp);
+	sprintf(tmp, "AZ               %04X\n", DSP_DEBUG_FETCH(17,0)); strcat(output, tmp);
+	sprintf(tmp, "C                %04X\n\t\n", DSP_DEBUG_FETCH(18,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA0             %04X\n", DSP_DEBUG_FETCH(12,0)); strcat(output, tmp);
+	sprintf(tmp, "DMA1             %04X\n", DSP_DEBUG_FETCH(13,0)); strcat(output, tmp);
+	sprintf(tmp, "DMD              %04X\n", DSP_DEBUG_FETCH(14,0)); strcat(output, tmp);
+	//sprintf(tmp, "INTRA            %04X\n", DSP_DEBUG_FETCH(15,0)); strcat(output, tmp);
 }
 
 extern uint16_t	DSP_DEBUG_PC;
 
 const char* DSP_decodeDisasm(uint8_t* table[32], uint16_t word);
 extern uint8_t *DSP_DIS_[32];			// FROM EDL
+
+void DSP_DISASSEMBLE(char* output)
+{
+	char tmp[1024];
+	unsigned int address = 0x800+DSP_DEBUG_PC;
+
+	const char* retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(2, 0));
+	sprintf(tmp, "LAST :     \t%s\n", retVal);
+	strcpy(output, tmp);
+	retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(3, 0));
+	sprintf(tmp, "NEXT :     \t%s\n\t\n", retVal);
+	strcat(output, tmp);
+	for (int a = 0; a < 16; a++)
+	{
+		uint16_t word = DSP_DEBUG_FETCH(1,address);
+		retVal = DSP_decodeDisasm(DSP_DIS_, word);
+		sprintf(tmp, "%04X : %04X\t%s\n", address&0x7FF, DSP_DEBUG_FETCH(1, address), retVal);
+		strcat(output, tmp);
+		address++;
+		address &= 0xFFF;
+	}
+}
 
 const char* DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
 {
@@ -821,214 +868,5 @@ const char* DSP_decodeDisasm(uint8_t* table[32], uint16_t word)
 	
 	return temporaryBuffer;
 }
-*/
-extern uint8_t *DSP_DIS_[32];			// FROM EDL
 
-extern uint16_t	DSP_DEBUG_PC;
-
-extern uint16_t DSP_PEEK(uint16_t addr);
-extern uint8_t DSP_INTRUDE_STATE;
-
-void DSP_REGISTERS(char* output)
-{
-	char tmp[1024];
-
-	sprintf(tmp, "FLAGS = C\n"); strcpy(output, tmp);
-	sprintf(tmp, "        %s\n", DSP_PEEK(0x147) & 0x20 ? "1" : "0"); strcat(output, tmp);
-	sprintf(tmp, "IX = %04X\n",DSP_PEEK(0x141)); strcat(output, tmp);
-	sprintf(tmp, "MZ0= %04X\n",DSP_PEEK(0x145)); strcat(output, tmp);
-	sprintf(tmp, "MZ1= %04X\n",DSP_PEEK(0x146)); strcat(output, tmp);
-	sprintf(tmp, "MZ2= %04X\n",DSP_PEEK(0x147)); strcat(output, tmp);
-	sprintf(tmp, "MDE= %04X\n",DSP_PEEK(0x14B)); strcat(output, tmp);
-	sprintf(tmp, "X  = %04X\n",DSP_PEEK(0x14C)); strcat(output, tmp);
-	sprintf(tmp, "AZ = %04X\n",DSP_PEEK(0x14D)); strcat(output, tmp);
-	sprintf(tmp, "DMD= %04X\n",DSP_PEEK(0x144)); strcat(output, tmp);
-	uint32_t dma0=DSP_PEEK(0x142);
-	uint32_t dma1=DSP_PEEK(0x143);
-	sprintf(tmp, "DMA0= %04X\n",dma0); strcat(output, tmp);
-	sprintf(tmp, "DMA1= %04X    (HOLD=%d)(RW=%d)(BW=%d)(DMA ADDR=%06X)\n\t\n",dma1,(dma1&0x800)>>11,(dma1&0x400)>>10,(dma1&0x200)>>9,((dma1&0xF)<<16)|(dma0)); strcat(output, tmp);
-	sprintf(tmp, "InDa= %04X\n",DSP_PEEK(0x140)); strcat(output, tmp);
-	sprintf(tmp, "InAd= %04X\n",DSP_PEEK(0x14E)); strcat(output, tmp);
-	sprintf(tmp, "INTR= %04X\n",DSP_INTRUDE_STATE); strcat(output, tmp);
-
-	sprintf(tmp, "\t\n        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F\n"); strcat(output, tmp);
-	for (int a = 0x100; a < 0x180; a+=16)
-	{
-		sprintf(tmp, "%04X: ", a); strcat(output, tmp);
-		for (int b = 0; b < 16; b++)
-		{
-			sprintf(tmp, "%04X ", DSP_PEEK(a + b)); strcat(output, tmp);
-		}
-		sprintf(tmp, "\n"); strcat(output, tmp);
-	}
-	sprintf(tmp, "\t\n        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F\n"); strcat(output, tmp);
-	for (int a = 0x180; a < 0x200; a+=16)
-	{
-		sprintf(tmp, "%04X: ", a); strcat(output, tmp);
-		for (int b = 0; b < 16; b++)
-		{
-			sprintf(tmp, "%04X ", DSP_PEEK(a + b)); strcat(output, tmp);
-		}
-		sprintf(tmp, "\n"); strcat(output, tmp);
-	}
-
-}
-
-const char* DSP_LookupAddress(uint16_t inaddress, int indexed)
-{
-	static char sprintBuffer[256];
-
-	uint16_t address = inaddress;
-	if (indexed)
-		address = (address + DSP_PEEK(0x141)) & 0x3FF;
-
-	switch (address)
-	{
-		case 0x014A:
-			return "PC";
-		case 0x0141:
-			return "IX";
-		case 0x0145:
-			return "MZ0";
-		case 0x0146:
-			return "MZ1";
-		case 0x0147:
-			return "MZ2";
-		case 0x014B:
-			return "MODE";
-		case 0x014C:
-			return "X";
-		case 0x014D:
-			return "AZ";
-		default:
-			break;
-	}
-
-	if (indexed)
-		sprintf(sprintBuffer, "(%04X)  (%04X + IX)", address, inaddress);
-	else
-		sprintf(sprintBuffer,"(%04X)",address);
-	return sprintBuffer;
-}
-
-const char* DSP_decodeDisasm(uint8_t *table[32], uint16_t word)
-{
-	static char temporaryBuffer[2048];
-	char sprintBuffer[256];
-	uint16_t data=word&0x1FF;
-	int index=(word&0x200)>>9;
-	int cond=(word&0x400)>>9;
-	const char* mnemonic=(char*)table[(word&0xF800)>>11];
-	const char* sPtr=mnemonic;
-	char* dPtr=temporaryBuffer;
-	int counting = 0;
-	int doingDecode=0;
-
-	if (sPtr==NULL)
-	{
-		sprintf(temporaryBuffer,"UNKNOWN OPCODE");
-		return temporaryBuffer;
-	}
-	
-	while (*sPtr)
-	{
-		if (!doingDecode)
-		{
-			if (*sPtr=='.')
-			{
-				if (cond)
-				{
-					*dPtr++=*sPtr;
-					*dPtr++='C';
-				}
-				if (index)
-				{
-					*dPtr++=*sPtr;
-					*dPtr++='X';
-				}
-			}
-			else
-			{
-				if (*sPtr=='%')
-				{
-					doingDecode=1;
-				}
-				else
-				{
-					*dPtr++=*sPtr;
-				}
-			}
-		}
-		else
-		{
-			char *tPtr=sprintBuffer;
-			if (index)
-				sprintf(sprintBuffer, "%s", DSP_LookupAddress(data, 1));
-			else
-				sprintf(sprintBuffer, "%s", DSP_LookupAddress(data, 0));
-			while (*tPtr)
-			{
-				*dPtr++=*tPtr++;
-			}
-			doingDecode=0;
-			counting++;
-		}
-		sPtr++;
-	}
-	*dPtr=0;
-	
-	return temporaryBuffer;
-}
-
-void DSP_DISASSEMBLE(char* output)
-{
-	char tmp[1024];
-	unsigned int address = 0x400+DSP_DEBUG_PC;
-
-	const char* retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(2, 0));
-	sprintf(tmp, "LAST :     \t%s\n", retVal);
-	strcpy(output, tmp);
-	retVal = DSP_decodeDisasm(DSP_DIS_, DSP_DEBUG_FETCH(3, 0));
-	sprintf(tmp, "NEXT :     \t%s\n\t\n", retVal);
-	strcat(output, tmp);
-	for (int a = 0; a < 16; a++)
-	{
-		uint16_t word = DSP_PEEK(address);
-		retVal = DSP_decodeDisasm(DSP_DIS_, word);
-		sprintf(tmp, "%04X : %04X\t%s\n", address&0x3FF, DSP_PEEK(address), retVal);
-		strcat(output, tmp);
-		address++;
-		address &= 0x3FF;
-		address |= 0x400;
-	}
-}
-
-
-/*
-int DSP_Disassemble(unsigned int address,int registers)
-{
-	const char* retVal = DSP_decodeDisasm(DSP_DIS_,address);
-
-	if (strcmp(retVal,"UNKNOWN OPCODE")==0)
-	{
-		CONSOLE_OUTPUT("UNKNOWN AT : %04X\n",address);
-		CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
-		CONSOLE_OUTPUT("\n");
-		DSP_DUMP_REGISTERS();
-		exit(-1);
-	}
-
-	if (registers)
-	{
-		DSP_DUMP_REGISTERS();
-	}
-	CONSOLE_OUTPUT("%04X :",address);				// TODO this will fail to wrap which may show up bugs that the CPU won't see
-
-	CONSOLE_OUTPUT("%04X ",DSP_PEEK(0x400+address));
-	CONSOLE_OUTPUT("   ");
-	CONSOLE_OUTPUT("%s\n",retVal);
-
-	return 1;
-}
-*/
 #endif

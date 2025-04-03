@@ -2631,7 +2631,7 @@ void ShowOffScreen(uint32_t(*conv)(uint16_t),uint32_t swapBuffer)
 	uint8_t palIndex;
 	uint16_t palEntry;
 	uint32_t* outputTexture = (uint32_t*)(videoMemory[MAIN_WINDOW]);
-	uint32_t screenPtr = ASIC_SCROLL^swapBuffer;
+	uint32_t screenPtr = /*ASIC_SCROLL^*/swapBuffer;
 	static uint32_t lastCol;
 	uint32_t curCol;
 	uint32_t wrapOffset;
@@ -2913,12 +2913,14 @@ void TickAsicFL1(int cycles)
 	TickAsicFL1_Actual(cycles,ConvPaletteP88);
 }
 
+unsigned int offscreenAddress=0x30000;
+
 void DebugDrawOffScreen()
 {
 	if (curSystem == ESS_FL1)
 		ShowOffScreenFL1(ConvPaletteP88);
 	else if (curSystem==ESS_MSU)
-		ShowOffScreen(ConvPaletteMSU, 0x30000);
+		ShowOffScreen(ConvPaletteMSU, offscreenAddress);
 	else
 		ShowOffScreen(ConvPaletteP88,0x10000);
 }

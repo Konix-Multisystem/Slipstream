@@ -672,4 +672,97 @@ FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
 	}
 }
 
+############
+
+# Used for debugging allows querying internal state
+#
+
+FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
+{
+	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+	DECLARE PRAM[16]	ALIAS	%0000010:PRAMOFF[9];
+	DECLARE DRAM[16]	ALIAS	%0000000:DRAMOFF[9];
+	MZ2<-RAM[[AddrMZ2]];
+	value<-$FFFF;
+
+	PRAMOFF<-offset;
+	DRAMOFF<-offset;
+	IF reg==0
+	{
+		value<-RAM[[DRAM]];
+	}
+	IF reg==1
+	{
+		value<-RAM[[PRAM]];
+	}
+	IF reg==2
+	{
+		value<-IR;
+	}
+	IF reg==3
+	{
+		value<-nextInstruction;
+	}
+	IF reg==4
+	{
+		value<-DataAddress;
+	}
+	IF reg==5
+	{
+		value<-0;
+	}
+	IF reg==6
+	{
+		value<-RAM[[AddrPC]];
+	}
+	IF reg==7
+	{
+		value<-RAM[[AddrMZ0]];
+	}
+	IF reg==8
+	{
+		value<-RAM[[AddrMZ1]];
+	}
+	IF reg==9
+	{
+		value<-RAM[[AddrMZ2]];
+	}
+	IF reg==10
+	{
+		value<-RAM[[AddrIX]];
+	}
+	IF reg==11
+	{
+		value<-0;
+	}
+	IF reg==12
+	{
+		value<-RAM[[AddrDMA0]];
+	}
+	IF reg==13
+	{
+		value<-RAM[[AddrDMA1]];
+	}
+	IF reg==14
+	{
+		value<-RAM[[AddrDMD]];
+	}
+	IF reg==15
+	{
+		value<-0;
+	}
+	IF reg==16
+	{
+		value<-RAM[[AddrX]];
+	}
+	IF reg==17
+	{
+		value<-RAM[[AddrAZ]];
+	}
+	IF reg==18
+	{
+		value<-C;
+	}
+}
+
 

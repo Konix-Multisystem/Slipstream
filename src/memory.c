@@ -940,12 +940,13 @@ uint16_t MSU_JOYIN = 0xFFFF;
 uint16_t HACK_uC_DATA = 0;
 uint16_t HACK_uC_STAT = 2;
 
+extern int sourceMemoryMappedDebugger;
+
 uint16_t GetPortW(uint16_t port)
 {
 #if ENABLE_DEBUG
 	if (doShowPortStuff)
 	{
-		CONSOLE_OUTPUT("GetPortW : %04X - TODO\n",port);
 		DebugRPort(port);
 	}
 #endif
