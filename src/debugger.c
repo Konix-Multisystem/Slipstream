@@ -1951,6 +1951,7 @@ uint32_t MSU_missing(uint32_t opcode)
 
 uint32_t MSU_unimplemented(uint32_t opcode)
 {
+    pause=1;
     return MSU_missing(opcode);
 }
 
