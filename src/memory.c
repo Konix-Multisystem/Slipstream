@@ -39,6 +39,8 @@ uint8_t PotLPValue=0x01;
 uint8_t PotRPValue=0x00;
 uint8_t PotSpareValue=0x40;
 
+extern uint8_t ASIC_MEM;
+
 uint8_t ASIC_FL1_GPO = 0;
 
 uint8_t Z80_GetByte(uint16_t addr)
@@ -175,16 +177,29 @@ uint8_t GetByteMSU(uint32_t addr)
     {
         return ASIC_HostDSPMemReadMSU(addr-0xC1000);
     }
-    if (addr>=0xE0000)
+
+    if (addr>=0xC2000)
     {
-#if ENABLE_DEBUG
-        if (debugWatchReads)
+        if ((ASIC_MEM&0xC) == 0xC)
         {
-            CONSOLE_OUTPUT("GetByte ROM: %05X - %02X\n",addr,ROM[addr-0xE0000]);
+            // EXPANSION RAM
+            return RAM_HI[addr - 0xC2000];
         }
+        else
+        {
+
+            if (addr>=0xE0000)
+            {
+#if ENABLE_DEBUG
+                if (debugWatchReads)
+                {
+                    CONSOLE_OUTPUT("GetByte ROM: %05X - %02X\n",addr,ROM[addr-0xE0000]);
+                }
 #endif
-        return ROM[addr-0xE0000];
-        //		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
+                return ROM[addr-0xE0000];
+                //		return 0xCB;			// STUB BIOS, Anything that FAR calls into it, will be returned from whence it came
+            }
+        }
     }
 #if ENABLE_DEBUG
     CONSOLE_OUTPUT("GetByte : %05X - TODO\n",addr);
@@ -377,10 +392,6 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
 {
     addr&=0xFFFFF;
 #if ENABLE_DEBUG
-    if (addr==doDebugTrapWriteAt)
-    {
-        CONSOLE_OUTPUT("STOMP STOMP STOMP\n");
-    }
     if (debugWatchWrites)
     {
         if (addr<0xC1000 || addr>0xC1FFF)		// DSP handled seperately
@@ -404,6 +415,15 @@ void SetByteMSU(uint32_t addr,uint8_t byte)
         ASIC_HostDSPMemWriteMSU(addr-0xC1000,byte);
         return;
     }
+
+    if ((ASIC_MEM&0xC) == 0xC)
+    {
+        // EXPANSION RAM
+        RAM_HI[addr - 0xC2000]=byte;
+        return;
+    }
+
+
 #if ENABLE_DEBUG
     CONSOLE_OUTPUT("SetByte : %05X,%02X - TODO\n",addr&0xFFFFF,byte);
 #endif
@@ -1019,6 +1039,25 @@ uint16_t GetPortW(uint16_t port)
                     potStatus|=(0x80);
                 return 0x0003 ^ potStatus;
             }
+            if (port == 0xE0)
+            {
+                switch (numPadRowSelect)
+                {
+                    case 1:
+                        return (numPadState & 0xF);
+                    case 2:
+                        return ((numPadState & 0xF0) >> 4);
+                    case 4:
+                        return ((numPadState & 0xF00) >> 8);
+                    case 8:
+                        return ((numPadState & 0xF000) >> 12);
+                    default:
+#if ENABLE_DEBUG
+                        CONSOLE_OUTPUT("Warning unknown numPadRowSelectValue : %02X\n", numPadRowSelect);
+#endif
+                        return 0xFF;
+                }
+            }
             if (port==0x80)
             {
                 return 0xFFFF ^ joyPadState;
@@ -1414,10 +1453,12 @@ void VECTORS_INIT()
             SetByte(0xE000C,0xCB);
             SetByte(0xE0010,0xCB);
             SetByte(0xE001C,0xCB);
+            SetByte(0xE0024,0xCB);
             ROM[0x04]=0xCB;
             ROM[0x0C]=0xCB;
             ROM[0x10]=0xCB;
             ROM[0x1C]=0xCB;
+            ROM[0x24]=0xCB;
             SetByte(0x0D000,0xCB);
 
         case ESS_P88:

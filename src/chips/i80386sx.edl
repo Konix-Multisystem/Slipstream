@@ -5340,60 +5340,127 @@ INSTRUCTION	FTABLE "J%M0 #16/32DISP#"		%1000:cond
     }
 }
 
+FUNCTION INTERNAL  ok[1] BTMEM mod[2],reg[3],rm[3],SEGREG[3],SEG[16],EFF[32],TMP[8]
+{
+    DECLARE TMP2[8];
+    ok<-0;
+    IF reg==%100
+    {
+        TMP2<-CALL GetEffectiveAddressByte(mod,rm,SEGREG,SEG,EFF);
+
+        IF (TMP2 & TMP) != 0
+        {
+            CF<-1;
+        }
+        ok<-1;
+    }
+    IF reg==%101
+    {
+        TMP2<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF);
+
+        IF (TMP2 & TMP) != 0
+        {
+            CF<-1;
+        }
+
+        TMP2<-TMP2 | TMP;
+        CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,TMP2);
+
+        ok<-1;
+    }
+    IF reg==%110
+    {
+        TMP2<-CALL GetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF);
+
+        IF (TMP2 & TMP) != 0
+        {
+            CF<-1;
+        }
+
+        TMP2<-TMP2 & (~TMP);
+        CALL SetEffectiveAddressWord(mod,rm,SEGREG,SEG,EFF,TMP2);
+
+        ok<-1;
+    }
+}
+
+
 INSTRUCTION FTABLE "BT?"	%10111010
 {
 # Could be a few different instructions based on modrm byte that follows
+    DECLARE SEGEA[51]	ALIAS	SEGREG[3]:SEG[16]:EFF[32];
     DECLARE mrm[8]	ALIAS	mod[2]:reg[3]:rm[3];
     DECLARE bitnum[8];
 
     mrm<-CALL GetImmediateByte();
 
-    IF reg!=4
+
+    CALL CalcEffectiveAddress(mod,rm,6)->SEGEA;
+
+    IF mod!=%11
     {
-        DEBUG_TRACE "BT? not implemented",reg;
-        CALL unimplemented(0);
-        IP<-IP-3;
+        DECLARE DC[8];
+        DECLARE TMP[8];
+        DECLARE BYTEOFFSET[8];
+        DECLARE BITOFFSET[8];
+
+        bitnum<-CALL GetImmediateByte();
+
+
+        BYTEOFFSET<-bitnum / 8;
+        BITOFFSET<-bitnum % 8;
+
+        CF<-0;
+        TMP<-1;
+        TMP<-ROL(TMP,DC,$00,BITOFFSET);
+
+        EFF<-EFF+BYTEOFFSET;
+
+        IF (CALL BTMEM(mod,reg,rm,SEGREG,SEG,EFF,TMP)==0)
+        {
+            IP<-IP-3;
+            CALL unimplemented(0);
+        }
     }
     ELSE
     {
-        IF mod!=%11
+        IF reg!=4
         {
-            DEBUG_TRACE "BT? MOD not implemented",mod;
+            DEBUG_TRACE "BT? ",reg;
             CALL unimplemented(0);
             IP<-IP-3;
         }
+
+#Get immediate operand
+        bitnum<-CALL GetImmediateByte();
+
+
+        IF oSize
+        {
+            DECLARE TMP[32];
+            DECLARE DC[32];
+
+            CF<-0;
+
+            TMP<-1;
+            TMP<-ROL(TMP,DC,$00,bitnum & $1F);
+            IF (CALL GetLongRegister(rm) & TMP) != 0
+            {
+                CF<-1;
+            }
+        }
         ELSE
         {
-#Get immediate operand
-            bitnum<-CALL GetImmediateByte();
+            DECLARE TMP[16];
+            DECLARE DC[16];
 
-            IF oSize
+            CF<-0;
+
+            TMP<-1;
+            TMP<-ROL(TMP,DC,$00,bitnum & $0F);
+            IF (CALL GetWordRegister(rm) & TMP) != 0
             {
-                DECLARE TMP[32];
-                DECLARE DC[32];
-
-                CF<-0;
-
-                TMP<-1;
-                TMP<-ROL(TMP,DC,$00,bitnum & $1F);
-                IF (CALL GetLongRegister(rm) & TMP) != 0
-                {
-                    CF<-1;
-                }
-            }
-            ELSE
-            {
-                DECLARE TMP[16];
-                DECLARE DC[16];
-
-                CF<-0;
-
-                TMP<-1;
-                TMP<-ROL(TMP,DC,$00,bitnum & $0F);
-                IF (CALL GetWordRegister(rm) & TMP) != 0
-                {
-                    CF<-1;
-                }
+                CF<-1;
             }
         }
     }

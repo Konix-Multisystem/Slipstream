@@ -71,6 +71,7 @@ uint8_t		ASIC_MEM=0;
 uint8_t		ASIC_DIAG=0;
 uint8_t		ASIC_DIS=0;
 uint8_t		ASIC_BLTCON=0;
+uint8_t		ASIC_BLTCON2=0;
 uint8_t		ASIC_BLTCMD=0;
 uint8_t		ASIC_BLTENH=0;
 uint32_t	ASIC_BLTPC=0;				// 20 bit address
@@ -343,7 +344,9 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 #endif
 
         BLT_OUTER_CMD=ASIC_BLTCMD;		// First time through we don't read the command		-- Note the order of data appears to differ from the docs - This is true of MSU version!!
+        BLT_ENH=ASIC_BLTENH;
         ASIC_BLTCMD=0;
+        ASIC_BLTENH=0;
 
         do
         {
@@ -358,6 +361,10 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
                         BLT_OUTER_CMD&0x20?1:0,
                         BLT_OUTER_CMD&0x40?1:0,
                         BLT_OUTER_CMD&0x80?1:0);
+                CONSOLE_OUTPUT("Enhanced Step : ENSTEP (%d), ENSTPS (%d), ENSTP8 (%d)\n",
+                        BLT_ENH&0x20?1:0,
+                        BLT_ENH&0x40?1:0,
+                        BLT_ENH&0x80?1:0);
             }
 
             if (BLT_OUTER_CMD&0x4E)
@@ -428,7 +435,8 @@ void TickBlitterMSU()								// TODO - make this more modular!!!
 #endif
             DoBlit();
 
-            ASIC_BLTPC++;		// skip segment address
+            BLT_ENH=GetByte(ASIC_BLTPC)&0xE0;
+            ASIC_BLTPC++;
             BLT_OUTER_CMD=GetByte(ASIC_BLTPC);
             ASIC_BLTPC++;
         }
@@ -886,10 +894,24 @@ int DoDataPath()
     return inhibit;
 }
 
-void AddressGeneratorSourceStep(int32_t step)
+void AddressGeneratorSourceStep(int32_t step,int isStep)
 {
-    if (BLT_OUTER_SRC_FLAGS&0x40)				// SSIGN
-        step*=-1;
+    if ((BLT_ENH&0x20)&& isStep)
+    {
+        if (BLT_ENH&0x80)
+        {
+            step|=512;
+        }
+        if (BLT_ENH&0x40)
+        {
+            step*=-1;
+        }
+    }
+    else
+    {
+        if (BLT_OUTER_SRC_FLAGS&0x40)				// SSIGN
+            step*=-1;
+    }
     BLTDDBG("SRCADDR %06X (%d)\n",ADDRESSGENERATOR_SRCADDRESS,step);
     if (BLT_OUTER_SRC_FLAGS&0x20)						// SWRAP
     {
@@ -905,10 +927,24 @@ void AddressGeneratorSourceStep(int32_t step)
     BLTDDBG("SRCADDR %06X\n",ADDRESSGENERATOR_SRCADDRESS);
 }
 
-void AddressGeneratorDestinationStep(int32_t step)
+void AddressGeneratorDestinationStep(int32_t step,int isStep)
 {
-    if (BLT_OUTER_DST_FLAGS&0x40)				// DSIGN
-        step*=-1;
+    if ((BLT_ENH&0x20) && isStep)
+    {
+        if (BLT_ENH&0x80)
+        {
+            step|=512;
+        }
+        if (BLT_ENH&0x40)
+        {
+            step*=-1;
+        }
+    }
+    else
+    {
+        if (BLT_OUTER_DST_FLAGS&0x40)				// DSIGN
+            step*=-1;
+    }
     BLTDDBG("DSTADDR %06X (%d)\n",ADDRESSGENERATOR_DSTADDRESS,step);
     if (BLT_OUTER_DST_FLAGS&0x20)						// DWRAP
     {
@@ -991,7 +1027,7 @@ void AddressGeneratorSourceRead()
     }
     BLTDDBG("SRCREAD %04X  (%d)\n",DATAPATH_SRCDATA,increment);
 
-    AddressGeneratorSourceStep(increment);
+    AddressGeneratorSourceStep(increment,0);
 }
 
 
@@ -1056,7 +1092,7 @@ void AddressGeneratorDestinationUpdate()
             increment=4;
             break;
     }
-    AddressGeneratorDestinationStep(increment);
+    AddressGeneratorDestinationStep(increment,0);
 }
 
 int DoBlitInner()
@@ -1198,12 +1234,12 @@ void DoBlitOuterLine()						// NB: this needs some work - it will be wrong in 16
 
         if (BLT_OUTER_CMD&0x10)				//DSTUP
         {
-            AddressGeneratorDestinationStep(step);			// Should never reach here in line mode!
+            AddressGeneratorDestinationStep(step,1);			// Should never reach here in line mode!
         }
 
         if (BLT_OUTER_CMD&0x08)
         {
-            AddressGeneratorSourceStep(step);
+            AddressGeneratorSourceStep(step,1);
         }
 
         if (BLT_OUTER_CMD&0x04)
@@ -1308,12 +1344,21 @@ void DoBlitOuter()
 
         if (BLT_OUTER_CMD&0x10)				//DSTUP
         {
-            AddressGeneratorDestinationStep(step);			// ?? Does step just apply, or should it be multiplied by pixel width?
+            AddressGeneratorDestinationStep(step,1);			// ?? Does step just apply, or should it be multiplied by pixel width?
         }
 
         if (BLT_OUTER_CMD&0x08)
         {
-            AddressGeneratorSourceStep(step);
+            uint16_t srcStep = step;
+            if ((ASIC_BLTCON&0x40)==0x40)
+            {
+                // Src step override specificied
+                srcStep = ASIC_BLTCON2;
+                srcStep <<=1;
+                srcStep|= ASIC_BLTCON>>7;
+            }
+
+            AddressGeneratorSourceStep(srcStep,1);
         }
 
         if (BLT_OUTER_CMD&0x04)
@@ -1487,6 +1532,7 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
             ASIC_BLTPC|=byte<<8;
             break;
         case 0x0042:
+            ASIC_BLTENH=byte&0xE0;
             ASIC_BLTPC&=0x0FFFF;
             ASIC_BLTPC|=(byte&0xF)<<16;
             break;
@@ -1495,6 +1541,9 @@ void ASIC_WriteMSU(uint16_t port,uint8_t byte,int warnIgnore)
             break;
         case 0x0044:
             ASIC_BLTCON=byte;
+            break;
+        case 0x0045:
+            ASIC_BLTCON2=byte;
             break;
         default:
 #if ENABLE_DEBUG
@@ -2250,8 +2299,10 @@ void TickAsic(int cycles,uint32_t(*conv)(uint16_t))
     static uint32_t lastCol;
     uint32_t curCol;
     uint32_t wrapOffset;
-    uint16_t StartL = curSystem != ESS_MSU ? ((ASIC_STARTH & 1) << 8) | ASIC_STARTL : ASIC_STARTL;
-    uint16_t EndL = curSystem != ESS_MSU ? ((ASIC_ENDH & 1) << 8) | ASIC_ENDL : ASIC_ENDL;
+//    uint16_t StartL = curSystem != ESS_MSU ? ((ASIC_STARTH & 1) << 8) | ASIC_STARTL : ASIC_STARTL;
+//    uint16_t EndL = curSystem != ESS_MSU ? ((ASIC_ENDH & 1) << 8) | ASIC_ENDL : ASIC_ENDL;
+    uint16_t StartL = ((ASIC_STARTH & 1) << 8) | ASIC_STARTL;
+    uint16_t EndL = ((ASIC_ENDH & 1) << 8) | ASIC_ENDL;
     outputTexture+=vClock*WIDTH + hClock;
 
     // Video addresses are expected to be aligned to 256/128 byte boundaries - this allows for wrap to occur for a given line
@@ -2947,6 +2998,7 @@ void ASIC_INIT()
     ASIC_DIAG=0;
     ASIC_DIS=0;
     ASIC_BLTCON=0;
+    ASIC_BLTCON2=0;
     ASIC_BLTCMD=0;
     ASIC_BLTPC=0;				// 20 bit address
     ASIC_COLHOLD=0;					// Not changeable on later than Flare One revision
