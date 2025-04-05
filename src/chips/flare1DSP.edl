@@ -36,12 +36,12 @@ C_FUNC_EXTERN		SetDAC		[8],[16];
 #### MEMORY - Allocated as full 12 bit range - might need to be 13 bits, split as follows
 
 DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original hardware only used a portion, later revisions seemed to have added more ram but not a lot
-					#
+#
 
-					# Memory Map
-					#
-					#       000	7FF			Data
-					#	800	FFF			Program
+# Memory Map
+#
+#       000	7FF			Data
+#	800	FFF			Program
 
 ############
 
@@ -84,137 +84,137 @@ DECLARE INTERNAL	dacOut[16];
 
 FUNCTION STEP
 {
-	DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
+    DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
 
-	currentInstruction<-nextInstruction;
-	nextInstruction<-RAM[[PC]];
-	PC<-PC+1;
-	IR<-currentInstruction;
+        currentInstruction<-nextInstruction;
+    nextInstruction<-RAM[[PC]];
+    PC<-PC+1;
+    IR<-currentInstruction;
 
-	# Handle OFFSET instruction
-	IF latchedOffset
-	{
-		DataAddress<-latchedAddress;
-		latchedOffset<-0;
-	}
-	ELSE
-	{
-		DataAddress<-Address;
-	}
+# Handle OFFSET instruction
+    IF latchedOffset
+    {
+        DataAddress<-latchedAddress;
+        latchedOffset<-0;
+    }
+    ELSE
+    {
+        DataAddress<-Address;
+    }
 
-	# Handle DAC Bug
-	dacDelay<-dacDelay/2;
-	
-	EXECUTE	Instruction;
+# Handle DAC Bug
+    dacDelay<-dacDelay/2;
 
-	PreviousDataAddress<-DataAddress;
+    EXECUTE	Instruction;
+
+    PreviousDataAddress<-DataAddress;
 }
 
 FUNCTION RESET
 {
-	CPU_HOLD<-0;
-	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
-	PC<-0;
-	C<-0;
-	dacDelay<-0;
-	latchedOffset<-0;
+    CPU_HOLD<-0;
+    nextInstruction<-$F000;		# On reset fill start of pipe with NOP
+        PC<-0;
+    C<-0;
+    dacDelay<-0;
+    latchedOffset<-0;
 }
 
 ## Looks like dma direction is determined by reading/writing dmd register before transfer.. transfer is always a word?
 
 FUNCTION DoDMA
 {
-	# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
 
-	DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
+    DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
 
-	UPPER<-DMA_ADD_HI;
-	LOWER16<-DMA0;
+    UPPER<-DMA_ADD_HI;
+    LOWER16<-DMA0;
 
 
-	IF DMA_BW
-	{
-		IF DMA_RW
-		{
-			IF DMA_LOHI
-			{
-				CALL DMAGetByte(ADDR)->DMA_DATA_HI;
-			}
-			IF ~DMA_LOHI
-			{
-				CALL DMAGetByte(ADDR)->DMA_DATA_LO;
-			}
-		}
-		IF ~DMA_RW
-		{
-			IF DMA_LOHI
-			{
-				CALL DMASetByte(ADDR,DMA_DATA_HI);
-			}
-			IF ~DMA_LOHI
-			{
-				CALL DMASetByte(ADDR,DMA_DATA_LO);
-			}
-		}
-	}
-	IF ~DMA_BW
-	{
-		IF DMA_RW
-		{
-			DMD<-CALL DMAGetWord(ADDR);
-		}
-		IF ~DMA_RW
-		{
-			CALL DMASetWord(ADDR,DMD);
-		}
-	}
-	
+    IF DMA_BW
+    {
+        IF DMA_RW
+        {
+            IF DMA_LOHI
+            {
+                CALL DMAGetByte(ADDR)->DMA_DATA_HI;
+            }
+            IF ~DMA_LOHI
+            {
+                CALL DMAGetByte(ADDR)->DMA_DATA_LO;
+            }
+        }
+        IF ~DMA_RW
+        {
+            IF DMA_LOHI
+            {
+                CALL DMASetByte(ADDR,DMA_DATA_HI);
+            }
+            IF ~DMA_LOHI
+            {
+                CALL DMASetByte(ADDR,DMA_DATA_LO);
+            }
+        }
+    }
+    IF ~DMA_BW
+    {
+        IF DMA_RW
+        {
+            DMD<-CALL DMAGetWord(ADDR);
+        }
+        IF ~DMA_RW
+        {
+            CALL DMASetWord(ADDR,DMD);
+        }
+    }
+
 #	DEBUG_TRACE "DMA REQUEST",BASE 16,DMA0," ",DMA1," ",DMD," ",DMA_BW," ",DMA_RW," ",DMA_LOHI;
 }
 
 FUNCTION POKE	ramAddress[16],value[16]
 {
-	RAM[[ramAddress]]<-value;
+    RAM[[ramAddress]]<-value;
 }
 
 FUNCTION value[16]	PEEK	ramAddress[16]
 {
-	value<-RAM[[ramAddress]];
+    value<-RAM[[ramAddress]];
 }
 
 FUNCTION POKE_BYTE	ramAddress[16],value[8]
 {
-	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
-	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+    DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+    DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
-	byteAddress<-ramAddress;
-	access<-RAM[[wordAddress]];
-	IF upper
-	{
-		msb<-value;
-	}
-	IF ~upper
-	{
-		lsb<-value;
-	}
-	RAM[[wordAddress]]<-access;
+    byteAddress<-ramAddress;
+    access<-RAM[[wordAddress]];
+    IF upper
+    {
+        msb<-value;
+    }
+    IF ~upper
+    {
+        lsb<-value;
+    }
+    RAM[[wordAddress]]<-access;
 }
 
 FUNCTION value[16]	PEEK_BYTE	ramAddress[16]
 {
-	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
-	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+    DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+    DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
-	byteAddress<-ramAddress;
-	access<-RAM[[wordAddress]];
-	IF upper
-	{
-		value<-msb;
-	}
-	IF ~upper
-	{
-		value<-lsb;
-	}
+    byteAddress<-ramAddress;
+    access<-RAM[[wordAddress]];
+    IF upper
+    {
+        value<-msb;
+    }
+    IF ~upper
+    {
+        value<-lsb;
+    }
 }
 
 
@@ -222,226 +222,226 @@ FUNCTION value[16]	PEEK_BYTE	ramAddress[16]
 
 INSTRUCTION	"MOV %$1,MZ0"		%00000
 {
-	RAM[[DataAddress]]<-MZ0;
+    RAM[[DataAddress]]<-MZ0;
 }
 
 INSTRUCTION	"MOV %$1,MZ1"		%00001
 {
-	RAM[[DataAddress]]<-$00++MZ1;		## Also clears MAC result registers
-	MZ0<-0;
-	MZ1<-0;
+    RAM[[DataAddress]]<-$00++MZ1;		## Also clears MAC result registers
+        MZ0<-0;
+    MZ1<-0;
 }
 
 INSTRUCTION	"MOV MX,%$1"		%00010
 {
-	MX<-RAM[[DataAddress]];
+    MX<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV MY,%$1"		%00011
 {
-	MY<-RAM[[DataAddress]];
-	## 7 cycle multiply starts now -  for now generate the result immediately
+    MY<-RAM[[DataAddress]];
+## 7 cycle multiply starts now -  for now generate the result immediately
 
-	# Multiplier is 12x16 which would generate a 28bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
-	DECLARE xExt[28];
-	DECLARE yExt[28];
-	DECLARE result[28]	ALIAS	upper[12]:lower[16];
+# Multiplier is 12x16 which would generate a 28bit result - no word on wether carry exists, or wether multiply is signed/unsigned -- assuming signed for now
+    DECLARE xExt[28];
+    DECLARE yExt[28];
+    DECLARE result[28]	ALIAS	upper[12]:lower[16];
 
-	upper<-MZ1;
-	lower<-MZ0;
+    upper<-MZ1;
+    lower<-MZ0;
 
-	xExt<-$000000000++MX;
-	yExt<-$000000000++MY;
+    xExt<-$000000000++MX;
+    yExt<-$000000000++MY;
 
-	result<-result + (xExt * yExt);
+    result<-result + (xExt * yExt);
 
-	lower->MZ0;
-	upper->MZ1;
+    lower->MZ0;
+    upper->MZ1;
 }
 
 INSTRUCTION	"MOV %$1,CMPR"		%00100
 {
-	DEBUG_TRACE "MOV (nn),CMPR - TODO";
+    DEBUG_TRACE "MOV (nn),CMPR - TODO";
 }
 
 INSTRUCTION	"MOV DMA0,%$1"		%00101
 {
-	DMA0<-RAM[[DataAddress]];
-	CALL DoDMA();
+    DMA0<-RAM[[DataAddress]];
+    CALL DoDMA();
 }
 
 INSTRUCTION	"MOV DMA1,%$1"		%00110
 {
-	DMA_ADD_HI<-RAM[[DataAddress]];
+    DMA_ADD_HI<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV DMD,%$1"		%00111
 {
-	DMD<-RAM[[DataAddress]];
-	DMA_RW<-0;
+    DMD<-RAM[[DataAddress]];
+    DMA_RW<-0;
 }
 
 INSTRUCTION	"MOV %$1,DMD"		%01000
 {
-	RAM[[DataAddress]]<-DMD;
-	DMA_RW<-1;
+    RAM[[DataAddress]]<-DMD;
+    DMA_RW<-1;
 }
 
 INSTRUCTION	"NOP %$1"		%01001
 {
-	IF dacUse
-	{
-		# left channel
-		CALL SetDAC(1,dacOut);
-	}
+    IF dacUse
+    {
+# left channel
+        CALL SetDAC(1,dacOut);
+    }
 }
 
 INSTRUCTION	"MOV %$1,INTRA"	%01010
 {
-	DEBUG_TRACE "MOV (nn),INTRA - TODO";
+    DEBUG_TRACE "MOV (nn),INTRA - TODO";
 }
 
 INSTRUCTION	"OFFSET %$1"		%01011
 {
-	latchedOffset<-1;
-	latchedAddress<-RAM[[PreviousDataAddress]];
+    latchedOffset<-1;
+    latchedAddress<-RAM[[PreviousDataAddress]];
 }
 
 INSTRUCTION	"MOV %$1,PC"		%01100
 {
-	RAM[[DataAddress]]<-PC;
+    RAM[[DataAddress]]<-PC;
 }
 
 INSTRUCTION	"MOV AX,%$1"		%01101
 {
-	AX<-RAM[[DataAddress]];
+    AX<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV %$1,AX"		%01110
 {
-	RAM[[DataAddress]]<-AX;
+    RAM[[DataAddress]]<-AX;
 }
 
 INSTRUCTION	"MOV %$1,AZ"		%01111
 {
-	RAM[[DataAddress]]<-AZ;
+    RAM[[DataAddress]]<-AZ;
 }
 
 INSTRUCTION	"ADD %$1"		%10000
 {
-	DECLARE tmp[16];
+    DECLARE tmp[16];
 
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
 }
 
 INSTRUCTION	"SUB %$1"		%10001
 {
-	DECLARE tmp[16];
+    DECLARE tmp[16];
 
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { AX - tmp } -> AZ;
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { AX - tmp } -> AZ;
 }
 
 INSTRUCTION	"AND %$1"		%10010
 {
-	RAM[[DataAddress]] & AX -> AZ;
+    RAM[[DataAddress]] & AX -> AZ;
 }
 
 INSTRUCTION	"OR %$1"		%10011
 {
-	RAM[[DataAddress]] | AX-> AZ;
+    RAM[[DataAddress]] | AX-> AZ;
 }
 
 INSTRUCTION	"ADC %$1"		%10100
 {
-	DECLARE tmp[16];
+    DECLARE tmp[16];
 
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { (tmp + AX) + C } -> AZ;
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { (tmp + AX) + C } -> AZ;
 }
 
 INSTRUCTION	"SBC %$1"		%10101
 {
-	DECLARE tmp[16];
+    DECLARE tmp[16];
 
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { (AX - tmp)-(C) } -> AZ;
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { (AX - tmp)-(C) } -> AZ;
 }
 
 INSTRUCTION	"ADDinC %$1"		%10110
 {
-	DECLARE tmp[16];
+    DECLARE tmp[16];
 
-	RAM[[DataAddress]]->tmp;
-	IF C
-	{
-		tmp->AZ;
-		C<-%0;
-	}
-	ELSE
-	{
-		AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
-	}
-		
+    RAM[[DataAddress]]->tmp;
+    IF C
+    {
+        tmp->AZ;
+        C<-%0;
+    }
+    ELSE
+    {
+        AFFECT C AS CARRY(15) { tmp + AX } -> AZ;
+    }
+
 }
 
 INSTRUCTION	"MOV AZ,%$1"		%10111
 {
-	AZ<-RAM[[DataAddress]];
+    AZ<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV DAC0,%$1"		%11000
 {
-	dacBug<-1;
-	dacOut<-RAM[[DataAddress]];
+    dacBug<-1;
+    dacOut<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV DAC1,%$1"		%11001
 {
-	DEBUG_TRACE "DAC1 write - BUG in hardware here apparantly";
+    DEBUG_TRACE "DAC1 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"MOV DAC2,%$1"		%11010
 {
-	DEBUG_TRACE "DAC2 write - BUG in hardware here apparantly";
+    DEBUG_TRACE "DAC2 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"MOV DAC12,%$1"	%11011
 {
-	DEBUG_TRACE "DAC12 write - BUG in hardware here apparantly";
+    DEBUG_TRACE "DAC12 write - BUG in hardware here apparantly";
 }
 
 INSTRUCTION	"NOPA %$1"		%11100
 {
-	IF dacUse
-	{
-		# silence dac
-		CALL SetDAC(0,0);
-	}
+    IF dacUse
+    {
+# silence dac
+        CALL SetDAC(0,0);
+    }
 }
 
 INSTRUCTION	"MOV PC,%$1"		%11101
 {
-	PC<-RAM[[DataAddress]];
+    PC<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"NOPR"			%11110
 {
-	IF dacUse
-	{
-		# right channel
-		CALL SetDAC(2,dacOut);	
-	}
+    IF dacUse
+    {
+# right channel
+        CALL SetDAC(2,dacOut);	
+    }
 }
 
 
 INSTRUCTION	"INTRUDE"		%11111
 {
-	# We know there are 3 status bits to indicate INTRUDE operation
-	#We really need to implement the interface this time, since host code is relying on it
+# We know there are 3 status bits to indicate INTRUDE operation
+#We really need to implement the interface this time, since host code is relying on it
 
-	# TODO
+# TODO
 }
 
 ############
@@ -451,83 +451,83 @@ INSTRUCTION	"INTRUDE"		%11111
 
 FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
 {
-	value<-$FFFF;
+    value<-$FFFF;
 
-	IF reg==0
-	{
-		value<-RAM[[offset & $7FF]];
-	}
-	IF reg==1
-	{
-		value<-RAM[[(offset & $7FF)+$800]];
-	}
-	IF reg==2
-	{
-		value<-IR;
-	}
-	IF reg==3
-	{
-		value<-nextInstruction;
-	}
-	IF reg==4
-	{
-		value<-DataAddress;
-	}
-	IF reg==5
-	{
-		value<-PreviousDataAddress;
-	}
-	IF reg==6
-	{
-		value<-PC;
-	}
-	IF reg==7
-	{
-		value<-MZ0;
-	}
-	IF reg==8
-	{
-		value<-MZ1;
-	}
-	IF reg==9
-	{
-		value<-MX;
-	}
-	IF reg==10
-	{
-		value<-MY;
-	}
-	IF reg==11
-	{
-		value<-CMPR;
-	}
-	IF reg==12
-	{
-		value<-DMA0;
-	}
-	IF reg==13
-	{
-		value<-DMA1;
-	}
-	IF reg==14
-	{
-		value<-DMD;
-	}
-	IF reg==15
-	{
-		value<-INTRA;
-	}
-	IF reg==16
-	{
-		value<-AX;
-	}
-	IF reg==17
-	{
-		value<-AZ;
-	}
-	IF reg==18
-	{
-		value<-C;
-	}
+    IF reg==0
+    {
+        value<-RAM[[offset & $7FF]];
+    }
+    IF reg==1
+    {
+        value<-RAM[[(offset & $7FF)+$800]];
+    }
+    IF reg==2
+    {
+        value<-IR;
+    }
+    IF reg==3
+    {
+        value<-nextInstruction;
+    }
+    IF reg==4
+    {
+        value<-DataAddress;
+    }
+    IF reg==5
+    {
+        value<-PreviousDataAddress;
+    }
+    IF reg==6
+    {
+        value<-PC;
+    }
+    IF reg==7
+    {
+        value<-MZ0;
+    }
+    IF reg==8
+    {
+        value<-MZ1;
+    }
+    IF reg==9
+    {
+        value<-MX;
+    }
+    IF reg==10
+    {
+        value<-MY;
+    }
+    IF reg==11
+    {
+        value<-CMPR;
+    }
+    IF reg==12
+    {
+        value<-DMA0;
+    }
+    IF reg==13
+    {
+        value<-DMA1;
+    }
+    IF reg==14
+    {
+        value<-DMD;
+    }
+    IF reg==15
+    {
+        value<-INTRA;
+    }
+    IF reg==16
+    {
+        value<-AX;
+    }
+    IF reg==17
+    {
+        value<-AZ;
+    }
+    IF reg==18
+    {
+        value<-C;
+    }
 }
 

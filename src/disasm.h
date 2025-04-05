@@ -14,11 +14,11 @@ enum CPU
 struct InStream
 {
     enum CPU cpu;
-	unsigned int bytesRead;
-	unsigned int curAddress;
-	unsigned int useAddress;
-	const char* (*findSymbol)(unsigned int address);
-	const unsigned char (*PeekByte)(unsigned int address);
+    unsigned int bytesRead;
+    unsigned int curAddress;
+    unsigned int useAddress;
+    const char* (*findSymbol)(unsigned int address);
+    const unsigned char (*PeekByte)(unsigned int address);
 };
 
 typedef struct InStream InStream;

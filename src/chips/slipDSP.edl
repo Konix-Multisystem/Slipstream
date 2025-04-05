@@ -21,48 +21,48 @@ C_FUNC_EXTERN		SetDAC		[8],[16];
 #### MEMORY NB: This is a massive over allocation - Revisit and shrink later
 
 DECLARE INTERNAL RAM[[12]][16];		# 12 bit addressing for 16 bit data -- Original hardware only used a portion, later revisions seemed to have added more ram but not a lot
-					#
-					# Host writes can currently affect internal registers, but may not have the desired affect (host write to DMA0 for instance!)
+#
+# Host writes can currently affect internal registers, but may not have the desired affect (host write to DMA0 for instance!)
 
-					# Note the memory map is as follows -- NB 1 bit of the mode register can swap the data addresses slightly! :
-					#	000	0FF			Sine Table - ROM (for speed reasons its not protected!)
-					#	100	13F			Constants table - ROM (for speed reasons its not protected!)
-					#	140	14F			Internal registers - Expanded as  :
-					#
-					#					140	Intrude Data Register		(Not implemented)
-					#					141	Index Register			(IX)
-					#					142	DMA Address 0			(DMA0)		write to this starts transfer
-					#					143	DMA Address 1			(DMA1)		some control bits for dma too
-					#					144	DMA Data			(DMD)
-					#					145	Multiplier Result 0		(MZ0)
-					#					146	Multiplier Result 1		(MZ1)
-					#					147	Multiplier Result 2		(MZ2)
-					#					148	PWM DAC 0			(DAC0)
-					#					149	PWM DAC 1			(DAC1)
-					#					14A	Program Counter			(PC)
-					#					14B	ALU Mode Register		(MODE)
-					#					14C	ALU X Register			(X)
-					#					14D	ALU Z Register			(AZ)
-					#					14E	Intrude Address Register	(Not implemented)
-					#					14F	DSP IO Pin			(IO)
-					#
-					#	150	17F			Returns 0 (for speed reasons its not protected!)
-					#
-					#	Below applies to original chipset only
-					#
-					#	180	1FF			128 words of RAM
-					#	200	2FF			256 words of Program RAM
-					#	300	300			RUN/Status register
-					#
-					#	Below applies to MSU revision
-					#
-					#	180	7FF			Possible data ram locations (9 bit addressing would limit the range to 180 - 37F)
-					#	400	800			Possible program ram locations (9 bit addressing would limit the range to 400 - 5FF)
-					#	FF0	FF0			RUN/Status register
-					#
-					#	For Emulation purposes :
-					#
-					#	Program RAM is always considered to be at 400+	(host side writes will remap the addresses to be in the correct ranges)
+# Note the memory map is as follows -- NB 1 bit of the mode register can swap the data addresses slightly! :
+#	000	0FF			Sine Table - ROM (for speed reasons its not protected!)
+#	100	13F			Constants table - ROM (for speed reasons its not protected!)
+#	140	14F			Internal registers - Expanded as  :
+#
+#					140	Intrude Data Register		(Not implemented)
+#					141	Index Register			(IX)
+#					142	DMA Address 0			(DMA0)		write to this starts transfer
+#					143	DMA Address 1			(DMA1)		some control bits for dma too
+#					144	DMA Data			(DMD)
+#					145	Multiplier Result 0		(MZ0)
+#					146	Multiplier Result 1		(MZ1)
+#					147	Multiplier Result 2		(MZ2)
+#					148	PWM DAC 0			(DAC0)
+#					149	PWM DAC 1			(DAC1)
+#					14A	Program Counter			(PC)
+#					14B	ALU Mode Register		(MODE)
+#					14C	ALU X Register			(X)
+#					14D	ALU Z Register			(AZ)
+#					14E	Intrude Address Register	(Not implemented)
+#					14F	DSP IO Pin			(IO)
+#
+#	150	17F			Returns 0 (for speed reasons its not protected!)
+#
+#	Below applies to original chipset only
+#
+#	180	1FF			128 words of RAM
+#	200	2FF			256 words of Program RAM
+#	300	300			RUN/Status register
+#
+#	Below applies to MSU revision
+#
+#	180	7FF			Possible data ram locations (9 bit addressing would limit the range to 180 - 37F)
+#	400	800			Possible program ram locations (9 bit addressing would limit the range to 400 - 5FF)
+#	FF0	FF0			RUN/Status register
+#
+#	For Emulation purposes :
+#
+#	Program RAM is always considered to be at 400+	(host side writes will remap the addresses to be in the correct ranges)
 
 ############
 
@@ -99,224 +99,224 @@ DECLARE INTERNAL	IntrudeAddressRegister[16]	ALIAS	$014E;
 
 FUNCTION STEP
 {
-	DECLARE PC[16]		ALIAS	%0000010:PC_ACTUAL[9];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE PC[16]		ALIAS	%0000010:PC_ACTUAL[9];
+    DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
 
-	PC<-RAM[[AddrPC]];
+    PC<-RAM[[AddrPC]];
 
-	DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
+    DEBUG_PC<-PC_ACTUAL;			# Purely for debugging
 
-	currentInstruction<-nextInstruction;
-	nextInstruction<-RAM[[PC]];
-	PC<-PC+1;
-	IR<-currentInstruction;
-	RAM[[AddrPC]]<-PC_ACTUAL;
+        currentInstruction<-nextInstruction;
+    nextInstruction<-RAM[[PC]];
+    PC<-PC+1;
+    IR<-currentInstruction;
+    RAM[[AddrPC]]<-PC_ACTUAL;
 
-	IF Index
-	{
-		Address<-Address + (RAM[[AddrIX]][0..8]);		# Assuming wrap around in 9 bit space
-	}
-	
-	DataAddress<-Address;
+    IF Index
+    {
+        Address<-Address + (RAM[[AddrIX]][0..8]);		# Assuming wrap around in 9 bit space
+    }
 
-	MODE<-RAM[[AddrMODE]];
-	IF MSUAlternateDataPage
-	{
-		IF DataAddress<$100
-		{
-			DataAddress<-DataAddress+$180;
-		}
-		ELSE
-		{
-			IF (DataAddress>=$180) & (DataAddress<$300)
-			{
-				DataAddress<-DataAddress-$180;
-			}
-		}
-	}
+    DataAddress<-Address;
 
-	MZ2<-RAM[[AddrMZ2]];
-	IF (~Conditional) | C
-	{
-		##TODO Address Memory Mapping adjustment
-		EXECUTE	Instruction;
-	}
+    MODE<-RAM[[AddrMODE]];
+    IF MSUAlternateDataPage
+    {
+        IF DataAddress<$100
+        {
+            DataAddress<-DataAddress+$180;
+        }
+        ELSE
+        {
+            IF (DataAddress>=$180) & (DataAddress<$300)
+            {
+                DataAddress<-DataAddress-$180;
+            }
+        }
+    }
+
+    MZ2<-RAM[[AddrMZ2]];
+    IF (~Conditional) | C
+    {
+##TODO Address Memory Mapping adjustment
+        EXECUTE	Instruction;
+    }
 }
 
 FUNCTION RESET
 {
-	CPU_HOLD<-0;
-	nextInstruction<-$F000;		# On reset fill start of pipe with NOP
-	RAM[[AddrPC]]<-$0000;
+    CPU_HOLD<-0;
+    nextInstruction<-$F000;		# On reset fill start of pipe with NOP
+        RAM[[AddrPC]]<-$0000;
 }
 
 FUNCTION DoDMA
 {
-	# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
+# Some sort of state machine for these transfers... no idea how long they are supposed to take, for now - we just do the action in line (possibly ~8-10 DSP cycles - based on delay loop)
 
-	DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
-	DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
-	DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
-	DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
+    DECLARE DMA0[16]	ALIAS	DMA_ADD_LO[16];
+    DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+    DECLARE DMD[16]		ALIAS	DMA_DATA_HI[8]:DMA_DATA_LO[8];
+    DECLARE ADDR[20]	ALIAS	UPPER[4]:LOWER16[16];
 
-	DMA0<-RAM[[AddrDMA0]];
-	DMA1<-RAM[[AddrDMA1]];
-	DMD<-RAM[[AddrDMD]];
+    DMA0<-RAM[[AddrDMA0]];
+    DMA1<-RAM[[AddrDMA1]];
+    DMD<-RAM[[AddrDMD]];
 
-	UPPER<-DMA_ADD_HI;
-	LOWER16<-DMA0;
+    UPPER<-DMA_ADD_HI;
+    LOWER16<-DMA0;
 
-	IF DMA_BW
-	{
-		IF DMA_RW
-		{
-			IF DMA_LOHI
-			{
-				CALL DMAGetByte(ADDR)->DMA_DATA_HI;
-			}
-			IF ~DMA_LOHI
-			{
-				CALL DMAGetByte(ADDR)->DMA_DATA_LO;
-			}
-		}
-		IF ~DMA_RW
-		{
-			IF DMA_LOHI
-			{
-				CALL DMASetByte(ADDR,DMA_DATA_HI);
-			}
-			IF ~DMA_LOHI
-			{
-				CALL DMASetByte(ADDR,DMA_DATA_LO);
-			}
-		}
-	}
-	IF ~DMA_BW
-	{
-		IF DMA_RW
-		{
-			DMD<-CALL DMAGetWord(ADDR);
-		}
-		IF ~DMA_RW
-		{
-			CALL DMASetWord(ADDR,DMD);
-		}
-	}
-	
-	DMA0->RAM[[AddrDMA0]];
-	DMA1->RAM[[AddrDMA1]];
-	DMD->RAM[[AddrDMD]];
+    IF DMA_BW
+    {
+        IF DMA_RW
+        {
+            IF DMA_LOHI
+            {
+                CALL DMAGetByte(ADDR)->DMA_DATA_HI;
+            }
+            IF ~DMA_LOHI
+            {
+                CALL DMAGetByte(ADDR)->DMA_DATA_LO;
+            }
+        }
+        IF ~DMA_RW
+        {
+            IF DMA_LOHI
+            {
+                CALL DMASetByte(ADDR,DMA_DATA_HI);
+            }
+            IF ~DMA_LOHI
+            {
+                CALL DMASetByte(ADDR,DMA_DATA_LO);
+            }
+        }
+    }
+    IF ~DMA_BW
+    {
+        IF DMA_RW
+        {
+            DMD<-CALL DMAGetWord(ADDR);
+        }
+        IF ~DMA_RW
+        {
+            CALL DMASetWord(ADDR,DMD);
+        }
+    }
+
+    DMA0->RAM[[AddrDMA0]];
+    DMA1->RAM[[AddrDMA1]];
+    DMD->RAM[[AddrDMD]];
 }
 
 FUNCTION POKE	ramAddress[16],value[16]
 {
-	RAM[[ramAddress]]<-value;
+    RAM[[ramAddress]]<-value;
 }
 
 FUNCTION value[16]	PEEK	ramAddress[16]
 {
-	value<-RAM[[ramAddress]];
+    value<-RAM[[ramAddress]];
 }
 
 FUNCTION POKE_BYTE	ramAddress[16],value[8]
 {
-	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
-	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+    DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+    DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
-	byteAddress<-ramAddress;
+    byteAddress<-ramAddress;
 
-	IF RUN
-	{
-		access <- RAM[[IntrudeDataRegister]];
-		IF upper
-		{
-			IF IntrudeWait | IntrudeDSP2Host
-			{
-				DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
-			}
-			ELSE
-			{
-				# Set address for next intrude instruction
-				RAM[[IntrudeAddressRegister]]<-wordAddress;
-				IntrudeWait<-1;
-				IntrudeDSP2Host<-0;
-				msb<-value;
-			}
-		}
-		ELSE
-		{
-			IF IntrudeWait | IntrudeDSP2Host
-			{
-				DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
-			}
-			ELSE
-			{
-				lsb<-value;
-			}
-		}
-		RAM[[IntrudeDataRegister]]<-access;
-	}
-	ELSE
-	{
-		access<-RAM[[wordAddress]];
-		IF upper
-		{
-			msb<-value;
-		}
-		IF ~upper
-		{
-			lsb<-value;
-		}
-		RAM[[wordAddress]]<-access;
-	}
+    IF RUN
+    {
+        access <- RAM[[IntrudeDataRegister]];
+        IF upper
+        {
+            IF IntrudeWait | IntrudeDSP2Host
+            {
+                DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+            }
+            ELSE
+            {
+# Set address for next intrude instruction
+                RAM[[IntrudeAddressRegister]]<-wordAddress;
+                IntrudeWait<-1;
+                IntrudeDSP2Host<-0;
+                msb<-value;
+            }
+        }
+        ELSE
+        {
+            IF IntrudeWait | IntrudeDSP2Host
+            {
+                DEBUG_TRACE "DSP RUNNING : Write when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+            }
+            ELSE
+            {
+                lsb<-value;
+            }
+        }
+        RAM[[IntrudeDataRegister]]<-access;
+    }
+    ELSE
+    {
+        access<-RAM[[wordAddress]];
+        IF upper
+        {
+            msb<-value;
+        }
+        IF ~upper
+        {
+            lsb<-value;
+        }
+        RAM[[wordAddress]]<-access;
+    }
 }
 
 FUNCTION value[8]	PEEK_BYTE	ramAddress[16]
 {
-	DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
-	DECLARE access[16]	ALIAS	msb[8]:lsb[8];
+    DECLARE byteAddress[16]	ALIAS	wordAddress[15]:upper[1];
+    DECLARE access[16]	ALIAS	msb[8]:lsb[8];
 
-	byteAddress<-ramAddress;
+    byteAddress<-ramAddress;
 
-	IF RUN
-	{
-		IF IntrudeWait | IntrudeDSP2Host
-		{
-			DEBUG_TRACE "DSP RUNNING : Read when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
-		}
-		ELSE
-		{
-			# Set address for next intrude instruction
-			RAM[[IntrudeAddressRegister]]<-wordAddress;
-			IntrudeWait<-1;
-			IntrudeDSP2Host<-1;
-		}
-		access <- RAM[[IntrudeDataRegister]];
-		IF Read2Wait
-		{
-			value<-msb;
-			Read2Wait<-0;
-		}
-		ELSE
-		{
-			value<-lsb;
-			Read2Wait<-1;
-		}
-	}
-	ELSE
-	{
-		access<-RAM[[wordAddress]];
-		
-		IF upper
-		{
-			value<-msb;
-		}
-		IF ~upper
-		{
-			value<-lsb;
-		}
-	}
+    IF RUN
+    {
+        IF IntrudeWait | IntrudeDSP2Host
+        {
+            DEBUG_TRACE "DSP RUNNING : Read when intrude is running ",RUN,IntrudeWait,Read2Wait,IntrudeDSP2Host;
+        }
+        ELSE
+        {
+# Set address for next intrude instruction
+            RAM[[IntrudeAddressRegister]]<-wordAddress;
+            IntrudeWait<-1;
+            IntrudeDSP2Host<-1;
+        }
+        access <- RAM[[IntrudeDataRegister]];
+        IF Read2Wait
+        {
+            value<-msb;
+            Read2Wait<-0;
+        }
+        ELSE
+        {
+            value<-lsb;
+            Read2Wait<-1;
+        }
+    }
+    ELSE
+    {
+        access<-RAM[[wordAddress]];
+
+        IF upper
+        {
+            value<-msb;
+        }
+        IF ~upper
+        {
+            value<-lsb;
+        }
+    }
 }
 
 
@@ -324,256 +324,256 @@ FUNCTION value[8]	PEEK_BYTE	ramAddress[16]
 
 INSTRUCTION	"MOV. %$1,MZ0"		%00000
 {
-	RAM[[DataAddress]]<-RAM[[AddrMZ0]];
+    RAM[[DataAddress]]<-RAM[[AddrMZ0]];
 }
 
 INSTRUCTION	"MOV. %$1,MZ1"		%00001
 {
-	RAM[[DataAddress]]<-RAM[[AddrMZ1]];
+    RAM[[DataAddress]]<-RAM[[AddrMZ1]];
 }
 
 INSTRUCTION	"MOV. MZ0,%$1"		%00010
 {
-	RAM[[AddrMZ0]]<-RAM[[DataAddress]];
+    RAM[[AddrMZ0]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. MZ1,%$1"		%00011
 {
-	RAM[[AddrMZ1]]<-RAM[[DataAddress]];
+    RAM[[AddrMZ1]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"CCF."			%00100
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	MZ2<-RAM[[AddrMZ2]];
-	C<-~C;
-	RAM[[AddrMZ2]]<-MZ2;
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    MZ2<-RAM[[AddrMZ2]];
+    C<-~C;
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"MOV. DMA0,%$1"		%00101
 {
-	RAM[[AddrDMA0]]<-RAM[[DataAddress]];
-	CALL DoDMA();
+    RAM[[AddrDMA0]]<-RAM[[DataAddress]];
+    CALL DoDMA();
 }
 
 INSTRUCTION	"MOV. DMA1,%$1"		%00110
 {
-	DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
-	DMA1<-RAM[[DataAddress]];
-	CPU_HOLD<-DMA_HLD;				# HLD status set/cleared on writes to this
-	RAM[[AddrDMA1]]<-DMA1;
+    DECLARE DMA1[16]	ALIAS	%0000:DMA_HLD[1]:DMA_RW[1]:DMA_BW[1]:DMA_LOHI[1]:%0000:DMA_ADD_HI[4];
+    DMA1<-RAM[[DataAddress]];
+    CPU_HOLD<-DMA_HLD;				# HLD status set/cleared on writes to this
+        RAM[[AddrDMA1]]<-DMA1;
 }
 
 INSTRUCTION	"MOV. DMD,%$1"		%00111
 {
-	RAM[[AddrDMD]]<-RAM[[DataAddress]];
+    RAM[[AddrDMD]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,DMD"		%01000
 {
-	RAM[[DataAddress]]<-RAM[[AddrDMD]];
+    RAM[[DataAddress]]<-RAM[[AddrDMD]];
 }
 
 FUNCTION INTERNAL	MZR[40]	MultiplyAccumulate	ACC[36],A[16],X[16],TCX[1],TCYN[1]
 {
-	DECLARE xExt[40];
-	DECLARE aExt[40];
-	DECLARE result[40];
+    DECLARE xExt[40];
+    DECLARE aExt[40];
+    DECLARE result[40];
 
-	IF TCX
-	{
-		xExt<-$0000000000++X;
-	}
-	ELSE
-	{
-		xExt<-X;
-	}
-	IF TCYN
-	{
-		aExt<-A;
-	}
-	ELSE
-	{
-		aExt<-$0000000000++A;
-	}
+    IF TCX
+    {
+        xExt<-$0000000000++X;
+    }
+    ELSE
+    {
+        xExt<-X;
+    }
+    IF TCYN
+    {
+        aExt<-A;
+    }
+    ELSE
+    {
+        aExt<-$0000000000++A;
+    }
 
-	MZR<-(xExt * aExt)+ACC;
+    MZR<-(xExt * aExt)+ACC;
 }
 
 INSTRUCTION	"MAC. %$1"		%01001
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
-	DECLARE result[40]	ALIAS	dc[3]:O[1]:rMSB[4]:rMID[16]:rLOW[16];
-	DECLARE acc[36]		ALIAS	MSB[4]:MID[16]:LOW[16];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+    DECLARE result[40]	ALIAS	dc[3]:O[1]:rMSB[4]:rMID[16]:rLOW[16];
+    DECLARE acc[36]		ALIAS	MSB[4]:MID[16]:LOW[16];
 
-	MODE<-RAM[[AddrMODE]];
-	
-	RAM[[AddrMZ2]]->MZ2;
-	RAM[[AddrMZ0]]->LOW;
-	RAM[[AddrMZ1]]->MID;
-	ZMSB->MSB;
-	
-	result<-CALL MultiplyAccumulate(acc,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
+    MODE<-RAM[[AddrMODE]];
 
-	rLOW->RAM[[AddrMZ0]];
-	rMID->RAM[[AddrMZ1]];
-	rMSB->ZMSB;
-	O->ZO;
-	MZ2->RAM[[AddrMZ2]];
+    RAM[[AddrMZ2]]->MZ2;
+    RAM[[AddrMZ0]]->LOW;
+    RAM[[AddrMZ1]]->MID;
+    ZMSB->MSB;
+
+    result<-CALL MultiplyAccumulate(acc,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
+
+    rLOW->RAM[[AddrMZ0]];
+    rMID->RAM[[AddrMZ1]];
+    rMSB->ZMSB;
+    O->ZO;
+    MZ2->RAM[[AddrMZ2]];
 }
 
 INSTRUCTION	"MOV. MODE,%$1"		%01010
 {
-	RAM[[AddrMODE]]<-RAM[[DataAddress]];
+    RAM[[AddrMODE]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. IX,%$1"		%01011
 {
-	RAM[[AddrIX]]<-RAM[[DataAddress]];
+    RAM[[AddrIX]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,PC"		%01100
 {
-	RAM[[DataAddress]]<-RAM[[AddrPC]];
+    RAM[[DataAddress]]<-RAM[[AddrPC]];
 }
 
 INSTRUCTION	"MOV. X,%$1"		%01101
 {
-	RAM[[AddrX]]<-RAM[[DataAddress]];
+    RAM[[AddrX]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. %$1,X"		%01110
 {
-	RAM[[DataAddress]]<-RAM[[AddrX]];
+    RAM[[DataAddress]]<-RAM[[AddrX]];
 }
 
 INSTRUCTION	"MULT. %$1"		%01111
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
-	DECLARE result[40];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+    DECLARE result[40];
 
-	MODE<-RAM[[AddrMODE]];
-	
-	result<-CALL MultiplyAccumulate($0,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
+    MODE<-RAM[[AddrMODE]];
 
-	result[0..15]->RAM[[AddrMZ0]];
-	result[16..31]->RAM[[AddrMZ1]];
-	result[32..35]->ZMSB;
-	result[36..36]->ZO;
-	RAM[[AddrMZ2]]<-MZ2;
+    result<-CALL MultiplyAccumulate($0,RAM[[DataAddress]],RAM[[AddrX]],TCX,TCYN);
+
+    result[0..15]->RAM[[AddrMZ0]];
+    result[16..31]->RAM[[AddrMZ1]];
+    result[32..35]->ZMSB;
+    result[36..36]->ZO;
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"ADD. %$1"		%10000
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE tmp[16];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE tmp[16];
 
-	MZ2<-RAM[[AddrMZ2]];
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { tmp + RAM[[AddrX]] } -> RAM[[AddrAZ]];
-	RAM[[AddrMZ2]]<-MZ2;
+    MZ2<-RAM[[AddrMZ2]];
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { tmp + RAM[[AddrX]] } -> RAM[[AddrAZ]];
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"SUB. %$1"		%10001
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE tmp[16];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE tmp[16];
 
-	MZ2<-RAM[[AddrMZ2]];
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS NOCARRY(15) { RAM[[AddrX]] - tmp } -> RAM[[AddrAZ]];
-	RAM[[AddrMZ2]]<-MZ2;
+    MZ2<-RAM[[AddrMZ2]];
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS NOCARRY(15) { RAM[[AddrX]] - tmp } -> RAM[[AddrAZ]];
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"AND. %$1"		%10010
 {
-	RAM[[DataAddress]] & RAM[[AddrX]] ->RAM[[AddrAZ]];
+    RAM[[DataAddress]] & RAM[[AddrX]] ->RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"OR. %$1"		%10011
 {
-	RAM[[DataAddress]] | RAM[[AddrX]]->RAM[[AddrAZ]];
+    RAM[[DataAddress]] | RAM[[AddrX]]->RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"ADC. %$1"		%10100
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE tmp[16];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE tmp[16];
 
-	MZ2<-RAM[[AddrMZ2]];
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS CARRY(15) { (tmp + RAM[[AddrX]]) + C } -> RAM[[AddrAZ]];
-	RAM[[AddrMZ2]]<-MZ2;
+    MZ2<-RAM[[AddrMZ2]];
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS CARRY(15) { (tmp + RAM[[AddrX]]) + C } -> RAM[[AddrAZ]];
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"SBC. %$1"		%10101
 {
-	DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
-	DECLARE tmp[16];
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE tmp[16];
 
-	MZ2<-RAM[[AddrMZ2]];
-	RAM[[DataAddress]]->tmp;
-	AFFECT C AS NOCARRY(15) { (RAM[[AddrX]] - tmp)-(~C) } -> RAM[[AddrAZ]];
-	RAM[[AddrMZ2]]<-MZ2;
+    MZ2<-RAM[[AddrMZ2]];
+    RAM[[DataAddress]]->tmp;
+    AFFECT C AS NOCARRY(15) { (RAM[[AddrX]] - tmp)-(~C) } -> RAM[[AddrAZ]];
+    RAM[[AddrMZ2]]<-MZ2;
 }
 
 INSTRUCTION	"MOV. %$1,AZ"		%10110
 {
-	RAM[[DataAddress]]<-RAM[[AddrAZ]];
+    RAM[[DataAddress]]<-RAM[[AddrAZ]];
 }
 
 INSTRUCTION	"MOV. AZ,%$1"		%10111
 {
-	RAM[[AddrAZ]]<-RAM[[DataAddress]];
+    RAM[[AddrAZ]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"MOV. DAC1,%$1"		%11001
 {
-	CALL SetDAC(1,RAM[[DataAddress]]);
+    CALL SetDAC(1,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"MOV. DAC2,%$1"		%11010
 {
-	CALL SetDAC(2,RAM[[DataAddress]]);
+    CALL SetDAC(2,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"MOV. DAC12,%$1"	%11011
 {
-	CALL SetDAC(3,RAM[[DataAddress]]);
+    CALL SetDAC(3,RAM[[DataAddress]]);
 }
 
 INSTRUCTION	"GAI. %$1"		%11100
 {
-	DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
-	DECLARE A[16];
-	DECLARE B[16];
+    DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
+    DECLARE A[16];
+    DECLARE B[16];
 
-	MODE<-RAM[[AddrMODE]];
-	A<-RAM[[AddrX]];
-	B<-RAM[[DataAddress]];
+    MODE<-RAM[[AddrMODE]];
+    A<-RAM[[AddrX]];
+    B<-RAM[[DataAddress]];
 
-	IF M
-	{
-		IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
-		{
-			A ^ B -> RAM[[AddrAZ]];
-		}
-		IF S!=%0110
-		{
-			DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
-		}
-	}
-	IF ~M
-	{	
-		DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
-	}
+    IF M
+    {
+        IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
+        {
+            A ^ B -> RAM[[AddrAZ]];
+        }
+        IF S!=%0110
+        {
+            DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+        }
+    }
+    IF ~M
+    {	
+        DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+    }
 }
 
 INSTRUCTION	"MOV. PC,%$1"		%11101
 {
-	RAM[[AddrPC]]<-RAM[[DataAddress]];
+    RAM[[AddrPC]]<-RAM[[DataAddress]];
 }
 
 INSTRUCTION	"NOP."			%11110
@@ -584,92 +584,185 @@ INSTRUCTION	"NOP."			%11110
 
 INSTRUCTION	"INTRUDE."		%11111
 {
-	IF IntrudeWait
-	{
-		DECLARE addr[16];
-		addr<-RAM[[IntrudeAddressRegister]];
-		IF IntrudeDSP2Host
-		{
-			RAM[[IntrudeDataRegister]]<-RAM[[addr]];
-			IntrudeWait<-0;
-			IntrudeDSP2Host<-0;
-		}
-		ELSE
-		{
-			RAM[[addr]]<-RAM[[IntrudeDataRegister]];
-			IntrudeWait<-0;
-		}
-	}
+    IF IntrudeWait
+    {
+        DECLARE addr[16];
+        addr<-RAM[[IntrudeAddressRegister]];
+        IF IntrudeDSP2Host
+        {
+            RAM[[IntrudeDataRegister]]<-RAM[[addr]];
+            IntrudeWait<-0;
+            IntrudeDSP2Host<-0;
+        }
+        ELSE
+        {
+            RAM[[addr]]<-RAM[[IntrudeDataRegister]];
+            IntrudeWait<-0;
+        }
+    }
 }
 
 FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
 {
-	value<-$FFFF;
+    value<-$FFFF;
 
-	IF reg==0
-	{
-		value<-RAM[[offset & $3FF]];
-	}
-	IF reg==1
-	{
-		value<-RAM[[(offset & $3FF)+$400]];
-	}
-	IF reg==2
-	{
-		value<-IR;
-	}
-	IF reg==3
-	{
-		value<-nextInstruction;
-	}
-	IF reg==4
-	{
-		value<-DataAddress;
-	}
-	IF reg==5
-	{
-		value<-RAM[[AddrPC]];
-	}
-	IF reg==6
-	{
-		value<-RAM[[AddrIX]];
-	}
-	IF reg==7
-	{
-		value<-RAM[[AddrDMA0]];
-	}
-	IF reg==8
-	{
-		value<-RAM[[AddrDMA1]];
-	}
-	IF reg==9
-	{
-		value<-RAM[[AddrDMD]];
-	}
-	IF reg==10
-	{
-		value<-RAM[[AddrMZ0]];
-	}
-	IF reg==11
-	{
-		value<-RAM[[AddrMZ1]];
-	}
-	IF reg==12
-	{
-		value<-RAM[[AddrMZ2]];
-	}
-	IF reg==13
-	{
-		value<-RAM[[AddrMODE]];
-	}
-	IF reg==14
-	{
-		value<-RAM[[AddrX]];
-	}
-	IF reg==15
-	{
-		value<-RAM[[AddrAZ]];
-	}
+    IF reg==0
+    {
+        value<-RAM[[offset & $3FF]];
+    }
+    IF reg==1
+    {
+        value<-RAM[[(offset & $3FF)+$400]];
+    }
+    IF reg==2
+    {
+        value<-IR;
+    }
+    IF reg==3
+    {
+        value<-nextInstruction;
+    }
+    IF reg==4
+    {
+        value<-DataAddress;
+    }
+    IF reg==5
+    {
+        value<-RAM[[AddrPC]];
+    }
+    IF reg==6
+    {
+        value<-RAM[[AddrIX]];
+    }
+    IF reg==7
+    {
+        value<-RAM[[AddrDMA0]];
+    }
+    IF reg==8
+    {
+        value<-RAM[[AddrDMA1]];
+    }
+    IF reg==9
+    {
+        value<-RAM[[AddrDMD]];
+    }
+    IF reg==10
+    {
+        value<-RAM[[AddrMZ0]];
+    }
+    IF reg==11
+    {
+        value<-RAM[[AddrMZ1]];
+    }
+    IF reg==12
+    {
+        value<-RAM[[AddrMZ2]];
+    }
+    IF reg==13
+    {
+        value<-RAM[[AddrMODE]];
+    }
+    IF reg==14
+    {
+        value<-RAM[[AddrX]];
+    }
+    IF reg==15
+    {
+        value<-RAM[[AddrAZ]];
+    }
+}
+
+############
+
+# Used for debugging allows querying internal state
+#
+
+FUNCTION value[16] DEBUG_FETCH reg[32],offset[32]
+{
+    DECLARE MZ2[16]		ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
+    DECLARE PRAM[16]	ALIAS	%0000010:PRAMOFF[9];
+    DECLARE DRAM[16]	ALIAS	%0000000:DRAMOFF[9];
+    MZ2<-RAM[[AddrMZ2]];
+    value<-$FFFF;
+
+    PRAMOFF<-offset;
+    DRAMOFF<-offset;
+    IF reg==0
+    {
+        value<-RAM[[DRAM]];
+    }
+    IF reg==1
+    {
+        value<-RAM[[PRAM]];
+    }
+    IF reg==2
+    {
+        value<-IR;
+    }
+    IF reg==3
+    {
+        value<-nextInstruction;
+    }
+    IF reg==4
+    {
+        value<-DataAddress;
+    }
+    IF reg==5
+    {
+        value<-0;
+    }
+    IF reg==6
+    {
+        value<-RAM[[AddrPC]];
+    }
+    IF reg==7
+    {
+        value<-RAM[[AddrMZ0]];
+    }
+    IF reg==8
+    {
+        value<-RAM[[AddrMZ1]];
+    }
+    IF reg==9
+    {
+        value<-RAM[[AddrMZ2]];
+    }
+    IF reg==10
+    {
+        value<-RAM[[AddrIX]];
+    }
+    IF reg==11
+    {
+        value<-0;
+    }
+    IF reg==12
+    {
+        value<-RAM[[AddrDMA0]];
+    }
+    IF reg==13
+    {
+        value<-RAM[[AddrDMA1]];
+    }
+    IF reg==14
+    {
+        value<-RAM[[AddrDMD]];
+    }
+    IF reg==15
+    {
+        value<-0;
+    }
+    IF reg==16
+    {
+        value<-RAM[[AddrX]];
+    }
+    IF reg==17
+    {
+        value<-RAM[[AddrAZ]];
+    }
+    IF reg==18
+    {
+        value<-C;
+    }
 }
 
 

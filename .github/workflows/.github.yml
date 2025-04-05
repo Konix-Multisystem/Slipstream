@@ -44,7 +44,10 @@ jobs:
       run: brew install glfw
     - name: Ubuntu Dependencies
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get install libopenal-dev libglfw3-dev -y
+      run: |
+        wget http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb
+        sudo apt install ./libtinfo5_6.3-2ubuntu0.1_amd64.deb
+        sudo apt update && sudo apt-get install libopenal-dev libglfw3-dev -y
     - name: Checkout
       uses: actions/checkout@v2.0.0
     - name: Build project (!windows)
