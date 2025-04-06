@@ -4,7 +4,7 @@
  * Assumes PAL (was european after all) at present
  */
 
-#define SLIPSTREAM_VERSION	"1.0"
+#define SLIPSTREAM_VERSION	"1.01"
 
 #include <GLFW/glfw3.h>
 
