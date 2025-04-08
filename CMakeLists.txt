@@ -19,6 +19,10 @@ macro(EDLCompileSym outName inName symName)
 		DEPENDS ${EDL_COMMAND})
 endmacro(EDLCompileSym)
 
+if(NOT DEFINED EDL_COMMAND)
+	message(FATAL_ERROR "You must define EDL_COMMAND with the path to the EDL executable!")
+endif(NOT DEFINED EDL_COMMAND)
+
 set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 99)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
