@@ -31,4 +31,7 @@ Other Notable things buried in the sources :
 * PDS Emulator
     * There is an XT emulator designed to load the PDS.EXE's which were used to assemble and upload demos to the Flare One and Konix Multisystem
 * Shared Memory Debugger
-    * There is a full debugger remote interface, it was designed for a tool I wrote in mono, if I find it, I`ll upload it
+    * There is a full debugger remote interface, it was designed for a tool I wrote in dotnet : https://github.com/Konix-Multisystem/Slipstream_Remote
+
+* Presentations
+    * [LIVE Stream of fixing the emulator for Magicians Apprentice - 2025](https://www.youtube.com/watch?v=-wFu7-jc_O0)
