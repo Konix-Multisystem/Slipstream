@@ -544,30 +544,152 @@ INSTRUCTION	"MOV. DAC12,%$1"	%11011
     CALL SetDAC(3,RAM[[DataAddress]]);
 }
 
+
 INSTRUCTION	"GAI. %$1"		%11100
 {
+    DECLARE MZ2[16]     ALIAS	%0000000000:C[1]:ZO[1]:ZMSB[4];
     DECLARE MODE[16]	ALIAS	MODEdc[8]:MSUAlternateDataPage[1]:TCYN[1]:TCX[1]:M[1]:S[4];
     DECLARE A[16];
     DECLARE B[16];
 
+    MZ2<-RAM[[AddrMZ2]];
     MODE<-RAM[[AddrMODE]];
     A<-RAM[[AddrX]];
     B<-RAM[[DataAddress]];
 
     IF M
     {
-        IF S==%0110					# TODO REFACTOR INTO A AN INSTRUCTION TABLE
+        IF S==%0000
+        {
+            ~A -> RAM[[AddrAZ]];
+        }
+        IF S==%0001
+        {
+            ~(A|B) -> RAM[[AddrAZ]];
+        }
+        IF S==%0010
+        {
+            ((~A)&B) -> RAM[[AddrAZ]];
+        }
+        IF S==%0011
+        {
+            0 -> RAM[[AddrAZ]];
+        }
+        IF S==%0100
+        {
+            ~(A&B) -> RAM[[AddrAZ]];
+        }
+        IF S==%0101
+        {
+            ~B -> RAM[[AddrAZ]];
+        }
+        IF S==%0110
         {
             A ^ B -> RAM[[AddrAZ]];
         }
-        IF S!=%0110
+        IF S==%0111
         {
-            DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+            A&(~B) -> RAM[[AddrAZ]];
+        }
+        IF S==%1000
+        {
+            ((~A)|B) -> RAM[[AddrAZ]];
+        }
+        IF S==%1001
+        {
+            ~(A ^ B) -> RAM[[AddrAZ]];
+        }
+        IF S==%1010
+        {
+            B -> RAM[[AddrAZ]];
+        }
+        IF S==%1011
+        {
+            A&B -> RAM[[AddrAZ]];
+        }
+        IF S==%1100
+        {
+            1 -> RAM[[AddrAZ]];
+        }
+        IF S==%1101
+        {
+            (A|(~B)) -> RAM[[AddrAZ]];
+        }
+        IF S==%1110
+        {
+            (A|B) -> RAM[[AddrAZ]];
+        }
+        IF S==%1111
+        {
+            A -> RAM[[AddrAZ]];
         }
     }
-    IF ~M
-    {	
-        DEBUG_TRACE "UNKNOWN GAI (",A,B,") - ",M,S;
+    ELSE
+    {
+        IF S==%0000
+        {	
+            A + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%0001
+        {
+            (A|B) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%0010
+        {
+            (A|(~B)) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%0011
+        {
+            0 - C -> RAM[[AddrAZ]];
+        }
+        IF S==%0100
+        {
+            A + (A&(~B)) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%0101
+        {
+            (A | B) + (A&(~B)) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%0110
+        {
+            A - B - C -> RAM[[AddrAZ]];
+        }
+        IF S==%0111
+        {
+            (A&(~B)) - C -> RAM[[AddrAZ]];
+        }
+        IF S==%1000
+        {
+            A + (A&B) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1001
+        {
+            A + B + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1010
+        {
+            (A|(~B)) + (A&B) + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1011
+        {
+            (A&B) - C -> RAM[[AddrAZ]];
+        }
+        IF S==%1100
+        {
+            A + A + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1101
+        {
+            (A|B) + A + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1110
+        {
+            (A|B) + A + (~C) -> RAM[[AddrAZ]];
+        }
+        IF S==%1111
+        {
+            A - C -> RAM[[AddrAZ]];
+        }
     }
 }
 
